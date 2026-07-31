@@ -31,9 +31,6 @@ export default function Home() {
               <p className="text-xs text-gray-400">Knowledge Mapper</p>
             </div>
           </div>
-          <a href="https://github.com" className="p-2 hover:bg-dark-800 rounded-lg transition-colors">
-            <Github className="w-5 h-5 text-gray-400 hover:text-white" />
-          </a>
         </div>
       </nav>
 
@@ -73,10 +70,6 @@ export default function Home() {
               <button className="btn-primary flex items-center justify-center gap-2 px-8 py-3 text-lg">
                 شروع کنید
                 <ArrowRight className="w-5 h-5" />
-              </button>
-              <button className="btn-secondary flex items-center justify-center gap-2 px-8 py-3 text-lg">
-                <Github className="w-5 h-5" />
-                مخزن GitHub
               </button>
             </motion.div>
 
