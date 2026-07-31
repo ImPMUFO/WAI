@@ -67,10 +67,10 @@ export default function Home() {
             </motion.div>
 
             <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="btn-primary flex items-center justify-center gap-2 px-8 py-3 text-lg">
-                شروع کنید
-                <ArrowRight className="w-5 h-5" />
-              </button>
+              <Link href="/start" className="btn-primary flex items-center justify-center gap-2 px-8 py-3 text-lg">
+  شروع کنید
+  <ArrowRight className="w-5 h-5" />
+</Link>
             </motion.div>
 
             <motion.div variants={fadeInUp} className="pt-8">
