@@ -1,2 +1,0 @@
-# WAI
-Who Am I?
