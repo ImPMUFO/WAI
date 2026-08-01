@@ -1,76 +1,85 @@
-// src/app/api/deepseek/route.ts
+import { NextRequest, NextResponse } from 'next/server'
 
-import { NextRequest, NextResponse } from 'next/server';
+const domainNames: Record<string, string> = {
+  philosophy: 'فلسفه',
+  programming: 'برنامه‌نویسی',
+  history: 'تاریخ',
+  psychology: 'روان‌شناسی',
+}
 
-/**
- * Endpoint: POST /api/deepseek
- * Body: { message: string }
- *
- * Notes:
- * - Set DEEPSEEK_API_KEY in your environment (e.g., .env.local or Vercel env vars).
- * - Optionally set DEEPSEEK_BASE_URL to the real Deepseek API base (default is a placeholder).
- * - Replace request/response shaping below to match the real Deepseek API spec.
- */
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const API_KEY = process.env.DEEPSEEK_API_KEY;
-    const BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.example/v1/query';
+    const apiKey = process.env.DEEPSEEK_API_KEY
+    const baseUrl = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '')
 
-    if (!API_KEY) {
-      return NextResponse.json({ success: false, error: 'DEEPSEEK_API_KEY تنظیم نشده است' }, { status: 500 });
+    if (!apiKey) {
+      return NextResponse.json(
+        { success: false, error: 'DEEPSEEK_API_KEY تنظیم نشده است' },
+        { status: 500 }
+      )
     }
 
-    const body = await request.json().catch(() => ({}));
-    const message = body?.message;
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json({ success: false, error: 'فیلد message ضروری است' }, { status: 400 });
+    const body = await req.json()
+    const messages = body?.messages as { role: 'user' | 'assistant' | 'system'; content: string }[]
+    const domain = (body?.domain as string) || 'philosophy'
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'messages الزامی است' },
+        { status: 400 }
+      )
     }
 
-    // Limit message length to avoid accidental huge payloads/costs
-    const safeMessage = message.slice(0, 2000);
+    const domainTitle = domainNames[domain] || domain
 
-    // Example request shape — adapt to Deepseek's official API
-    const resp = await fetch(BASE_URL, {
+    const systemPrompt = `تو ارزیاب دانش پلتفرم «من کیستم؟ پایگاه دانش» هستی.
+حوزه فعلی: ${domainTitle}
+همیشه فارسی حرف بزن. هر بار معمولاً یک سؤال بپرس. بعد از چند تبادل جمع‌بندی کن.`
+
+    const openaiMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({
+          role: m.role,
+          content: String(m.content || '').slice(0, 4000),
+        })),
+    ]
+
+    const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        input: safeMessage,
-        // Add other parameters required by Deepseek (model, options, etc.)
+        model: 'deepseek-chat',
+        messages: openaiMessages,
+        temperature: 0.7,
+        max_tokens: 1200,
       }),
-    });
+    })
 
-    const text = await resp.text();
-
+    const text = await resp.text()
     if (!resp.ok) {
-      console.error('Deepseek API error', resp.status, text);
       return NextResponse.json(
-        { success: false, error: 'خطا از سرویس Deepseek', details: text },
-        { status: resp.status }
-      );
+        { success: false, error: 'خطا از DeepSeek', details: text },
+        { status: 502 }
+      )
     }
 
-    // Try to parse JSON, otherwise return raw text
-    let data: any;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      data = { raw: text };
-    }
+    const data = JSON.parse(text)
+    const content = data?.choices?.[0]?.message?.content || 'پاسخی دریافت نشد.'
 
-    // Normalize commonly-used shapes (adjust according to Deepseek's spec)
-    const normalized = data?.reply ?? data?.data ?? data;
-
-    return NextResponse.json({ success: true, data: normalized });
-  } catch (err) {
-    console.error('/api/deepseek error:', err);
-    return NextResponse.json({ success: false, error: 'خطای داخلی سرور' }, { status: 500 });
+    return NextResponse.json({ success: true, content })
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'خطای داخلی سرور' },
+      { status: 500 }
+    )
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'سالم', api: 'Deepseek proxy', timestamp: new Date().toISOString() });
+  return NextResponse.json({ status: 'ok', api: 'deepseek' })
 }
