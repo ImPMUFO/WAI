@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Brain, BookOpen, Zap, Users, ArrowRight, Github, Sparkles } from 'lucide-react'
+import { Brain, BookOpen, Zap, Users, ArrowRight, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 
 const fadeInUp = {
@@ -38,8 +38,8 @@ export default function Home() {
       <section className="relative overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl"></div>
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
@@ -50,43 +50,43 @@ export default function Home() {
             variants={staggerContainer}
           >
             <motion.div variants={fadeInUp} className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/30 rounded-full">
-                <Sparkles className="w-4 h-4 text-purple-400" />
-                <span className="text-sm text-purple-300">🎉 نسخه Beta 1.0</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/30 rounded-full">
+                <Sparkles className="w-4 h-4 text-teal-400" />
+                <span className="text-sm text-teal-300">نسخه آزمایشی ۱.۰</span>
               </div>
 
               <h2 className="heading-1 text-white leading-tight">
                 نقشه‌کش
-                <span className="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent"> دانش </span>
+                <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent"> دانش </span>
                 دیجیتالی شخصی
               </h2>
 
               <p className="text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
-                پلتفرم هوشمند یادگیری که دانش شما را نگاشت می‌کند و مسیر یادگیری‌ای شخصی‌سازی‌شده برای شما می‌سازد
+                پلتفرم هوشمند یادگیری که دانش شما را نگاشت می‌کند و مسیر یادگیری شخصی‌سازی‌شده می‌سازد
               </p>
             </motion.div>
 
             <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/start" className="btn-primary flex items-center justify-center gap-2 px-8 py-3 text-lg">
-  شروع کنید
-  <ArrowRight className="w-5 h-5" />
-</Link>
+                شروع کنید
+                <ArrowRight className="w-5 h-5" />
+              </Link>
             </motion.div>
 
             <motion.div variants={fadeInUp} className="pt-8">
               <div className="text-sm text-gray-400 mb-6">نقاط قوت اصلی:</div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { icon: Brain, title: 'هوشمند', desc: 'AI متطابق' },
-                  { icon: BookOpen, title: 'جامع', desc: 'بسیار مسائل' },
-                  { icon: Zap, title: 'سریع', desc: 'Performance بالا' }
+                  { icon: Brain, title: 'هوشمند', desc: 'ارزیابی تطبیقی با هوش مصنوعی' },
+                  { icon: BookOpen, title: 'جامع', desc: 'پوشش عمیق مفاهیم و پیش‌نیازها' },
+                  { icon: Zap, title: 'شخصی', desc: 'مسیر یادگیری مخصوص خودت' }
                 ].map((item, idx) => (
                   <motion.div
                     key={idx}
                     variants={fadeInUp}
                     className="card text-center"
                   >
-                    <item.icon className="w-8 h-8 mx-auto mb-3 text-cyan-400" />
+                    <item.icon className="w-8 h-8 mx-auto mb-3 text-emerald-400" />
                     <h3 className="font-semibold mb-1">{item.title}</h3>
                     <p className="text-sm text-gray-400">{item.desc}</p>
                   </motion.div>
@@ -107,7 +107,7 @@ export default function Home() {
             viewport={{ once: true }}
           >
             <h2 className="heading-2 text-white mb-4">ویژگی‌های اصلی</h2>
-            <p className="text-gray-400 text-lg">آنچه شما را منتظر می‌کند</p>
+            <p className="text-gray-400 text-lg">آنچه در این مسیر در انتظارت است</p>
           </motion.div>
 
           <motion.div
@@ -120,23 +120,23 @@ export default function Home() {
             {[
               {
                 icon: Brain,
-                title: 'ارزیابی تطابقی',
-                description: 'سیستم سؤال‌پرسی هوشمند که بر اساس دانش شما تغییر می‌کند'
+                title: 'ارزیابی تطبیقی',
+                description: 'سیستم سؤال‌پرسی هوشمند که بر اساس دانش واقعی تو مسیرش را تغییر می‌دهد'
               },
               {
                 icon: BookOpen,
                 title: 'نگاشت دانش',
-                description: 'نمای تعاملی از ساختار دانش و روابط بین مفاهیم'
+                description: 'نمای تعاملی از ساختار دانش، روابط مفاهیم و سرزمین‌های کشف‌نشده'
               },
               {
                 icon: Zap,
-                title: 'Digital Twin',
-                description: 'مدل دیجیتالی از دانش شما که مستمر به‌روز می‌شود'
+                title: 'مدل ذهنی شخصی',
+                description: 'مدل دیجیتالی از دانش تو که با هر گفت‌وگو به‌روز و دقیق‌تر می‌شود'
               },
               {
                 icon: Users,
-                title: 'توصیه‌های شخصی',
-                description: 'منابع یادگیری انتخاب‌شده‌ی شخصی برای شما'
+                title: 'مسیر یادگیری شخصی',
+                description: 'پیشنهاد گام‌های بعدی بر اساس نقاط قوت، ضعف و اهداف تو'
               }
             ].map((feature, idx) => (
               <motion.div
@@ -144,7 +144,7 @@ export default function Home() {
                 variants={fadeInUp}
                 className="card"
               >
-                <feature.icon className="w-12 h-12 text-cyan-400 mb-4" />
+                <feature.icon className="w-12 h-12 text-emerald-400 mb-4" />
                 <h3 className="heading-3 text-white mb-3">{feature.title}</h3>
                 <p className="text-gray-400 leading-relaxed">{feature.description}</p>
               </motion.div>
@@ -162,22 +162,22 @@ export default function Home() {
             viewport={{ once: true }}
             className="space-y-6"
           >
-            <h2 className="heading-2 text-white">آماده برای شروع؟</h2>
+            <h2 className="heading-2 text-white">آماده شروع مسیر؟</h2>
             <p className="text-xl text-gray-300">
-              به جامعه‌ی یادگیرندگان هوشمند بپیوندید و دانش خود را نگاشت کنید
+              دانش خود را نگاشت کن و ببین دقیقاً کجا ایستاده‌ای و به کجا باید بروی
             </p>
-            <button className="btn-primary px-8 py-4 text-lg inline-flex items-center gap-2">
-              درخواست دسترسی
+            <Link href="/start" className="btn-primary px-8 py-4 text-lg inline-flex items-center gap-2">
+              شروع ارزیابی
               <ArrowRight className="w-5 h-5" />
-            </button>
+            </Link>
           </motion.div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-12 text-center text-gray-400">
-        <p>© 2024 نقشه‌کش دانش. تمام حقوق محفوظ است.</p>
-        <p className="text-sm mt-2">ایجادشده با ❤️ برای یادگیرندگان</p>
+        <p>© ۱۴۰۵ نقشه‌کش دانش. تمامی حقوق محفوظ است.</p>
+        <p className="text-sm mt-2">ساخته‌شده برای جویندگان معرفت</p>
       </footer>
     </main>
   )
