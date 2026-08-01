@@ -187,3 +187,13 @@ export default function Home() {
     </main>
   )
 }
+async function askWAI(msg: string) {
+  const res = await fetch("/api/deepseek", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: msg })
+  });
+
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
