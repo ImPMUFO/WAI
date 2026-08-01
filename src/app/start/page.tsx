@@ -10,28 +10,28 @@ const domains = [
     title: 'فلسفه',
     description: 'منطق، اخلاق، متافیزیک، معرفت‌شناسی و فلسفه ذهن',
     icon: Brain,
-    color: 'from-purple-500 to-indigo-500'
+    color: 'from-teal-500 to-emerald-600'
   },
   {
     id: 'programming',
     title: 'برنامه‌نویسی',
     description: 'الگوریتم، ساختار داده، مفاهیم پایه و تفکر محاسباتی',
     icon: Code,
-    color: 'from-cyan-500 to-blue-500'
+    color: 'from-cyan-500 to-blue-600'
   },
   {
     id: 'history',
     title: 'تاریخ',
     description: 'تاریخ ایران، جهان، اندیشه‌ها و تمدن‌ها',
     icon: BookOpen,
-    color: 'from-amber-500 to-orange-500'
+    color: 'from-amber-500 to-orange-600'
   },
   {
     id: 'psychology',
     title: 'روان‌شناسی',
     description: 'شناخت، رفتار، شخصیت و روان‌شناسی شناختی',
     icon: Heart,
-    color: 'from-rose-500 to-pink-500'
+    color: 'from-rose-500 to-pink-600'
   },
 ]
 
@@ -40,7 +40,6 @@ export default function StartPage() {
     <main className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 rtl">
       <div className="max-w-5xl mx-auto px-4 py-16 sm:py-24">
         
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -54,7 +53,6 @@ export default function StartPage() {
           </p>
         </motion.div>
 
-        {/* Domain Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {domains.map((domain, index) => (
             <motion.div
@@ -63,32 +61,28 @@ export default function StartPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <button
-                className="w-full text-right card hover:border-purple-500/50 hover:bg-white/5 transition-all group"
-                onClick={() => {
-                  // فعلاً فقط پیام می‌ده. بعداً به صفحه ارزیابی وصل می‌کنیم
-                  alert(`حوزه «${domain.title}» انتخاب شد.\n\nدر مرحله بعد، ارزیابی تطبیقی این حوزه را می‌سازیم.`)
-                }}
+              <Link
+                href={`/assessment/${domain.id}`}
+                className="w-full text-right card hover:border-teal-500/50 hover:bg-white/5 transition-all group block"
               >
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${domain.color} flex items-center justify-center mb-4`}>
                   <domain.icon className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-purple-300 transition-colors">
+                <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-teal-300 transition-colors">
                   {domain.title}
                 </h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
                   {domain.description}
                 </p>
-                <div className="mt-4 flex items-center gap-2 text-purple-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="mt-4 flex items-center gap-2 text-teal-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                   شروع ارزیابی
                   <ArrowRight className="w-4 h-4" />
                 </div>
-              </button>
+              </Link>
             </motion.div>
           ))}
         </div>
 
-        {/* Back link */}
         <div className="text-center mt-12">
           <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
             ← بازگشت به صفحه اصلی
@@ -97,4 +91,4 @@ export default function StartPage() {
       </div>
     </main>
   )
-          }
+}
