@@ -197,3 +197,6 @@ async function askWAI(msg: string) {
   const data = await res.json();
   return data.choices[0].message.content;
 }
+askWAI("سلام").then(reply => {
+  console.log(reply);
+});
