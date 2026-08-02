@@ -109,7 +109,7 @@ export default function AssessmentPage() {
   }
 
   const callAI = async (allMessages: Message[]) => {
-    const res = await fetch('/api/deepseek', {
+    const res = await fetch('/api/chatbot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
