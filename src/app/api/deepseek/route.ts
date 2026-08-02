@@ -9,12 +9,12 @@ const domainNames: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.DEEPSEEK_API_KEY
-    const baseUrl = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '')
+    const apiKey = process.env.OPENAI_API_KEY
+    const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '')
 
     if (!apiKey) {
       return NextResponse.json(
-        { success: false, error: 'DEEPSEEK_API_KEY تنظیم نشده است' },
+        { success: false, error: 'OPENAI_API_KEY تنظیم نشده است' },
         { status: 500 }
       )
     }
@@ -34,7 +34,10 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `تو ارزیاب دانش پلتفرم «من کیستم؟ پایگاه دانش» هستی.
 حوزه فعلی: ${domainTitle}
-همیشه فارسی حرف بزن. هر بار معمولاً یک سؤال بپرس. بعد از چند تبادل جمع‌بندی کن.`
+همیشه فارسی روان حرف بزن.
+هر بار معمولاً فقط یک سؤال بپرس.
+هدف: فهم عمق دانش، پیدا کردن سوءبرداشت‌ها و پیشنهاد مسیر رشد.
+بعد از چند تبادل، جمع‌بندی کن.`
 
     const openaiMessages = [
       { role: 'system', content: systemPrompt },
@@ -46,14 +49,14 @@ export async function POST(req: NextRequest) {
         })),
     ]
 
-    const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: 'gpt-4o-mini',
         messages: openaiMessages,
         temperature: 0.7,
         max_tokens: 1200,
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
     const text = await resp.text()
     if (!resp.ok) {
       return NextResponse.json(
-        { success: false, error: 'خطا از DeepSeek', details: text },
+        { success: false, error: 'خطا از GapGPT', details: text },
         { status: 502 }
       )
     }
@@ -81,5 +84,5 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'deepseek' })
+  return NextResponse.json({ status: 'ok', api: 'gapgpt' })
 }
