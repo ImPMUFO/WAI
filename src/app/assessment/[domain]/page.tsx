@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, ArrowRight, Brain, Loader2 } from 'lucide-react'
+import { Send, ArrowRight, Brain, Loader2, User } from 'lucide-react'
 import Link from 'next/link'
 
 const domainInfo: Record<string, { title: string; emoji: string }> = {
@@ -19,58 +19,134 @@ type Message = {
   content: string
 }
 
+const USER_KEY = 'wai_user_name'
+
+function chatKey(domain: string) {
+  return `wai_chat_${domain}`
+}
+
 export default function AssessmentPage() {
   const params = useParams()
   const domain = (params.domain as string) || 'philosophy'
   const info = domainInfo[domain] || { title: 'دانش', emoji: '📚' }
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      role: 'assistant',
-      content: `سلام. قراره دربارهٔ «${info.title}» با هم حرف بزنیم.
-
-هدفم نمره‌دادن نیست؛ می‌خوام بفهمم چی رو عمیق بلدی، کجاها ممکنه سوءبرداشت داشته باشی و مسیر رشدت چیه.
-
-هر جوابی که می‌دی با آرامش و به زبان خودت بنویس.`,
-    },
-  ])
+  const [userName, setUserName] = useState<string>('')
+  const [nameInput, setNameInput] = useState('')
+  const [needsName, setNeedsName] = useState(true)
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [started, setStarted] = useState(false)
+  const [ready, setReady] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const startedRef = useRef(false)
+
+  // بارگذاری اسم و گفت‌وگو از حافظه مرورگر
+  useEffect(() => {
+    const savedName = localStorage.getItem(USER_KEY)?.trim() || ''
+    const savedChat = localStorage.getItem(chatKey(domain))
+
+    if (savedName) {
+      setUserName(savedName)
+      setNeedsName(false)
+    }
+
+    if (savedChat) {
+      try {
+        const parsed = JSON.parse(savedChat) as Message[]
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed)
+          startedRef.current = true
+          setReady(true)
+          return
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // گفت‌وگوی جدید
+    if (savedName) {
+      setMessages([
+        {
+          id: 1,
+          role: 'assistant',
+          content: `سلام \( {savedName}. خوش اومدی دوباره.\n\nقراره دربارهٔ « \){info.title}» با هم حرف بزنیم. آماده‌ای شروع کنیم؟`,
+        },
+      ])
+    }
+
+    setReady(true)
+  }, [domain, info.title])
+
+  // ذخیره گفت‌وگو
+  useEffect(() => {
+    if (!ready || messages.length === 0) return
+    localStorage.setItem(chatKey(domain), JSON.stringify(messages))
+  }, [messages, domain, ready])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  const callDeepSeek = async (allMessages: Message[]) => {
+  const saveName = () => {
+    const n = nameInput.trim()
+    if (!n) return
+    localStorage.setItem(USER_KEY, n)
+    setUserName(n)
+    setNeedsName(false)
+    setMessages([
+      {
+        id: Date.now(),
+        role: 'assistant',
+        content: `سلام \( {n}! خوشحالم می‌شناسمت.\n\nمن ارزیاب دانش هستم. قراره دربارهٔ « \){info.title}» با هم گفت‌وگو کنیم تا بفهمم چی رو عمیق بلدی و کجاها می‌تونی رشد کنی.\n\nهر جوابی با زبان خودت بنویس.`,
+      },
+    ])
+    startedRef.current = false
+  }
+
+  const callAI = async (allMessages: Message[]) => {
     const res = await fetch('/api/deepseek', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         domain,
-        messages: allMessages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        messages: [
+          {
+            role: 'user',
+            content: `نام کاربر: ${userName || nameInput || 'کاربر'}`,
+          },
+          ...allMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        ],
       }),
     })
 
     const data = await res.json()
     if (!res.ok || !data.success) {
-      throw new Error(data.error || 'خطا در ارتباط با DeepSeek')
+      throw new Error(data.error || 'خطا در ارتباط با هوش مصنوعی')
     }
     return data.content as string
   }
 
-  // اولین سؤال واقعی از DeepSeek
+  // اولین سؤال از AI بعد از داشتن اسم و نبودن تاریخچه قبلی
   useEffect(() => {
-    if (started) return
+    if (!ready || needsName || !userName || startedRef.current) return
+    if (messages.length === 0) return
+
+    // اگر فقط پیام خوش‌آمدگویی هست، سؤال اول را بگیر
+    const onlyWelcome = messages.length === 1 && messages[0].role === 'assistant'
+    if (!onlyWelcome) {
+      startedRef.current = true
+      return
+    }
+
     const timer = setTimeout(async () => {
+      startedRef.current = true
       setIsTyping(true)
       try {
-        const reply = await callDeepSeek(messages)
+        const reply = await callAI(messages)
         setMessages((prev) => [
           ...prev,
           { id: Date.now(), role: 'assistant', content: reply },
@@ -81,21 +157,20 @@ export default function AssessmentPage() {
           {
             id: Date.now(),
             role: 'assistant',
-            content:
-              'الان نتوانستم به DeepSeek وصل شوم. کلید API در Vercel و وضعیت سرویس را چک کن، بعد صفحه را تازه کن.',
+            content: 'الان نتوانستم به هوش مصنوعی وصل شوم. کمی بعد دوباره تلاش کن.',
           },
         ])
       } finally {
-        setStarted(true)
         setIsTyping(false)
       }
-    }, 700)
+    }, 600)
+
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [ready, needsName, userName, messages.length])
 
   const sendMessage = async () => {
-    if (!input.trim() || isTyping) return
+    if (!input.trim() || isTyping || needsName) return
 
     const userMessage: Message = {
       id: Date.now(),
@@ -109,7 +184,7 @@ export default function AssessmentPage() {
     setIsTyping(true)
 
     try {
-      const reply = await callDeepSeek(next)
+      const reply = await callAI(next)
       setMessages((prev) => [
         ...prev,
         { id: Date.now() + 1, role: 'assistant', content: reply },
@@ -120,12 +195,68 @@ export default function AssessmentPage() {
         {
           id: Date.now() + 1,
           role: 'assistant',
-          content: 'خطا در دریافت پاسخ از DeepSeek. کمی بعد دوباره تلاش کن.',
+          content: 'خطا در دریافت پاسخ. دوباره تلاش کن.',
         },
       ])
     } finally {
       setIsTyping(false)
     }
+  }
+
+  const clearChat = () => {
+    localStorage.removeItem(chatKey(domain))
+    startedRef.current = false
+    setMessages([
+      {
+        id: Date.now(),
+        role: 'assistant',
+        content: `باشه \( {userName}. گفت‌وگوی قبلی این حوزه پاک شد.\n\nدوباره دربارهٔ « \){info.title}» شروع می‌کنیم.`,
+      },
+    ])
+  }
+
+  // صفحه گرفتن اسم
+  if (!ready) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 flex items-center justify-center text-white">
+        <Loader2 className="w-6 h-6 animate-spin text-teal-400" />
+      </main>
+    )
+  }
+
+  if (needsName) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 rtl flex items-center justify-center px-4">
+        <div className="w-full max-w-md card space-y-5">
+          <div className="flex items-center gap-2 text-teal-300">
+            <User className="w-5 h-5" />
+            <h1 className="text-lg font-semibold text-white">خوش آمدی</h1>
+          </div>
+          <p className="text-gray-300 text-sm leading-relaxed">
+            قبل از شروع ارزیابی «{info.title}»، اسمت را بگو تا گفت‌وگوهایت ذخیره شود و دفعه بعد از بین نرود.
+          </p>
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveName()
+            }}
+            placeholder="مثلاً علی"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-teal-500/50"
+          />
+          <button
+            onClick={saveName}
+            disabled={!nameInput.trim()}
+            className="btn-primary w-full py-3 disabled:opacity-40"
+          >
+            شروع کنیم
+          </button>
+          <Link href="/start" className="block text-center text-sm text-gray-400 hover:text-white">
+            بازگشت
+          </Link>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -139,17 +270,25 @@ export default function AssessmentPage() {
                 ارزیابی {info.title}
               </h1>
               <p className="text-[10px] sm:text-xs text-teal-400/80">
-                من کیستم؟ پایگاه دانش · DeepSeek
+                {userName} · گفت‌وگو ذخیره می‌شود
               </p>
             </div>
           </div>
-          <Link
-            href="/start"
-            className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1"
-          >
-            <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-            بازگشت
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={clearChat}
+              className="text-[10px] sm:text-xs text-gray-500 hover:text-white transition-colors"
+            >
+              گفت‌وگوی جدید
+            </button>
+            <Link
+              href="/start"
+              className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+            >
+              <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+              بازگشت
+            </Link>
+          </div>
         </div>
       </header>
 
