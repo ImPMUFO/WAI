@@ -1,505 +1,154 @@
-# 🚀 Knowledge Mapper - پروژه کامل
-## خلاصه جامع و راهنمای آغاز کار
+# من کیستم؟ پایگاه دانش
+
+پلتفرم فارسی برای **ارزیابی دانش از طریق گفت‌وگو** و نمایش آن روی **نقشه ذهن**.
+
+کاربر در یک حوزه (مثل فلسفه یا برنامه‌نویسی) گفت‌وگو می‌کند؛ سیستم نقاط قوت، شکاف‌ها و مسیر رشد را مشخص می‌کند و نقشه دانش را به‌صورت زنده به‌روز می‌کند.
 
 ---
 
-## 📋 فایل‌های ایجادشده
+## ایده محصول
 
-### 1️⃣ مشخصات محصول (Product Specification)
-**فایل:** `01_PRODUCT_SPECIFICATION_FA.md`
-
-محتویات:
-- خلاصه اجرایی
-- اهداف محصول
-- کاربران هدف
-- ویژگی‌های اصلی (MVP)
-- حوزه‌های دانشی
-- سطح‌های ارزیابی
-- ابعاد ارزیابی
-- نمودار دانش
-- Digital Twin کاربر
-- نقشه‌راه شخصی‌سازی‌شده
-- معایر موفقیت
-
-**استفاده:** برای درک کامل نیازمندی‌های محصول
+- فقط آزمون تستی نیست؛ گفت‌وگوی ارزیابی است.
+- هدف: فهمیدن *چه چیزهایی عمیق دانسته شده*، *چه چیزهایی سطحی است* و *قدم بعدی چیست*.
+- خروجی اصلی: **نقشه ذهن** با لایه‌های معلوم، نزدیک و دور (مه/ابر).
 
 ---
 
-### 2️⃣ معماری سیستم (System Architecture)
-**فایل:** `02_SYSTEM_ARCHITECTURE.md`
+## قابلیت‌های فعلی
 
-محتویات:
-- معماری کلی (High-Level)
-- 6 لایه‌ی معماری
-- جریان داده (Data Flow)
-- 20+ API Endpoint
-- Microservices برای AI
-- Stack فناوری دقیق
-- Authentication & Security
-- Performance & Scalability
-- Development Environment
-
-**استفاده:** برای درک جریان داده و معماری کلی
+| بخش | توضیح |
+|-----|--------|
+| صفحه اصلی | معرفی محصول + انتخاب تم ظاهری |
+| انتخاب حوزه | فلسفه، برنامه‌نویسی، تاریخ، روان‌شناسی |
+| ارزیابی گفت‌وگویی | چت با مدل زبانی (از طریق API سازگار با OpenAI) |
+| ذخیره محلی | نام کاربر و تاریخچه گفت‌وگو در مرورگر |
+| نقشه ذهن | به‌روزرسانی خودکار بعد از هر پرسش‌وپاسخ |
+| تم‌ها | اصلی، چوبی، روز، آتشین، دریایی، کهکشانی |
 
 ---
 
-### 3️⃣ Schema پایگاه‌داده (Database Schema)
-**فایل:** `03_DATABASE_SCHEMA.sql`
+## معماری ساده
 
-محتویات:
-- 20+ جدول SQL
-- روابط دقیق
-- Indexes برای Performance
-- Materialized Views
-- Triggers & Functions
-- Row Level Security (RLS)
-- تمامی نیازمندی‌های DB
+```
+کاربر
+  → /start (انتخاب حوزه)
+  → /assessment/[domain] (گفت‌وگو)
+  → /api/deepseek (پاسخ مدل)
+  → /api/analyze (تحلیل دانش → JSON نقشه)
+  → localStorage
+  → /map (نمایش Mind Map)
+```
 
-**استفاده:** برای راه‌اندازی Database در Supabase
-
----
-
-### 4️⃣ طراحی UI/UX (UI/UX Design)
-**فایل:** `04_UI_UX_DESIGN.md`
-
-محتویات:
-- Design System (رنگ، Typography، Spacing)
-- 6 صفحه‌ی اصلی (Dashboard, Knowledge Map, etc.)
-- Layout تفصیلی (Wireframes)
-- Components اصلی
-- Animations & Interactions
-- Responsive Design
-- RTL Support
-- Accessibility
-
-**استفاده:** برای طراحی تصویری و پیاده‌سازی UI
+- فرانت‌اند و API: **Next.js 14 (App Router)**
+- استایل: **Tailwind CSS** + متغیرهای تم
+- انیمیشن: **Framer Motion**
+- استقرار: **Vercel**
+- داده کاربر (نسخه فعلی): **localStorage** (بدون دیتابیس سروری)
 
 ---
 
-### 5️⃣ Frontend Implementation
-**فایل:** `05_FRONTEND_IMPLEMENTATION.md`
+## پیش‌نیازها
 
-محتویات:
-- Project Structure (دقیق)
-- package.json (تمام dependencies)
-- 3 Component اصلی (Dashboard, KnowledgeMap, Assessment)
-- 2 Hook مهم (useAuth, useKnowledgeMap)
-- Zustand Store مثال
-- Environment Configuration
-
-**استفاده:** برای پیاده‌سازی Frontend
+- Node.js 18+
+- حساب Vercel (برای دیپلوی)
+- کلید API از سرویس سازگار با OpenAI  
+  (مثلاً GapGPT با آدرس پایه `https://api.gapgpt.app/v1`)
 
 ---
 
-### 6️⃣ Backend Implementation
-**فایل:** `06_BACKEND_IMPLEMENTATION.md`
+## راه‌اندازی محلی
 
-محتویات:
-- 5 API Route اصلی (Auth, Assessment, Knowledge Graph, etc.)
-- Service Layer (3 Service مهم)
-- Question Generator AI Service
-- Answer Analyzer AI Service
-- Recommendation Service
-- Middleware & Authentication
-
-**استفاده:** برای پیاده‌سازی Backend
-
----
-
-### 7️⃣ Deployment & DevOps
-**فایل:** `07_DEPLOYMENT_DEVOPS.md`
-
-محتویات:
-- Pre-Deployment Checklist
-- Environment Setup (Supabase)
-- Vercel Deployment
-- CI/CD Pipeline (GitHub Actions)
-- Monitoring & Logging
-- Performance Optimization
-- Security Checklist
-- Backup & Recovery
-- Scaling Strategy
-- Launch Checklist
-
-**استفاده:** برای Deploy کردن به Production
-
----
-
-## 🎯 آغاز کار - Step by Step
-
-### هفته 1: پایه‌گذاری
-
-**روز 1-2: Setup Development Environment**
 ```bash
-# ایجاد پروژه Next.js
-npx create-next-app@latest knowledge-mapper --typescript
-
-# Install dependencies (از package.json)
+git clone https://github.com/ImPMUFO/WAI.git
+cd WAI
 npm install
-
-# Setup Git
-git init
-git remote add origin <your-repo>
-
-# Create .env.local
-cp .env.example .env.local
-# Fill in values
 ```
 
-**روز 3: Database Setup**
-```bash
-# Create Supabase project
-# https://supabase.com/dashboard
+فایل `.env.local` بساز:
 
-# Get connection strings و اضافه کنید به .env.local
-
-# Run migrations
-# کپی کنید 03_DATABASE_SCHEMA.sql به Supabase SQL Editor
-
-# Seed initial data
-npx tsx src/scripts/seed.ts
+```env
+OPENAI_API_KEY=کلید_شما
+OPENAI_BASE_URL=https://api.gapgpt.app/v1
 ```
 
-**روز 4-5: Frontend Foundation**
+سپس:
+
 ```bash
-# Create folder structure (از 05_FRONTEND_IMPLEMENTATION.md)
-mkdir -p src/components/common
-mkdir -p src/components/dashboard
-mkdir -p src/hooks
-mkdir -p src/lib
-mkdir -p src/store
-
-# Create basic layout و auth pages
-# Copy dari 05_FRONTEND_IMPLEMENTATION.md
-
 npm run dev
-# Open http://localhost:3000
 ```
 
-**روز 6-7: Backend API Structure**
-```bash
-# Create API routes (از 06_BACKEND_IMPLEMENTATION.md)
-mkdir -p src/app/api/auth
-mkdir -p src/app/api/assessment
-mkdir -p src/app/api/knowledge-graph
+آدرس پیش‌فرض: [http://localhost:3000](http://localhost:3000)
 
-# Implement basic routes
-# Test با Postman/Insomnia
+---
+
+## متغیرهای محیطی (Vercel)
+
+| متغیر | توضیح |
+|--------|--------|
+| `OPENAI_API_KEY` | کلید API |
+| `OPENAI_BASE_URL` | مثلاً `https://api.gapgpt.app/v1` |
+
+بعد از تغییر متغیرها، یک **Redeploy** بزنید.
+
+---
+
+## ساختار پوشه‌ها
+
+```
+src/
+  app/
+    page.tsx                 # صفحه اصلی
+    start/page.tsx           # انتخاب حوزه
+    assessment/[domain]/     # گفت‌وگوی ارزیابی
+    map/page.tsx             # نقشه ذهن
+    api/
+      deepseek/route.ts      # پروکسی چت
+      analyze/route.ts       # تحلیل و ساخت داده نقشه
+    globals.css              # تم‌ها و استایل پایه
+    layout.tsx
+  components/
+    ThemeProvider.tsx
+    ThemeSwitcher.tsx
+  lib/
+    themes.ts                # تعریف تم‌ها
 ```
 
 ---
 
-### هفته 2-3: Core Features
+## مسیر کاربر
 
-**Dashboard Page**
-```bash
-# Implement 5 widgets:
-# 1. Profile Overview
-# 2. Progress Cards
-# 3. Goals Section
-# 4. Recent Activity Chart
-# 5. Recommendations Widget
-
-# Copy components from 05_FRONTEND_IMPLEMENTATION.md
-# Connect to API endpoints
-# Test with mock data
-```
-
-**Knowledge Map**
-```bash
-# Implement React Flow visualization
-npm install reactflow
-
-# Create KnowledgeGraphViewer component
-# Connect to /api/knowledge-graph/:domain
-# Implement interactivity (hover, click, zoom)
-```
-
-**Assessment System**
-```bash
-# Implement Assessment flow:
-# 1. Start assessment
-# 2. Display question
-# 3. Get answer
-# 4. Show feedback
-# 5. End assessment
-
-# Connect to /api/assessment/* endpoints
-# Test with sample questions
-```
+1. ورود به سایت و (اختیاری) انتخاب تم  
+2. «شروع کنید» → انتخاب حوزه  
+3. وارد کردن نام (بار اول)  
+4. گفت‌وگو با ارزیاب  
+5. نقشه ذهن به‌صورت خودکار به‌روز می‌شود  
+6. مشاهده لایه‌های معلوم / نزدیک / دور و ادامه گفت‌وگو
 
 ---
 
-### هفته 4: AI Integration
+## محدودیت‌های نسخه فعلی
 
-**Setup Anthropic API**
-```bash
-npm install @anthropic-ai/sdk
-
-# Configure API key in .env.local
-ANTHROPIC_API_KEY=sk-...
-
-# Test with simple prompt
-```
-
-**Implement AI Services**
-```typescript
-// 1. Question Generator (من 06_BACKEND_IMPLEMENTATION.md)
-// 2. Answer Analyzer
-// 3. Misconception Detector
-// 4. Recommendation Engine
-
-// Test each service independently
-```
-
-**Connect AI to Assessment**
-```bash
-# آپ‌ڈیٹ کریں /api/assessment/start
-# آپ‌ڈیٹ کریں /api/assessment/answer
-# Test end-to-end flow
-```
+- ذخیره روی **همان مرورگر** است؛ با پاک شدن کش یا تعویض دستگاه از بین می‌رود.
+- بدون حساب کاربری و دیتابیس مرکزی.
+- کیفیت نقشه به کیفیت گفت‌وگو و مدل وابسته است.
+- مصرف API بر اساس تعرفه سرویس ارائه‌دهنده محاسبه می‌شود.
 
 ---
 
-### هفته 5-6: Polish & Optimization
+## توسعه بعدی (پیشنهادی)
 
-**UI Polish**
-```bash
-# Implement from 04_UI_UX_DESIGN.md:
-# - Tailwind CSS classes
-# - Framer Motion animations
-# - Dark mode styling
-# - RTL layout
-
-npm install framer-motion
-npm install tailwindcss
-
-# Test on mobile (Responsive)
-```
-
-**Performance**
-```bash
-# Implement caching
-# Optimize images
-# Code splitting
-# Database query optimization
-
-npm run build
-npx next start
-
-# Test performance metrics
-```
-
-**Testing**
-```bash
-npm install --save-dev jest @testing-library/react
-
-# Write unit tests
-# Write integration tests
-# Write E2E tests with Playwright
-```
+- [ ] ذخیره ابری گفت‌وگو و نقشه (مثلاً Supabase)
+- [ ] حساب کاربری
+- [ ] بانک سؤال ساختاریافته در کنار چت
+- [ ] گزارش جلسه (PDF / خلاصه قابل اشتراک)
+- [ ] حوزه‌ها و گراف دانش غنی‌تر
 
 ---
 
-### هفته 7-8: Deployment
+## لایسنس
 
-**Setup Vercel**
-```bash
-npm install -g vercel
-
-vercel login
-vercel link
-
-# Set environment variables
-vercel env add NEXT_PUBLIC_SUPABASE_URL
-vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
-vercel env add SUPABASE_SERVICE_ROLE_KEY
-vercel env add ANTHROPIC_API_KEY
-
-# Deploy
-vercel deploy --prod
-```
-
-**Setup Monitoring**
-```bash
-# Sentry for error tracking
-npm install @sentry/nextjs
-
-# PostHog for analytics
-npm install posthog-js
-
-# Configure in environment
-```
-
-**Final Testing**
-```bash
-# Test on production
-# Verify all API endpoints
-# Check database operations
-# Monitor error rates
-# Collect user feedback
-```
+پروژه شخصی / آموزشی. در صورت نیاز به استفاده مجدد، با صاحب مخزن هماهنگ کنید.
 
 ---
 
-## 💡 نکات مهم
-
-### 🔐 Security
-- ✅ استفاده از Row Level Security (RLS) در Supabase
-- ✅ Hash کردن passwords با bcrypt
-- ✅ JWT tokens برای authentication
-- ✅ HTTPS فقط
-- ✅ Input validation
-
-### ⚡ Performance
-- ✅ Database indexes (26 index)
-- ✅ Materialized views برای reports
-- ✅ Redis caching
-- ✅ Image optimization
-- ✅ Code splitting
-
-### 🌍 Localization
-- ✅ تمام UI به فارسی
-- ✅ RTL layout
-- ✅ Persian typography
-- ✅ Persian date/time
-- ✅ Unicode support
-
-### 📊 Analytics
-- ✅ Track user behavior
-- ✅ Monitor assessment completion
-- ✅ Analyze learning patterns
-- ✅ Performance metrics
-
----
-
-## 📚 Directory Reference
-
-```
-کدام کار؟ → کدام فایل را ببینم؟
-
-فهمیدن نیازمندی‌ها → 01_PRODUCT_SPECIFICATION_FA.md
-طراحی Architecture → 02_SYSTEM_ARCHITECTURE.md
-ایجاد Database → 03_DATABASE_SCHEMA.sql
-طراحی UI → 04_UI_UX_DESIGN.md
-کدنویسی Frontend → 05_FRONTEND_IMPLEMENTATION.md
-کدنویسی Backend → 06_BACKEND_IMPLEMENTATION.md
-Deploy کردن → 07_DEPLOYMENT_DEVOPS.md
-```
-
----
-
-## 🚀 Quick Commands
-
-```bash
-# Development
-npm run dev              # Start dev server
-npm run lint            # Check code quality
-npm run type-check      # TypeScript check
-
-# Database
-supabase db push        # Apply migrations
-npx tsx seed.ts         # Seed data
-
-# Build & Deploy
-npm run build           # Build for production
-npm start              # Start production server
-vercel deploy --prod   # Deploy to Vercel
-
-# Testing
-npm test               # Run unit tests
-npm run test:e2e      # Run E2E tests
-
-# Environment
-cp .env.example .env.local  # Setup env
-```
-
----
-
-## 📈 Success Metrics
-
-**برای بدانید که پروژه موفق است:**
-
-- ✅ Dashboard بارگذاری می‌شود < 2 ثانیه
-- ✅ Knowledge Map رسم می‌شود < 3 ثانیه
-- ✅ Assessment سؤال می‌دهد < 1 ثانیه
-- ✅ AI feedback < 5 ثانیه
-- ✅ کاربران می‌توانند ثبت‌نام کنند
-- ✅ Database queries < 100ms
-- ✅ 0 security vulnerabilities
-- ✅ Mobile responsive
-- ✅ Dark mode working
-- ✅ RTL perfect
-
----
-
-## 🎓 Learning Resources
-
-**برای فهمیدن بهتر:**
-
-- Next.js: https://nextjs.org/docs
-- React: https://react.dev
-- Supabase: https://supabase.com/docs
-- TypeScript: https://www.typescriptlang.org/docs
-- Tailwind CSS: https://tailwindcss.com/docs
-- Framer Motion: https://www.framer.com/motion
-- Anthropic API: https://docs.anthropic.com
-
----
-
-## 🆘 Troubleshooting
-
-**مشکل: Database متصل نمی‌شود**
-```
-✅ چک کنید connection string در .env.local
-✅ چک کنید Supabase project active است
-✅ چک کنید firewall rules
-```
-
-**مشکل: API endpoints 404 می‌دهند**
-```
-✅ چک کنید route names صحیح است
-✅ چک کنید method (GET/POST) صحیح است
-✅ چک کنید API response format
-```
-
-**مشکل: Deployment fail می‌کند**
-```
-✅ چک کنید environment variables
-✅ چک کنید npm build locally
-✅ چک کنید errors in console
-```
-
----
-
-## 📞 Support & Updates
-
-**برای بروزرسانی پروژه:**
-
-1. فایل‌های جدید را دانلود کنید
-2. Git pull از repository
-3. Run migrations: `supabase db push`
-4. نسخه جدید rebuild: `npm run build`
-5. Deploy: `vercel deploy --prod`
-
----
-
-## ✨ نتیجه‌گیری
-
-تبریک! شما اکنون یک **پروژه production-ready** دارید که:
-
-🎯 **کامل است** - تمام جنبه‌ها شامل شده‌اند
-🇮🇷 **فارسی است** - تمام محتوا به فارسی
-🚀 **مقیاس‌پذیر است** - می‌تواند میلیون‌ها کاربر خدمت دهد
-🔒 **ایمن است** - بهترین practices دنبال شده‌اند
-💪 **قوی است** - Architecture solid و well-designed
-
-**بعدی قدم‌ها:**
-1. ✍️ شروع کدنویسی
-2. 🧪 تست مستمر
-3. 🚀 Deploy به Vercel
-4. 📊 Monitor و optimize
-5. 📈 جمع‌آوری feedback
-6. 🎯 بهتری و expansion
-
-**موفق باشید! 🌟**
+**من کیستم؟ پایگاه دانش** — جایی برای دیدن جایگاه علمی خودت و مسیر رشد.
