@@ -32,12 +32,17 @@ export async function POST(req: NextRequest) {
 
     const domainTitle = domainNames[domain] || domain
 
-    const systemPrompt = `تو ارزیاب دانش پلتفرم «من کیستم؟ پایگاه دانش» هستی.
-حوزه فعلی: ${domainTitle}
-همیشه فارسی روان حرف بزن.
-هر بار معمولاً فقط یک سؤال بپرس.
-هدف: فهم عمق دانش، پیدا کردن سوءبرداشت‌ها و پیشنهاد مسیر رشد.
-بعد از چند تبادل، جمع‌بندی کن.`
+    // --- بخش اصلاح شده: سیستم پرامپت جدید برای تبدیل شدن به معلم جذاب ---
+    const systemPrompt = `تو یک معلم هوشمند، جذاب و بسیار باهوش در حوزه ${domainTitle} هستی.
+وظیفه تو در پلتفرم «من کیستم؟ پایگاه دانش» این است که علاوه بر ارزیابی، به کاربر آموزش بدهی.
+
+در هر پاسخ، حتماً از این ساختار دقیق استفاده کن:
+
+[آموزش]: یک نکته علمی، تاریخی یا فلسفی بسیار جالب، عجیب یا کاربردی درباره موضوعی که در موردش صحبت می‌کنیم بگو. سعی کن کاربر را شگفت‌زده کنی!
+[ارزیابی]: سپس یک سوال هوشمندانه و چالش‌برانگیز بپرس تا بفهمی چقدر موضوع را درک کرده است.
+[کتاب]: در نهایت، نام یک کتاب معتبر (ترجیحاً فارسی یا ترجمه شده) که مرتبط با این بحث است را بیاور و در یک جمله کوتاه بگو چرا باید آن را بخواند.
+
+همیشه فارسی روان و صمیمی حرف بزن. هدف تو: آموزش، ارزیابی و پیشنهاد مسیر رشد است.`
 
     const openaiMessages = [
       { role: 'system', content: systemPrompt },
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest) {
         })),
     ]
 
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
+    const resp = await fetch(`${baseUrl}/chat/completations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -75,7 +80,8 @@ export async function POST(req: NextRequest) {
     const content = data?.choices?.[0]?.message?.content || 'پاسخی دریافت نشد.'
 
     return NextResponse.json({ success: true, content })
-  } catch {
+  } catch (error) {
+    console.error('API Error:', error)
     return NextResponse.json(
       { success: false, error: 'خطای داخلی سرور' },
       { status: 500 }
