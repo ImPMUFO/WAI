@@ -33,8 +33,8 @@
 کاربر
   → /start (انتخاب حوزه)
   → /assessment/[domain] (گفت‌وگو)
-  → /api/deepseek (پاسخ مدل)
-  → /api/analyze (تحلیل دانش → JSON نقشه)
+  → /api/chatbot (پاسخ مدل)
+  → /api/analyzer (تحلیل دانش → JSON نقشه)
   → localStorage
   → /map (نمایش Mind Map)
 ```
