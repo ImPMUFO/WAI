@@ -199,5 +199,5 @@ ${transcript}
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'analyze' })
+  return NextResponse.json({ status: 'ok', api: 'analyzer' })
                               }
