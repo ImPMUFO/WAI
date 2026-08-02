@@ -25,6 +25,10 @@ function chatKey(domain: string) {
   return `wai_chat_${domain}`
 }
 
+function mapKey(domain: string) {
+  return `wai_map_${domain}`
+}
+
 export default function AssessmentPage() {
   const params = useParams()
   const domain = (params.domain as string) || 'philosophy'
@@ -37,10 +41,10 @@ export default function AssessmentPage() {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [ready, setReady] = useState(false)
+  const [mapUpdating, setMapUpdating] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
 
-  // بارگذاری اسم و گفت‌وگو
   useEffect(() => {
     const savedName = localStorage.getItem(USER_KEY)?.trim() || ''
     const savedChat = localStorage.getItem(chatKey(domain))
@@ -60,7 +64,7 @@ export default function AssessmentPage() {
           return
         }
       } catch {
-        // ignore broken storage
+        // ignore
       }
     }
 
@@ -77,7 +81,6 @@ export default function AssessmentPage() {
     setReady(true)
   }, [domain, info.title])
 
-  // ذخیره گفت‌وگو
   useEffect(() => {
     if (!ready || messages.length === 0) return
     localStorage.setItem(chatKey(domain), JSON.stringify(messages))
@@ -131,7 +134,35 @@ export default function AssessmentPage() {
     return data.content as string
   }
 
-  // گرفتن اولین سؤال از AI
+  // به‌روزرسانی خودکار نقشه ذهن بعد از هر تبادل
+  const updateMapFromChat = async (allMessages: Message[]) => {
+    const hasUser = allMessages.some((m) => m.role === 'user' && m.content.trim())
+    if (!hasUser) return
+
+    setMapUpdating(true)
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain,
+          userName: userName || nameInput || 'کاربر',
+          messages: allMessages,
+        }),
+      })
+      const data = await res.json()
+      if (data?.success && data.map) {
+        localStorage.setItem(mapKey(domain), JSON.stringify(data.map))
+        window.dispatchEvent(new Event('wai-map-updated'))
+      }
+    } catch {
+      // تحلیل نباید چت را متوقف کند
+    } finally {
+      setMapUpdating(false)
+    }
+  }
+
+  // اولین سؤال از AI
   useEffect(() => {
     if (!ready || needsName || !userName || startedRef.current) return
     if (messages.length === 0) return
@@ -147,10 +178,11 @@ export default function AssessmentPage() {
       setIsTyping(true)
       try {
         const reply = await callAI(messages)
-        setMessages((prev) => [
-          ...prev,
+        const withReply: Message[] = [
+          ...messages,
           { id: Date.now(), role: 'assistant', content: reply },
-        ])
+        ]
+        setMessages(withReply)
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -185,10 +217,13 @@ export default function AssessmentPage() {
 
     try {
       const reply = await callAI(next)
-      setMessages((prev) => [
-        ...prev,
+      const withReply: Message[] = [
+        ...next,
         { id: Date.now() + 1, role: 'assistant', content: reply },
-      ])
+      ]
+      setMessages(withReply)
+      // بعد از هر پرسش و پاسخ، نقشه خودکار به‌روز شود
+      updateMapFromChat(withReply)
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -232,8 +267,7 @@ export default function AssessmentPage() {
             <h1 className="text-lg font-semibold text-white">خوش آمدی</h1>
           </div>
           <p className="text-gray-300 text-sm leading-relaxed">
-            قبل از شروع ارزیابی «{info.title}»، اسمت را بگو تا گفت‌وگوهایت ذخیره شود و
-            دفعه بعد از بین نرود.
+            قبل از شروع ارزیابی «{info.title}»، اسمت را بگو تا گفت‌وگو و نقشه دانشت ذخیره شود.
           </p>
           <input
             value={nameInput}
@@ -270,7 +304,8 @@ export default function AssessmentPage() {
                 ارزیابی {info.title}
               </h1>
               <p className="text-[10px] sm:text-xs text-teal-400/80 truncate">
-                {userName} · گفت‌وگو ذخیره می‌شود
+                {userName}
+                {mapUpdating ? ' · در حال به‌روزرسانی نقشه...' : ' · نقشه خودکار'}
               </p>
             </div>
           </div>
@@ -288,7 +323,7 @@ export default function AssessmentPage() {
               className="text-[10px] sm:text-xs text-teal-300/90 hover:text-teal-200 transition-colors inline-flex items-center gap-1"
             >
               <Map className="w-3.5 h-3.5" />
-              نقشه دانش
+              نقشه ذهن
             </Link>
 
             <Link
