@@ -2,43 +2,190 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========== تم‌ها ========== */
+:root,
+[data-theme='main'] {
+  --bg0: #020617;
+  --bg1: #0a1628;
+  --bg2: #031a1f;
+  --card: rgba(255, 255, 255, 0.05);
+  --card-solid: rgba(11, 18, 32, 0.96);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --accent: #2dd4bf;
+  --accent2: #34d399;
+  --accent-dim: rgba(45, 212, 191, 0.15);
+  --btn-from: #0d9488;
+  --btn-to: #059669;
+  --glow: rgba(45, 212, 191, 0.25);
+}
+
+[data-theme='wood'] {
+  --bg0: #1c1410;
+  --bg1: #2a211c;
+  --bg2: #1a1512;
+  --card: rgba(167, 139, 112, 0.08);
+  --card-solid: rgba(36, 28, 22, 0.96);
+  --border: rgba(167, 139, 112, 0.22);
+  --text: #f5f0e8;
+  --muted: #a8a29e;
+  --accent: #d4a574;
+  --accent2: #a3784f;
+  --accent-dim: rgba(212, 165, 116, 0.14);
+  --btn-from: #a3784f;
+  --btn-to: #78716c;
+  --glow: rgba(212, 165, 116, 0.22);
+}
+
+[data-theme='day'] {
+  --bg0: #fffbeb;
+  --bg1: #fef3c7;
+  --bg2: #fff7ed;
+  --card: rgba(255, 255, 255, 0.7);
+  --card-solid: rgba(255, 255, 255, 0.95);
+  --border: rgba(202, 138, 4, 0.25);
+  --text: #1c1917;
+  --muted: #78716c;
+  --accent: #d97706;
+  --accent2: #ca8a04;
+  --accent-dim: rgba(217, 119, 6, 0.12);
+  --btn-from: #f59e0b;
+  --btn-to: #eab308;
+  --glow: rgba(245, 158, 11, 0.25);
+}
+
+[data-theme='fire'] {
+  --bg0: #0c0a09;
+  --bg1: #1c0a0a;
+  --bg2: #172554;
+  --card: rgba(239, 68, 68, 0.08);
+  --card-solid: rgba(28, 10, 10, 0.96);
+  --border: rgba(249, 115, 22, 0.28);
+  --text: #fff7ed;
+  --muted: #a8a29e;
+  --accent: #f97316;
+  --accent2: #ef4444;
+  --accent-dim: rgba(249, 115, 22, 0.15);
+  --btn-from: #dc2626;
+  --btn-to: #ea580c;
+  --glow: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme='ocean'] {
+  --bg0: #0c4a6e;
+  --bg1: #0e7490;
+  --bg2: #164e63;
+  --card: rgba(255, 255, 255, 0.08);
+  --card-solid: rgba(12, 55, 80, 0.95);
+  --border: rgba(125, 211, 252, 0.22);
+  --text: #f0f9ff;
+  --muted: #a8a29e;
+  --accent: #38bdf8;
+  --accent2: #a8a29e;
+  --accent-dim: rgba(56, 189, 248, 0.14);
+  --btn-from: #0284c7;
+  --btn-to: #0e7490;
+  --glow: rgba(56, 189, 248, 0.25);
+}
+
+[data-theme='galaxy'] {
+  --bg0: #0f0720;
+  --bg1: #1e1b4b;
+  --bg2: #312e81;
+  --card: rgba(168, 85, 247, 0.1);
+  --card-solid: rgba(20, 10, 40, 0.96);
+  --border: rgba(192, 132, 252, 0.25);
+  --text: #f5f3ff;
+  --muted: #a5b4fc;
+  --accent: #c084fc;
+  --accent2: #eab308;
+  --accent-dim: rgba(192, 132, 252, 0.15);
+  --btn-from: #7c3aed;
+  --btn-to: #6d28d9;
+  --glow: rgba(168, 85, 247, 0.3);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-dark-950 text-white;
+    background: linear-gradient(165deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-teal-600 to-emerald-600 
-           hover:from-teal-500 hover:to-emerald-500 
-           text-white font-medium rounded-xl 
-           transition-all duration-300 shadow-lg shadow-teal-900/30;
+    background: linear-gradient(90deg, var(--btn-from), var(--btn-to));
+    color: #fff;
+    font-weight: 500;
+    border-radius: 0.75rem;
+    transition: all 0.3s;
+    box-shadow: 0 8px 24px var(--glow);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
   }
 
   .btn-secondary {
-    @apply bg-white/5 border border-white/10 
-           hover:bg-white/10 hover:border-teal-500/40 
-           text-white font-medium rounded-xl transition-all duration-300;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 500;
+    border-radius: 0.75rem;
+    transition: all 0.3s;
+  }
+  .btn-secondary:hover {
+    border-color: var(--accent);
   }
 
   .card {
-    @apply bg-white/5 border border-white/10 rounded-2xl p-6 
-           backdrop-blur-sm hover:border-teal-500/30 transition-all;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.3s;
+  }
+  .card:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   }
 
   .heading-1 {
     @apply text-4xl sm:text-5xl lg:text-6xl font-bold;
   }
-
   .heading-2 {
     @apply text-3xl sm:text-4xl font-bold;
   }
-
   .heading-3 {
     @apply text-xl font-semibold;
   }
+}
+
+/* هماهنگی کلاس‌های قبلی teal/emerald با تم فعال */
+[data-theme] .text-teal-300,
+[data-theme] .text-teal-400,
+[data-theme] .text-emerald-300,
+[data-theme] .text-emerald-400 {
+  color: var(--accent) !important;
+}
+[data-theme] .bg-teal-600\/90 {
+  background-color: color-mix(in srgb, var(--btn-from) 90%, transparent) !important;
+}
+[data-theme] .from-teal-400 {
+  --tw-gradient-from: var(--accent) var(--tw-gradient-from-position) !important;
+}
+[data-theme] .to-emerald-400 {
+  --tw-gradient-to: var(--accent2) var(--tw-gradient-to-position) !important;
+}
+[data-theme] .border-teal-500\/30,
+[data-theme] .border-teal-500\/50 {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
+}
+[data-theme] .bg-teal-500\/10 {
+  background-color: var(--accent-dim) !important;
 }
