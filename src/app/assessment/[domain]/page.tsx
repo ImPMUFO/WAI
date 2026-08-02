@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, ArrowRight, Brain, Loader2, User } from 'lucide-react'
+import { Send, ArrowRight, Brain, Loader2, User, Map } from 'lucide-react'
 import Link from 'next/link'
 
 const domainInfo: Record<string, { title: string; emoji: string }> = {
@@ -30,7 +30,7 @@ export default function AssessmentPage() {
   const domain = (params.domain as string) || 'philosophy'
   const info = domainInfo[domain] || { title: 'دانش', emoji: '📚' }
 
-  const [userName, setUserName] = useState<string>('')
+  const [userName, setUserName] = useState('')
   const [nameInput, setNameInput] = useState('')
   const [needsName, setNeedsName] = useState(true)
   const [messages, setMessages] = useState<Message[]>([])
@@ -40,7 +40,7 @@ export default function AssessmentPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
 
-  // بارگذاری اسم و گفت‌وگو از حافظه مرورگر
+  // بارگذاری اسم و گفت‌وگو
   useEffect(() => {
     const savedName = localStorage.getItem(USER_KEY)?.trim() || ''
     const savedChat = localStorage.getItem(chatKey(domain))
@@ -60,17 +60,16 @@ export default function AssessmentPage() {
           return
         }
       } catch {
-        // ignore
+        // ignore broken storage
       }
     }
 
-    // گفت‌وگوی جدید
     if (savedName) {
       setMessages([
         {
           id: 1,
           role: 'assistant',
-          content: `سلام \( {savedName}. خوش اومدی دوباره.\n\nقراره دربارهٔ « \){info.title}» با هم حرف بزنیم. آماده‌ای شروع کنیم؟`,
+          content: `سلام \( {savedName}. خوش اومدی.\n\nقرار است دربارهٔ « \){info.title}» با هم گفت‌وگو کنیم تا بفهمم چه چیزهایی را عمیق می‌دانی و کجاها می‌توانی رشد کنی.\n\nبا زبان خودت جواب بده.`,
         },
       ])
     }
@@ -91,17 +90,19 @@ export default function AssessmentPage() {
   const saveName = () => {
     const n = nameInput.trim()
     if (!n) return
+
     localStorage.setItem(USER_KEY, n)
     setUserName(n)
     setNeedsName(false)
+    startedRef.current = false
+
     setMessages([
       {
         id: Date.now(),
         role: 'assistant',
-        content: `سلام \( {n}! خوشحالم می‌شناسمت.\n\nمن ارزیاب دانش هستم. قراره دربارهٔ « \){info.title}» با هم گفت‌وگو کنیم تا بفهمم چی رو عمیق بلدی و کجاها می‌تونی رشد کنی.\n\nهر جوابی با زبان خودت بنویس.`,
+        content: `سلام \( {n}! خوشحالم می‌شناسمت.\n\nمن ارزیاب دانش هستم. دربارهٔ « \){info.title}» با هم حرف می‌زنیم تا نقشه دانش تو شکل بگیرد.\n\nهر پاسخی را راحت و به زبان خودت بنویس.`,
       },
     ])
-    startedRef.current = false
   }
 
   const callAI = async (allMessages: Message[]) => {
@@ -130,12 +131,11 @@ export default function AssessmentPage() {
     return data.content as string
   }
 
-  // اولین سؤال از AI بعد از داشتن اسم و نبودن تاریخچه قبلی
+  // گرفتن اولین سؤال از AI
   useEffect(() => {
     if (!ready || needsName || !userName || startedRef.current) return
     if (messages.length === 0) return
 
-    // اگر فقط پیام خوش‌آمدگویی هست، سؤال اول را بگیر
     const onlyWelcome = messages.length === 1 && messages[0].role === 'assistant'
     if (!onlyWelcome) {
       startedRef.current = true
@@ -195,7 +195,7 @@ export default function AssessmentPage() {
         {
           id: Date.now() + 1,
           role: 'assistant',
-          content: 'خطا در دریافت پاسخ. دوباره تلاش کن.',
+          content: 'خطا در دریافت پاسخ. لطفاً دوباره تلاش کن.',
         },
       ])
     } finally {
@@ -215,7 +215,6 @@ export default function AssessmentPage() {
     ])
   }
 
-  // صفحه گرفتن اسم
   if (!ready) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 flex items-center justify-center text-white">
@@ -233,7 +232,8 @@ export default function AssessmentPage() {
             <h1 className="text-lg font-semibold text-white">خوش آمدی</h1>
           </div>
           <p className="text-gray-300 text-sm leading-relaxed">
-            قبل از شروع ارزیابی «{info.title}»، اسمت را بگو تا گفت‌وگوهایت ذخیره شود و دفعه بعد از بین نرود.
+            قبل از شروع ارزیابی «{info.title}»، اسمت را بگو تا گفت‌وگوهایت ذخیره شود و
+            دفعه بعد از بین نرود.
           </p>
           <input
             value={nameInput}
@@ -262,31 +262,41 @@ export default function AssessmentPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 rtl flex flex-col">
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-dark-950/70 border-b border-white/5">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl">{info.emoji}</span>
-            <div>
-              <h1 className="text-sm sm:text-base font-semibold text-white">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl shrink-0">{info.emoji}</span>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-semibold text-white truncate">
                 ارزیابی {info.title}
               </h1>
-              <p className="text-[10px] sm:text-xs text-teal-400/80">
+              <p className="text-[10px] sm:text-xs text-teal-400/80 truncate">
                 {userName} · گفت‌وگو ذخیره می‌شود
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               onClick={clearChat}
               className="text-[10px] sm:text-xs text-gray-500 hover:text-white transition-colors"
             >
               گفت‌وگوی جدید
             </button>
+
+            <Link
+              href="/map"
+              className="text-[10px] sm:text-xs text-teal-300/90 hover:text-teal-200 transition-colors inline-flex items-center gap-1"
+            >
+              <Map className="w-3.5 h-3.5" />
+              نقشه دانش
+            </Link>
+
             <Link
               href="/start"
               className="text-xs sm:text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1"
             >
               <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-              بازگشت
+              <span className="hidden sm:inline">بازگشت</span>
             </Link>
           </div>
         </div>
@@ -362,4 +372,4 @@ export default function AssessmentPage() {
       </div>
     </main>
   )
-      }
+          }
