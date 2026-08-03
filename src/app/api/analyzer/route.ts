@@ -2,67 +2,51 @@ import { NextRequest, NextResponse } from 'next/server'
 
 type NodeStatus = 'known' | 'near' | 'far'
 
-const domainGraphs: Record<
-  string,
-  { title: string; nodes: { id: string; title: string; parent?: string }[] }
-> = {
-  philosophy: {
-    title: 'فلسفه',
-    nodes: [
-      { id: 'root', title: 'فلسفه' },
-      { id: 'logic', title: 'منطق', parent: 'root' },
-      { id: 'ethics', title: 'اخلاق', parent: 'root' },
-      { id: 'epistemology', title: 'معرفت‌شناسی', parent: 'root' },
-      { id: 'metaphysics', title: 'متافیزیک', parent: 'logic' },
-      { id: 'political', title: 'فلسفه سیاسی', parent: 'ethics' },
-      { id: 'mind', title: 'فلسفه ذهن', parent: 'epistemology' },
-      { id: 'science', title: 'فلسفه علم', parent: 'logic' },
-      { id: 'language', title: 'فلسفه زبان', parent: 'epistemology' },
-    ],
-  },
-  programming: {
-    title: 'برنامه‌نویسی',
-    nodes: [
-      { id: 'root', title: 'برنامه‌نویسی' },
-      { id: 'basics', title: 'مبانی', parent: 'root' },
-      { id: 'algorithms', title: 'الگوریتم', parent: 'root' },
-      { id: 'data-structures', title: 'ساختار داده', parent: 'root' },
-      { id: 'oop', title: 'شیءگرایی', parent: 'basics' },
-      { id: 'complexity', title: 'پیچیدگی', parent: 'algorithms' },
-      { id: 'databases', title: 'پایگاه‌داده', parent: 'data-structures' },
-      { id: 'web', title: 'وب', parent: 'oop' },
-      { id: 'systems', title: 'سیستم‌ها', parent: 'complexity' },
-    ],
-  },
-  history: {
-    title: 'تاریخ',
-    nodes: [
-      { id: 'root', title: 'تاریخ' },
-      { id: 'method', title: 'روش تاریخ‌نگاری', parent: 'root' },
-      { id: 'iran', title: 'تاریخ ایران', parent: 'root' },
-      { id: 'world', title: 'تاریخ جهان', parent: 'root' },
-      { id: 'ancient', title: 'باستان', parent: 'iran' },
-      { id: 'modern', title: 'معاصر', parent: 'iran' },
-      { id: 'ideas', title: 'تاریخ اندیشه', parent: 'world' },
-      { id: 'sources', title: 'منابع و نقد', parent: 'method' },
-      { id: 'civilizations', title: 'تمدن‌ها', parent: 'world' },
-    ],
-  },
-  psychology: {
-    title: 'روان‌شناسی',
-    nodes: [
-      { id: 'root', title: 'روان‌شناسی' },
-      { id: 'cognitive', title: 'شناختی', parent: 'root' },
-      { id: 'behavioral', title: 'رفتاری', parent: 'root' },
-      { id: 'personality', title: 'شخصیت', parent: 'root' },
-      { id: 'memory', title: 'حافظه', parent: 'cognitive' },
-      { id: 'learning', title: 'یادگیری', parent: 'behavioral' },
-      { id: 'emotion', title: 'هیجان', parent: 'personality' },
-      { id: 'bias', title: 'سوگیری‌ها', parent: 'cognitive' },
-      { id: 'self', title: 'خودآگاهی', parent: 'emotion' },
-    ],
-  },
-}
+/** گراف یکپارچه ذهن — همه حوزه‌ها زیر یک ریشه */
+const UNIFIED_GRAPH: { id: string; title: string; parent?: string }[] = [
+  { id: 'mind', title: 'ذهن من' },
+
+  { id: 'philosophy', title: 'فلسفه', parent: 'mind' },
+  { id: 'logic', title: 'منطق', parent: 'philosophy' },
+  { id: 'metaphysics', title: 'متافیزیک', parent: 'philosophy' },
+  { id: 'epistemology', title: 'معرفت‌شناسی', parent: 'philosophy' },
+
+  { id: 'ethics', title: 'اخلاق', parent: 'mind' },
+  { id: 'applied-ethics', title: 'اخلاق کاربردی', parent: 'ethics' },
+
+  { id: 'religion', title: 'دین و الهیات', parent: 'mind' },
+  { id: 'theology', title: 'کلام', parent: 'religion' },
+  { id: 'comparative-religion', title: 'ادیان تطبیقی', parent: 'religion' },
+
+  { id: 'programming', title: 'برنامه‌نویسی', parent: 'mind' },
+  { id: 'algorithms', title: 'الگوریتم', parent: 'programming' },
+  { id: 'web', title: 'وب', parent: 'programming' },
+
+  { id: 'math', title: 'ریاضی', parent: 'mind' },
+  { id: 'algebra', title: 'جبر', parent: 'math' },
+  { id: 'calculus', title: 'حسابان', parent: 'math' },
+
+  { id: 'physics', title: 'فیزیک', parent: 'mind' },
+  { id: 'mechanics', title: 'مکانیک', parent: 'physics' },
+  { id: 'quantum', title: 'کوانتوم', parent: 'physics' },
+
+  { id: 'chemistry', title: 'شیمی', parent: 'mind' },
+  { id: 'organic-chem', title: 'شیمی آلی', parent: 'chemistry' },
+
+  { id: 'biology', title: 'زیست‌شناسی', parent: 'mind' },
+  { id: 'genetics', title: 'ژنتیک', parent: 'biology' },
+
+  { id: 'history', title: 'تاریخ', parent: 'mind' },
+  { id: 'iran-history', title: 'تاریخ ایران', parent: 'history' },
+  { id: 'world-history', title: 'تاریخ جهان', parent: 'history' },
+
+  { id: 'psychology', title: 'روان‌شناسی', parent: 'mind' },
+  { id: 'cognitive', title: 'شناختی', parent: 'psychology' },
+  { id: 'personality', title: 'شخصیت', parent: 'psychology' },
+
+  { id: 'literature', title: 'ادبیات', parent: 'mind' },
+  { id: 'economics', title: 'اقتصاد', parent: 'mind' },
+]
 
 export async function POST(req: NextRequest) {
   try {
@@ -73,44 +57,46 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const domain = (body?.domain as string) || 'philosophy'
     const messages = body?.messages as { role: string; content: string }[]
     const userName = (body?.userName as string) || 'کاربر'
+    const domain = (body?.domain as string) || 'general'
 
     if (!messages?.length) {
       return NextResponse.json({ success: false, error: 'messages الزامی است' }, { status: 400 })
     }
 
-    const graph = domainGraphs[domain] || domainGraphs.philosophy
-    const catalog = graph.nodes.map((n) => `- ${n.id}: ${n.title}`).join('\n')
+    // نقشه قبلی را ادغام کن تا دانش حوزه‌های دیگر پاک نشود
+    let previous: { id: string; status?: NodeStatus; mastery?: number; note?: string }[] = []
+    try {
+      if (body?.previousMap?.nodes) previous = body.previousMap.nodes
+    } catch {
+      previous = []
+    }
+    const prevById = new Map(previous.map((n) => [n.id, n]))
+
+    const catalog = UNIFIED_GRAPH.map((n) => `- ${n.id}: ${n.title}`).join('\n')
     const transcript = messages
-      .slice(-24)
+      .slice(-16)
       .map((m) => `${m.role === 'user' ? userName : 'ارزیاب'}: ${m.content}`)
       .join('\n')
 
-    const systemPrompt = `تو تحلیل‌گر نقشه دانش «من کیستم؟» هستی.
-فقط JSON خالص برگردان.
+    const systemPrompt = `تحلیل‌گر نقشه یکپارچه ذهن هستی. فقط JSON خالص برگردان.
+وضعیت: known (55-100) | near (20-54) | far (0-19)
+قوانین:
+1. فقط مفاهیمی را تغییر بده که در گفت‌وگو شواهد دارند.
+2. بقیه را دست نزن یا far بگذار.
+3. اگر گفت‌وگو شروع شده، mind را حداقل near کن.
+4. حوزه فعلی گفت‌وگو: ${domain}
+5. note خیلی کوتاه و فارسی.
 
-وضعیت‌ها:
-- known: فهم نسبتاً روشن (mastery 55-100)
-- near: آشنایی ناقص / در حال شکل‌گیری (mastery 20-54)
-- far: دور و کم‌شواهد (mastery 0-19)
-
-قوانین مهم:
-1. اگر گفت‌وگو شروع شده، هرگز همه را far نگذار.
-2. حداقل root را near یا known بده.
-3. اگر کاربر حتی یک جمله مرتبط گفته، ۱ تا ۳ مفهوم نزدیک را near کن.
-4. بدون اغراق؛ known فقط با شواهد نسبی.
-5. note کوتاه فارسی.
-
-کاتالوگ ${graph.title}:
+کاتالوگ:
 ${catalog}`
 
     const userPrompt = `گفت‌وگو:
 ${transcript}
 
 خروجی:
-{"summary":"...","nodes":[{"id":"root","title":"...","status":"near","mastery":40,"note":"..."}]}`
+{"summary":"...","nodes":[{"id":"mind","title":"ذهن من","status":"near","mastery":40,"note":"..."}]}`
 
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -120,8 +106,8 @@ ${transcript}
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        temperature: 0.25,
-        max_tokens: 1800,
+        temperature: 0.2,
+        max_tokens: 1400,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -143,22 +129,36 @@ ${transcript}
 
     const parsed = JSON.parse(jsonMatch[0]) as {
       summary?: string
-      nodes?: { id: string; title?: string; status?: NodeStatus; mastery?: number; note?: string }[]
+      nodes?: { id: string; status?: NodeStatus; mastery?: number; note?: string }[]
     }
-
     const byId = new Map((parsed.nodes || []).map((n) => [n.id, n]))
 
-    let merged = graph.nodes.map((g) => {
+    const merged = UNIFIED_GRAPH.map((g) => {
       const a = byId.get(g.id)
-      let status: NodeStatus = (a?.status as NodeStatus) || 'far'
+      const p = prevById.get(g.id)
+
+      // اولویت با تحلیل جدید اگر status معتبر دارد، وگرنه قبلی
+      let status: NodeStatus = (a?.status as NodeStatus) || (p?.status as NodeStatus) || 'far'
       let mastery =
         typeof a?.mastery === 'number'
-          ? Math.max(0, Math.min(100, a.mastery))
-          : status === 'known'
-            ? 70
-            : status === 'near'
-              ? 35
-              : 8
+          ? a.mastery
+          : typeof p?.mastery === 'number'
+            ? p.mastery
+            : status === 'known'
+              ? 70
+              : status === 'near'
+                ? 35
+                : 5
+
+      mastery = Math.max(0, Math.min(100, mastery))
+      // اگر قبلا known بوده و تحلیل جدید far بی‌دلیل داد، previous را حفظ کن
+      if (p?.status === 'known' && status === 'far' && !a) {
+        status = 'known'
+        mastery = p.mastery ?? 70
+      } else if (p?.status === 'near' && status === 'far' && !a) {
+        status = 'near'
+        mastery = p.mastery ?? 35
+      }
 
       return {
         id: g.id,
@@ -166,29 +166,29 @@ ${transcript}
         parent: g.parent,
         status,
         mastery,
-        note: a?.note || '',
+        note: a?.note || p?.note || '',
       }
     })
 
-    // تضمین: اگر گفت‌وگو هست، حداقل چیزی در دایره معلومات باشد
-    const hasSignal = messages.some((m) => m.role === 'user' && m.content.trim().length > 0)
-    if (hasSignal) {
-      const knownOrNear = merged.filter((n) => n.status !== 'far')
-      if (knownOrNear.length === 0) {
-        merged = merged.map((n) => {
-          if (n.id === 'root') return { ...n, status: 'near' as const, mastery: 35, note: n.note || 'شروع مسیر دانش در این حوزه.' }
-          if (!n.parent || n.parent === 'root') return { ...n, status: 'near' as const, mastery: 28, note: n.note || 'نشانه‌های اولیه آشنایی.' }
-          return n
-        })
+    const hasUser = messages.some((m) => m.role === 'user' && String(m.content || '').trim())
+    if (hasUser) {
+      const anyOpen = merged.some((n) => n.status !== 'far')
+      if (!anyOpen) {
+        const mind = merged.find((n) => n.id === 'mind')
+        if (mind) {
+          mind.status = 'near'
+          mind.mastery = 30
+          mind.note = 'شروع نقشه ذهن'
+        }
       }
     }
 
     return NextResponse.json({
       success: true,
       map: {
-        domain,
-        domainTitle: graph.title,
-        summary: parsed.summary || 'نقشه بر اساس گفت‌وگو به‌روز شد.',
+        domain: 'unified',
+        domainTitle: 'نقشه کامل ذهن',
+        summary: parsed.summary || 'نقشه یکپارچه به‌روز شد.',
         updatedAt: new Date().toISOString(),
         nodes: merged,
       },
@@ -199,5 +199,5 @@ ${transcript}
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'analyzer' })
-                              }
+  return NextResponse.json({ status: 'ok', api: 'analyzer-unified' })
+}
