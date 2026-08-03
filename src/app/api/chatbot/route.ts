@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const domainNames: Record<string, string> = {
+  general: 'دانش عمومی',
   philosophy: 'فلسفه',
   programming: 'برنامه‌نویسی',
   history: 'تاریخ',
   psychology: 'روان‌شناسی',
+  religion: 'دین و الهیات',
+  ethics: 'اخلاق',
+  physics: 'فیزیک',
+  chemistry: 'شیمی',
+  math: 'ریاضی',
+  biology: 'زیست‌شناسی',
+  literature: 'ادبیات',
+  economics: 'اقتصاد',
 }
 
 export async function POST(req: NextRequest) {
@@ -13,46 +22,40 @@ export async function POST(req: NextRequest) {
     const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '')
 
     if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: 'OPENAI_API_KEY تنظیم نشده است' },
-        { status: 500 }
-      )
+      return NextResponse.json({ success: false, error: 'OPENAI_API_KEY تنظیم نشده است' }, { status: 500 })
     }
 
     const body = await req.json()
     const messages = body?.messages as { role: 'user' | 'assistant' | 'system'; content: string }[]
-    const domain = (body?.domain as string) || 'philosophy'
+    const domain = (body?.domain as string) || 'general'
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'messages الزامی است' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'messages الزامی است' }, { status: 400 })
     }
 
     const domainTitle = domainNames[domain] || domain
 
-    // --- بخش اصلاح شده: سیستم پرامپت جدید برای تبدیل شدن به معلم جذاب ---
-    const systemPrompt = `تو یک معلم هوشمند، جذاب و بسیار باهوش در حوزه ${domainTitle} هستی.
-وظیفه تو در پلتفرم «من کیستم؟ پایگاه دانش» این است که علاوه بر ارزیابی، به کاربر آموزش بدهی.
+    const systemPrompt = `تو ارزیاب کوتاه‌گوی پلتفرم «من کیستم؟» هستی.
+حوزهٔ فعلی: ${domainTitle}
 
-در هر پاسخ، حتماً از این ساختار دقیق استفاده کن:
+قوانین سخت:
+- فارسی، صمیمی، واضح
+- هر پاسخ حداکثر ۸۰ تا ۱۲۰ کلمه
+- فقط ۱ سؤال بپرس
+- اگر نکته آموزشی می‌گویی، در ۱-۲ جمله باشد
+- کتاب فقط گاهی و در یک خط
+- از پرگویی و لیست‌های بلند پرهیز کن`
 
-[آموزش]: یک نکته علمی، تاریخی یا فلسفی بسیار جالب، عجیب یا کاربردی درباره موضوعی که در موردش صحبت می‌کنیم بگو. سعی کن کاربر را شگفت‌زده کنی!
-[ارزیابی]: سپس یک سوال هوشمندانه و چالش‌برانگیز بپرس تا بفهمی چقدر موضوع را درک کرده است.
-[کتاب]: در نهایت، نام یک کتاب معتبر (ترجیحاً فارسی یا ترجمه شده) که مرتبط با این بحث است را بیاور و در یک جمله کوتاه بگو چرا باید آن را بخواند.
+    // فقط چند پیام اخیر برای سرعت
+    const recent = messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .slice(-8)
+      .map((m) => ({
+        role: m.role,
+        content: String(m.content || '').slice(0, 1200),
+      }))
 
-همیشه فارسی روان و صمیمی حرف بزن. هدف تو: آموزش، ارزیابی و پیشنهاد مسیر رشد است.`
-
-    const openaiMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m) => ({
-          role: m.role,
-          content: String(m.content || '').slice(0, 4000),
-        })),
-    ]
+    const openaiMessages = [{ role: 'system', content: systemPrompt }, ...recent]
 
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -63,32 +66,24 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: openaiMessages,
-        temperature: 0.7,
-        max_tokens: 1200,
+        temperature: 0.55,
+        max_tokens: 280,
       }),
     })
 
     const text = await resp.text()
     if (!resp.ok) {
-      return NextResponse.json(
-        { success: false, error: 'خطا از GapGPT', details: text },
-        { status: 502 }
-      )
+      return NextResponse.json({ success: false, error: 'خطا از GapGPT', details: text }, { status: 502 })
     }
 
     const data = JSON.parse(text)
     const content = data?.choices?.[0]?.message?.content || 'پاسخی دریافت نشد.'
-
     return NextResponse.json({ success: true, content })
-  } catch (error) {
-    console.error('API Error:', error)
-    return NextResponse.json(
-      { success: false, error: 'خطای داخلی سرور' },
-      { status: 500 }
-    )
+  } catch {
+    return NextResponse.json({ success: false, error: 'خطای داخلی سرور' }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'gapgpt' })
+  return NextResponse.json({ status: 'ok', api: 'chatbot' })
 }
