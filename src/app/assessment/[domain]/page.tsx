@@ -460,9 +460,7 @@ ${localInsight.book.reason}`
             : '',
         ]
           .filter(Boolean)
-          .join('
-
-'),
+          .join('\n\n'),
       }
 
       setMessages((prev) => [...prev, enrich])
@@ -485,9 +483,7 @@ ${localInsight.book.reason}`
               : '',
           ]
             .filter(Boolean)
-            .join('
-
-'),
+            .join('\n\n'),
         },
       ])
     } finally {
