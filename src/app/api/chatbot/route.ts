@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         })),
     ]
 
-    const resp = await fetch(`${baseUrl}/chat/completations`, {
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
