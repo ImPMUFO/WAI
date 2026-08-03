@@ -132,7 +132,9 @@ function safeArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : []
 }
 
-function pickBook(domain: string, used: string[]) {
+function pickBook(domain: string, used: string[], force = false) {
+  // فقط گاهی کتاب پیشنهاد بده (حدود هر ۳ تبادل یک‌بار)
+  if (!force && Math.random() > 0.34) return null
   const books = domainInfo[domain]?.books || domainInfo.general.books
   return books.find((b) => !used.includes(`${b.title}::${b.author}`)) || books[0] || null
 }
@@ -162,7 +164,7 @@ function buildLocalInsight(domain: string, messages: Message[]): SessionInsight 
     lessonText: hook,
     lessonExample: 'نظر + دلیل + مثال.',
     question: 'همین ایده را با یک مثال تازه می‌گویی؟',
-    book: pickBook(domain, []),
+    book: pickBook(domain, [], false),
   }
 }
 
@@ -357,7 +359,9 @@ export default function AssessmentPage() {
       const withReply: Message[] = [...next, { id: Date.now() + 1, role: 'assistant', content: reply }]
       setMessages(withReply)
       computeInsight(withReply)
-      await updateMapFromChat(withReply)
+      setIsTyping(false)
+      // نقشه در پس‌زمینه؛ چت را قفل نکند
+      void updateMapFromChat(withReply)
     } catch {
       const localInsight = computeInsight(next)
       setMessages((prev) => [
@@ -368,7 +372,6 @@ export default function AssessmentPage() {
           content: `خطا در پاسخ. ادامه بده:\n\n${localInsight.question}`,
         },
       ])
-    } finally {
       setIsTyping(false)
     }
   }
@@ -386,7 +389,7 @@ export default function AssessmentPage() {
     ])
   }
 
-  const currentBook = useMemo(() => insight?.book || pickBook(domain, usedBooks), [insight, domain, usedBooks])
+  const currentBook = useMemo(() => insight?.book || null, [insight])
 
   if (!ready) {
     return (
@@ -499,10 +502,12 @@ export default function AssessmentPage() {
                   <div className="text-[var(--muted)] text-xs mb-1">سطح</div>
                   <div className="font-semibold">{insight.level}</div>
                 </div>
-                <div className="rounded-xl border border-[var(--border)] p-3">
-                  <div className="text-[var(--muted)] text-xs mb-1">کتاب</div>
-                  <div className="font-semibold">{currentBook?.title || '—'}</div>
-                </div>
+                {currentBook && (
+                  <div className="rounded-xl border border-[var(--border)] p-3">
+                    <div className="text-[var(--muted)] text-xs mb-1">کتاب</div>
+                    <div className="font-semibold">{currentBook.title}</div>
+                  </div>
+                )}
               </div>
               <div className="grid gap-3 md:grid-cols-2 text-sm">
                 <div className="rounded-xl border border-[var(--border)] p-3">
