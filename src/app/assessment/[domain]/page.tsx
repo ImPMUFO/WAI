@@ -155,9 +155,8 @@ function chatKey(domain: string) {
   return `wai_chat_${domain}`
 }
 
-function mapKey(domain: string) {
-  return `wai_map_${domain}`
-}
+const MAP_KEY = 'wai_map_unified'
+
 
 function parseAsJson<T>(value: string): T | null {
   try {
@@ -241,7 +240,7 @@ function buildLocalInsight(domain: string, messages: Message[]): SessionInsight 
 
 export default function AssessmentPage() {
   const params = useParams()
-  const domain = (params.domain as string) || 'philosophy'
+  const domain = (params.domain as string) || 'general'
   const info = domainInfo[domain] || domainInfo.philosophy
 
   const [userName, setUserName] = useState('')
@@ -362,14 +361,27 @@ export default function AssessmentPage() {
 
     setMapUpdating(true)
     try {
+      let previousMap = null
+      try {
+        const raw = localStorage.getItem(MAP_KEY)
+        if (raw) previousMap = JSON.parse(raw)
+      } catch {
+        previousMap = null
+      }
+
       const res = await fetch('/api/analyzer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, userName: userName || nameInput || 'کاربر', messages: allMessages }),
+        body: JSON.stringify({
+          domain,
+          userName: userName || nameInput || 'کاربر',
+          messages: allMessages,
+          previousMap,
+        }),
       })
       const data = await res.json().catch(() => null)
       if (data?.success && data.map) {
-        localStorage.setItem(mapKey(domain), JSON.stringify(data.map))
+        localStorage.setItem(MAP_KEY, JSON.stringify(data.map))
         window.dispatchEvent(new Event('wai-map-updated'))
       }
     } catch {
@@ -445,25 +457,6 @@ ${fallback.lessonText}`,
       setMessages(withReply)
       const localInsight = computeInsight(withReply)
       updateMapFromChat(withReply)
-
-      const enrich: Message = {
-        id: Date.now() + 2,
-        role: 'assistant',
-        content: [
-          `${localInsight.lessonTitle}`,
-          localInsight.lessonText,
-          `نکتهٔ جذاب: ${localInsight.lessonExample}`,
-          `سؤال بعدی: ${localInsight.question}`,
-          localInsight.book
-            ? `کتاب پیشنهادی: ${localInsight.book.title} — ${localInsight.book.author}
-${localInsight.book.reason}`
-            : '',
-        ]
-          .filter(Boolean)
-          .join('\n\n'),
-      }
-
-      setMessages((prev) => [...prev, enrich])
     } catch {
       const localInsight = computeInsight(next)
       setMessages((prev) => [
