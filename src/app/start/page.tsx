@@ -1,92 +1,65 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { Brain, Code, BookOpen, Heart, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { ArrowRight } from 'lucide-react'
 
 const domains = [
-  {
-    id: 'philosophy',
-    title: 'فلسفه',
-    description: 'منطق، اخلاق، متافیزیک، معرفت‌شناسی و فلسفه ذهن',
-    icon: Brain,
-    color: 'from-teal-500 to-emerald-600'
-  },
-  {
-    id: 'programming',
-    title: 'برنامه‌نویسی',
-    description: 'الگوریتم، ساختار داده، مفاهیم پایه و تفکر محاسباتی',
-    icon: Code,
-    color: 'from-cyan-500 to-blue-600'
-  },
-  {
-    id: 'history',
-    title: 'تاریخ',
-    description: 'تاریخ ایران، جهان، اندیشه‌ها و تمدن‌ها',
-    icon: BookOpen,
-    color: 'from-amber-500 to-orange-600'
-  },
-  {
-    id: 'psychology',
-    title: 'روان‌شناسی',
-    description: 'شناخت، رفتار، شخصیت و روان‌شناسی شناختی',
-    icon: Heart,
-    color: 'from-rose-500 to-pink-600'
-  },
+  { id: 'general', title: 'گفت‌وگوی آزاد', desc: 'هر موضوعی از دانش', emoji: '🌐' },
+  { id: 'philosophy', title: 'فلسفه', desc: 'منطق، وجود، معرفت', emoji: '🧠' },
+  { id: 'religion', title: 'دین و الهیات', desc: 'ایمان، کلام، ادیان', emoji: '🕌' },
+  { id: 'ethics', title: 'اخلاق', desc: 'خیر، مسئولیت، ارزش', emoji: '⚖️' },
+  { id: 'programming', title: 'برنامه‌نویسی', desc: 'الگوریتم و تفکر محاسباتی', emoji: '💻' },
+  { id: 'math', title: 'ریاضی', desc: 'جبر، حسابان، استدلال', emoji: '📐' },
+  { id: 'physics', title: 'فیزیک', desc: 'مکانیک تا کوانتوم', emoji: '⚛️' },
+  { id: 'chemistry', title: 'شیمی', desc: 'ماده و واکنش‌ها', emoji: '🧪' },
+  { id: 'biology', title: 'زیست‌شناسی', desc: 'حیات، ژنتیک، بدن', emoji: '🧬' },
+  { id: 'history', title: 'تاریخ', desc: 'ایران و جهان', emoji: '📜' },
+  { id: 'psychology', title: 'روان‌شناسی', desc: 'ذهن، رفتار، شخصیت', emoji: '🧩' },
+  { id: 'literature', title: 'ادبیات', desc: 'زبان، روایت، نقد', emoji: '📚' },
+  { id: 'economics', title: 'اقتصاد', desc: 'بازار، نهاد، تصمیم', emoji: '📈' },
 ]
 
 export default function StartPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 rtl">
-      <div className="max-w-5xl mx-auto px-4 py-16 sm:py-24">
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            حوزه مورد نظرت را انتخاب کن
-          </h1>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            سیستم بر اساس انتخاب تو شروع به ارزیابی دانش و ساخت نقشه ذهنی‌ات می‌کند
-          </p>
-        </motion.div>
+    <main className="min-h-screen rtl px-4 py-8 sm:py-12" style={{ color: 'var(--text)' }}>
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">از کجا شروع می‌کنی؟</h1>
+            <p className="text-sm text-[var(--muted)] mt-2 leading-relaxed">
+              یک حوزه را انتخاب کن. همه گفت‌وگوها روی <span className="text-[var(--accent)]">یک نقشه ذهن واحد</span> جمع می‌شوند.
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2 text-sm">
+            <Link href="/map" className="text-[var(--accent)] hover:opacity-80">
+              نقشه کامل ذهن
+            </Link>
+            <Link href="/" className="text-[var(--muted)] hover:opacity-80 inline-flex items-center gap-1">
+              <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+              خانه
+            </Link>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {domains.map((domain, index) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {domains.map((d, i) => (
             <motion.div
-              key={domain.id}
-              initial={{ opacity: 0, y: 20 }}
+              key={d.id}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: i * 0.03 }}
             >
               <Link
-                href={`/assessment/${domain.id}`}
-                className="w-full text-right card hover:border-teal-500/50 hover:bg-white/5 transition-all group block"
+                href={`/assessment/${d.id}`}
+                className="card block h-full hover:border-[var(--accent)]/40 transition-colors"
               >
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${domain.color} flex items-center justify-center mb-4`}>
-                  <domain.icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-teal-300 transition-colors">
-                  {domain.title}
-                </h3>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                  {domain.description}
-                </p>
-                <div className="mt-4 flex items-center gap-2 text-teal-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                  شروع ارزیابی
-                  <ArrowRight className="w-4 h-4" />
-                </div>
+                <div className="text-2xl mb-2">{d.emoji}</div>
+                <h2 className="font-semibold text-base mb-1">{d.title}</h2>
+                <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed">{d.desc}</p>
               </Link>
             </motion.div>
           ))}
-        </div>
-
-        <div className="text-center mt-12">
-          <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
-            ← بازگشت به صفحه اصلی
-          </Link>
         </div>
       </div>
     </main>
