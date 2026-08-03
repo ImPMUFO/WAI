@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Palette } from 'lucide-react'
+import { Palette, Check } from 'lucide-react'
 import { THEMES, THEME_KEY, ThemeId, isThemeId } from '@/lib/themes'
 
 export default function ThemeSwitcher() {
@@ -27,22 +27,18 @@ export default function ThemeSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]/50 transition-colors text-xs sm:text-sm"
-        aria-label="انتخاب تم"
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]/50 transition-all text-xs sm:text-sm"
+        aria-label="پوسته ظاهری"
       >
         <Palette className="w-4 h-4 text-[var(--accent)]" />
-        <span>تم ظاهری</span>
+        <span>پوسته ظاهری</span>
       </button>
 
       {open && (
         <>
-          <button
-            className="fixed inset-0 z-40 cursor-default"
-            aria-label="بستن"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-[min(100vw-2rem,320px)] rounded-2xl border border-[var(--border)] bg-[var(--card-solid)] backdrop-blur-xl shadow-2xl p-3">
-            <p className="text-[11px] text-[var(--muted)] mb-2 px-1">یک تم انتخاب کن</p>
+          <button className="fixed inset-0 z-40 cursor-default" aria-label="بستن" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-[min(100vw-2rem,340px)] rounded-2xl border border-[var(--border)] bg-[var(--card-solid)] backdrop-blur-xl shadow-2xl p-3 animate-in fade-in">
+            <p className="text-[11px] text-[var(--muted)] mb-2 px-1">پوسته ظاهری را انتخاب کن</p>
             <div className="grid grid-cols-1 gap-1.5">
               {THEMES.map((t) => {
                 const active = theme === t.id
@@ -53,7 +49,7 @@ export default function ThemeSwitcher() {
                     onClick={() => apply(t.id)}
                     className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-right transition-all ${
                       active
-                        ? 'bg-[var(--accent)]/15 border border-[var(--accent)]/40'
+                        ? 'bg-[var(--accent)]/15 border border-[var(--accent)]/40 scale-[1.01]'
                         : 'hover:bg-[var(--card)] border border-transparent'
                     }`}
                   >
@@ -61,7 +57,7 @@ export default function ThemeSwitcher() {
                       {t.preview.map((c) => (
                         <span
                           key={c}
-                          className="w-3.5 h-3.5 rounded-full border border-white/20"
+                          className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm"
                           style={{ background: c }}
                         />
                       ))}
@@ -70,9 +66,7 @@ export default function ThemeSwitcher() {
                       <span className="block text-sm font-medium text-[var(--text)]">{t.name}</span>
                       <span className="block text-[10px] text-[var(--muted)]">{t.desc}</span>
                     </span>
-                    {active && (
-                      <span className="mr-auto text-[10px] text-[var(--accent)]">فعال</span>
-                    )}
+                    {active && <Check className="w-4 h-4 mr-auto text-[var(--accent)]" />}
                   </button>
                 )
               })}
