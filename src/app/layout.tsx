@@ -3,23 +3,19 @@ import './globals.css'
 import ThemeProvider from '@/components/ThemeProvider'
 
 export const metadata: Metadata = {
-  title: 'من کیستم؟ پایگاه دانش',
-  description: 'پلتفرم نگاشت دانش دیجیتالی شخصی',
-  keywords: ['دانش', 'یادگیری', 'فلسفه', 'Knowledge', 'Learning'],
-  authors: [{ name: 'WAI' }],
+  title: 'WAIMA | من کیستم؟ | ترسیم‌گر ذهنی',
+  description: 'WAIMA – ترسیم‌گر ذهنی. گفتگوی هوشمند، نقشه ذهن، یادگیری و پیشرفت.',
+  keywords: ['WAIMA', 'من کیستم', 'ترسیم‌گر ذهنی', 'mind map', 'learning'],
+  authors: [{ name: 'WAIMA' }],
   openGraph: {
     type: 'website',
     locale: 'fa_IR',
-    title: 'من کیستم؟ پایگاه دانش',
-    description: 'پلتفرم نگاشت دانش دیجیتالی شخصی',
+    title: 'WAIMA | من کیستم؟',
+    description: 'ترسیم‌گر ذهنی – یادگیری گفتگویی و نقشه دانش شخصی',
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
       <head>
