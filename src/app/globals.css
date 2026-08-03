@@ -189,3 +189,60 @@
 [data-theme] .bg-teal-500\/10 {
   background-color: var(--accent-dim) !important;
 }
+
+[data-theme='day'] body {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(125, 211, 252, 0.35), transparent),
+    linear-gradient(165deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+}
+
+[data-theme='day']::before {
+  content: '';
+  position: fixed;
+  top: 4%;
+  right: 12%;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fde68a, #f59e0b);
+  box-shadow: 0 0 60px rgba(245, 158, 11, 0.45);
+  pointer-events: none;
+  z-index: 0;
+  animation: waima-float 10s ease-in-out infinite;
+}
+
+[data-theme='ocean'] body {
+  background:
+    radial-gradient(ellipse 100% 40% at 50% 100%, rgba(56, 189, 248, 0.2), transparent),
+    linear-gradient(165deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+}
+
+[data-theme='galaxy'] body {
+  background:
+    radial-gradient(circle at 20% 30%, rgba(168, 85, 247, 0.2), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.15), transparent 40%),
+    linear-gradient(165deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+}
+
+[data-theme='fire'] body {
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 110%, rgba(239, 68, 68, 0.25), transparent),
+    linear-gradient(165deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+}
+
+[data-theme='wood'] body {
+  background:
+    radial-gradient(ellipse 60% 30% at 10% 20%, rgba(167, 139, 112, 0.15), transparent),
+    linear-gradient(165deg, var(--bg0), var(--bg1) 45%, var(--bg2));
+}
+
+@keyframes waima-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(12px); }
+}
+
+/* خوانایی بیشتر متن در پوسته دریایی */
+[data-theme='ocean'] {
+  --text: #f0f9ff;
+  --muted: #e2e8f0;
+}
