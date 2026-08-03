@@ -15,6 +15,9 @@ import {
   Sparkles,
   User,
 } from 'lucide-react'
+import SpeakButton from '@/components/SpeakButton'
+import GamificationBar from '@/components/GamificationBar'
+import { onChatMessage, onMapUpdated } from '@/lib/gamification'
 
 type Book = { title: string; author: string; reason: string }
 type DomainMeta = { title: string; emoji: string; books: Book[]; hooks: string[] }
@@ -295,6 +298,7 @@ export default function AssessmentPage() {
       if (data?.success && data.map) {
         localStorage.setItem(MAP_KEY, JSON.stringify(data.map))
         window.dispatchEvent(new Event('wai-map-updated'))
+        try { onMapUpdated() } catch {}
       }
     } catch {
     } finally {
@@ -359,6 +363,7 @@ export default function AssessmentPage() {
       const withReply: Message[] = [...next, { id: Date.now() + 1, role: 'assistant', content: reply }]
       setMessages(withReply)
       computeInsight(withReply)
+      try { onChatMessage(domain) } catch {}
       setIsTyping(false)
       // نقشه در پس‌زمینه؛ چت را قفل نکند
       void updateMapFromChat(withReply)
@@ -446,6 +451,9 @@ export default function AssessmentPage() {
             <button onClick={clearChat} className="text-[10px] sm:text-xs text-[var(--muted)]">
               گفت‌وگوی جدید
             </button>
+            <Link href="/play" className="text-[10px] sm:text-xs text-[var(--muted)]">
+              بازی‌ها
+            </Link>
             <Link href="/map" className="text-[10px] sm:text-xs text-[var(--accent)] inline-flex items-center gap-1">
               <Map className="w-3.5 h-3.5" />
               نقشه ذهن
@@ -460,6 +468,7 @@ export default function AssessmentPage() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+          <GamificationBar compact />
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
               <motion.div
@@ -476,9 +485,12 @@ export default function AssessmentPage() {
                   }`}
                 >
                   {msg.role === 'assistant' && (
-                    <div className="flex items-center gap-1.5 mb-1.5 text-[var(--accent)]">
-                      <Brain className="w-3.5 h-3.5" />
-                      <span className="text-[10px] sm:text-xs">ارزیاب</span>
+                    <div className="flex items-center justify-between gap-2 mb-1.5 text-[var(--accent)]">
+                      <div className="flex items-center gap-1.5">
+                        <Brain className="w-3.5 h-3.5" />
+                        <span className="text-[10px] sm:text-xs">ارزیاب</span>
+                      </div>
+                      <SpeakButton text={msg.content} />
                     </div>
                   )}
                   {msg.content}
