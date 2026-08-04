@@ -10,48 +10,91 @@ export default function AccountPage() {
   const [name, setName] = useState('')
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
-  const [mapSummary, setMapSummary] = useState<string>('')
+  const [mapSummary, setMapSummary] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const run = async () => {
-      if (!isSupabaseConfigured()) {
-        setStatus('Supabase تنظیم نشده.')
+      try {
+        if (!isSupabaseConfigured()) {
+          setError('Supabase تنظیم نشده است.')
+          return
+        }
+
+        const supabase = createClient()
+        const { data: authData, error: authErr } = await supabase.auth.getUser()
+        if (authErr) throw authErr
+        if (!authData.user) {
+          window.location.href = '/auth'
+          return
+        }
+
+        const user = authData.user
+        setEmail(user.email ?? null)
+
+        // اگر پروفایل نبود بساز
+        const { data: profile, error: profileErr } = await supabase
+          .from('profiles')
+          .select('display_name, xp, level, locale, theme')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (profileErr) {
+          console.warn('profile select', profileErr.message)
+        }
+
+        if (!profile) {
+          const display =
+            (user.user_metadata?.display_name as string) ||
+            user.email?.split('@')[0] ||
+            'کاربر'
+          const { error: insErr } = await supabase.from('profiles').upsert({
+            id: user.id,
+            display_name: display,
+            updated_at: new Date().toISOString(),
+          })
+          if (insErr) {
+            console.warn('profile upsert', insErr.message)
+            setError(
+              'پروفایل ساخته نشد. در SQL این را Run کن: policy درج profiles. جزئیات: ' +
+                insErr.message
+            )
+          }
+          setName(display)
+          setStatus('پروفایل جدید ساخته شد')
+        } else {
+          if (profile.display_name) setName(profile.display_name)
+          setStatus(`سطح ${profile.level ?? 1} · XP ${profile.xp ?? 0}`)
+        }
+
+        // همگام‌سازی را خطا ندهد صفحه را
+        try {
+          await migrateLocalToServerIfNeeded()
+        } catch (e) {
+          console.warn('migrate', e)
+        }
+
+        try {
+          const map = await loadMindMapFromServer()
+          if (map?.summary) setMapSummary(String(map.summary))
+        } catch (e) {
+          console.warn('map', e)
+        }
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'خطا در بارگذاری حساب')
+      } finally {
         setLoading(false)
-        return
       }
-      const supabase = createClient()
-      const { data } = await supabase.auth.getUser()
-      if (!data.user) {
-        window.location.href = '/auth'
-        return
-      }
-      setEmail(data.user.email ?? null)
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('display_name, xp, level, locale, theme')
-        .eq('id', data.user.id)
-        .maybeSingle()
-
-      if (profile?.display_name) setName(profile.display_name)
-
-      await migrateLocalToServerIfNeeded()
-      const map = await loadMindMapFromServer()
-      if (map?.summary) setMapSummary(String(map.summary))
-
-      setStatus(
-        profile
-          ? `سطح ${profile.level ?? 1} · XP ${profile.xp ?? 0}`
-          : 'پروفایل آماده است'
-      )
-      setLoading(false)
     }
+
     void run()
   }, [])
 
   const saveName = async () => {
+    setError('')
     const res = await upsertProfilePatch({ display_name: name.trim() })
-    setStatus(res.ok ? 'نام ذخیره شد.' : res.reason)
+    if (res.ok) setStatus('نام ذخیره شد.')
+    else setError(res.reason || 'خطا در ذخیره')
   }
 
   const logout = async () => {
@@ -82,6 +125,7 @@ export default function AccountPage() {
           </p>
           <p className="text-[var(--muted)]">{status}</p>
           {mapSummary && <p className="text-[var(--muted)]">آخرین نقشه: {mapSummary}</p>}
+          {error && <p className="text-rose-400 text-sm leading-relaxed">{error}</p>}
         </div>
 
         <div className="space-y-2">
