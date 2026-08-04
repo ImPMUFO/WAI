@@ -13,6 +13,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState<'info' | 'ok' | 'err'>('info')
   const [loading, setLoading] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
 
@@ -24,10 +25,15 @@ export default function AuthPage() {
     })
   }, [])
 
+  const setMessage = (text: string, type: 'info' | 'ok' | 'err' = 'info') => {
+    setMsg(text)
+    setMsgType(type)
+  }
+
   const submit = async () => {
     setMsg('')
     if (!isSupabaseConfigured()) {
-      setMsg('Supabase هنوز تنظیم نشده است.')
+      setMessage('Supabase هنوز تنظیم نشده است.', 'err')
       return
     }
     setLoading(true)
@@ -36,43 +42,84 @@ export default function AuthPage() {
 
       if (mode === 'forgot') {
         if (!email.trim()) {
-          setMsg('ایمیل را وارد کن.')
+          setMessage('ایمیل را وارد کن.', 'err')
           return
         }
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth` : undefined,
         })
         if (error) throw error
-        setMsg('اگر ایمیل درست باشد، لینک بازیابی ارسال شد.')
+        setMessage(
+          'اگر این ایمیل ثبت شده باشد، لینک بازیابی رمز برایت ارسال شد. صندوق ورودی و پوشه Spam را چک کن.',
+          'ok'
+        )
         return
       }
 
       if (!email.trim() || password.length < 6) {
-        setMsg('ایمیل و رمز (حداقل ۶ کاراکتر) لازم است.')
+        setMessage('ایمیل و رمز (حداقل ۶ کاراکتر) لازم است.', 'err')
         return
       }
 
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: { data: { display_name: name.trim() || undefined } },
         })
         if (error) throw error
-        setMsg('ثبت‌نام انجام شد. حالا می‌توانی وارد شوی.')
+
+        // اگر سشن بلافاصله آمد یعنی Confirm email خاموش است
+        if (data.session) {
+          await migrateLocalToServerIfNeeded()
+          setMessage('ثبت‌نام و ورود انجام شد.', 'ok')
+          window.location.href = '/account'
+          return
+        }
+
+        setMessage(
+          'ثبت‌نام اولیه انجام شد.\n\n' +
+            '۱) به صندوق ایمیل خودت برو (گاهی در Spam است).\n' +
+            '۲) ایمیل تأیید WAIMA / Supabase را باز کن.\n' +
+            '۳) روی لینک تأیید کلیک کن تا ایمیلت تأیید شود.\n' +
+            '۴) بعد به همین صفحه برگرد و از بخش «ورود» وارد حساب شو.\n\n' +
+            'تا وقتی روی لینک نزنید، ورود کامل نمی‌شود و حساب فعال نمی‌گردد.',
+          'ok'
+        )
         setMode('login')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         })
-        if (error) throw error
+        if (error) {
+          const m = (error.message || '').toLowerCase()
+          if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+            setMessage(
+              'ایمیلت هنوز تأیید نشده است.\n\n' +
+                'لطفاً صندوق ورودی (و Spam) را باز کن، روی لینک تأیید داخل ایمیل بزن، ' +
+                'بعد دوباره از اینجا وارد شو.\n\n' +
+                'تا قبل از تأیید لینک، حسابت کامل فعال نمی‌شود.',
+              'err'
+            )
+            return
+          }
+          if (m.includes('invalid login') || m.includes('invalid credentials')) {
+            setMessage('ایمیل یا رمز اشتباه است. اگر تازه ثبت‌نام کردی، اول ایمیلت را از طریق لینک تأیید کن.', 'err')
+            return
+          }
+          throw error
+        }
+        if (!data.session) {
+          setMessage('ورود کامل نشد. اگر ایمیلت را تأیید کرده‌ای، دوباره تلاش کن.', 'err')
+          return
+        }
         await migrateLocalToServerIfNeeded()
-        setMsg('ورود موفق بود. داده‌های محلی به حساب منتقل می‌شوند...')
+        setMessage('ورود موفق بود. در حال رفتن به حساب...', 'ok')
         window.location.href = '/account'
       }
     } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'خطا در احراز هویت')
+      setMessage(e instanceof Error ? e.message : 'خطا در احراز هویت', 'err')
     } finally {
       setLoading(false)
     }
@@ -83,8 +130,15 @@ export default function AuthPage() {
     const supabase = createClient()
     await supabase.auth.signOut()
     setUserEmail(null)
-    setMsg('خارج شدی.')
+    setMessage('خارج شدی.', 'info')
   }
+
+  const msgClass =
+    msgType === 'ok'
+      ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+      : msgType === 'err'
+        ? 'text-rose-300 border-rose-500/30 bg-rose-500/10'
+        : 'text-[var(--muted)] border-[var(--border)] bg-[var(--card)]'
 
   return (
     <main className="min-h-screen rtl flex items-center justify-center px-4" style={{ color: 'var(--text)' }}>
@@ -92,6 +146,11 @@ export default function AuthPage() {
         <div>
           <h1 className="text-xl font-bold">WAIMA</h1>
           <p className="text-sm text-[var(--muted)]">من کیستم؟ · ترسیم‌گر ذهنی</p>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-xs sm:text-sm text-[var(--muted)] leading-relaxed">
+          بعد از ثبت‌نام، یک ایمیل تأیید برایت ارسال می‌شود. باید روی لینک داخل آن ایمیل بزنی تا
+          ایمیلت تأیید شود و حسابت فعال گردد. بعد می‌توانی وارد شوی.
         </div>
 
         {userEmail && (
@@ -120,7 +179,10 @@ export default function AuthPage() {
           ).map(([id, label]) => (
             <button
               key={id}
-              onClick={() => setMode(id)}
+              onClick={() => {
+                setMode(id)
+                setMsg('')
+              }}
               className={`flex-1 py-2 rounded-lg border text-xs sm:text-sm ${
                 mode === id ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
               }`}
@@ -168,7 +230,11 @@ export default function AuthPage() {
                 : 'ارسال لینک بازیابی'}
         </button>
 
-        {msg && <p className="text-sm text-[var(--muted)] leading-relaxed whitespace-pre-wrap">{msg}</p>}
+        {msg && (
+          <div className={`rounded-xl border p-3 text-sm leading-relaxed whitespace-pre-wrap ${msgClass}`}>
+            {msg}
+          </div>
+        )}
 
         <Link href="/" className="block text-center text-sm text-[var(--muted)]">
           بازگشت
