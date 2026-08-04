@@ -18,6 +18,11 @@ import {
 import SpeakButton from '@/components/SpeakButton'
 import GamificationBar from '@/components/GamificationBar'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
+import {
+  saveConversationToServer,
+  loadConversationFromServer,
+  saveMindMapToServer,
+} from '@/lib/sync'
 
 type Book = { title: string; author: string; reason: string }
 type DomainMeta = { title: string; emoji: string; books: Book[]; hooks: string[] }
@@ -211,6 +216,15 @@ export default function AssessmentPage() {
         return
       }
     }
+
+    // اگر محلی نبود از سرور بگیر
+    loadConversationFromServer(domain).then((remote) => {
+      if (remote?.length) {
+        setMessages(remote)
+        startedRef.current = true
+        setReady(true)
+      }
+    })
     if (savedName) {
       setMessages([
         {
@@ -226,7 +240,8 @@ export default function AssessmentPage() {
   useEffect(() => {
     if (!ready || messages.length === 0) return
     localStorage.setItem(chatKey(domain), JSON.stringify(messages))
-  }, [messages, domain, ready])
+    void saveConversationToServer(domain, messages, info.title)
+  }, [messages, domain, ready, info.title])
 
   useEffect(() => {
     if (!ready) return
@@ -299,6 +314,7 @@ export default function AssessmentPage() {
         localStorage.setItem(MAP_KEY, JSON.stringify(data.map))
         window.dispatchEvent(new Event('wai-map-updated'))
         try { onMapUpdated() } catch {}
+        void saveMindMapToServer(data.map)
       }
     } catch {
     } finally {
