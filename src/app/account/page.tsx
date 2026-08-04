@@ -5,108 +5,191 @@ import Link from 'next/link'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { migrateLocalToServerIfNeeded, loadMindMapFromServer, upsertProfilePatch } from '@/lib/sync'
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`زمان‌تمام: ${label}`)), ms)
+    promise.then(
+      (v) => {
+        clearTimeout(t)
+        resolve(v)
+      },
+      (e) => {
+        clearTimeout(t)
+        reject(e)
+      }
+    )
+  })
+}
+
 export default function AccountPage() {
   const [email, setEmail] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState('—')
   const [loading, setLoading] = useState(true)
   const [mapSummary, setMapSummary] = useState('')
   const [error, setError] = useState('')
+  const [hint, setHint] = useState('')
 
   useEffect(() => {
+    let cancelled = false
+
     const run = async () => {
       try {
         if (!isSupabaseConfigured()) {
-          setError('Supabase تنظیم نشده است.')
+          if (!cancelled) {
+            setError('کلیدهای Supabase روی Vercel تنظیم نشده یا بعد از تنظیم Redeploy نشده.')
+            setLoading(false)
+          }
           return
         }
 
         const supabase = createClient()
-        const { data: authData, error: authErr } = await supabase.auth.getUser()
-        if (authErr) throw authErr
-        if (!authData.user) {
+
+        // سریع‌تر از getUser: اول سشن محلی
+        const sessionRes = await withTimeout(supabase.auth.getSession(), 6000, 'getSession')
+        const sessionUser = sessionRes.data.session?.user
+
+        if (!sessionUser) {
+          // یک‌بار هم با getUser امتحان کن
+          try {
+            const userRes = await withTimeout(supabase.auth.getUser(), 6000, 'getUser')
+            if (!userRes.data.user) {
+              window.location.href = '/auth'
+              return
+            }
+          } catch {
+            window.location.href = '/auth'
+            return
+          }
+        }
+
+        const user = sessionUser || (await supabase.auth.getUser()).data.user
+        if (!user) {
           window.location.href = '/auth'
           return
         }
 
-        const user = authData.user
+        if (cancelled) return
+
+        // همین‌جا UI را باز کن — دیگر منتظر sync نباش
         setEmail(user.email ?? null)
-
-        // اگر پروفایل نبود بساز
-        const { data: profile, error: profileErr } = await supabase
-          .from('profiles')
-          .select('display_name, xp, level, locale, theme')
-          .eq('id', user.id)
-          .maybeSingle()
-
-        if (profileErr) {
-          console.warn('profile select', profileErr.message)
-        }
-
-        if (!profile) {
-          const display =
-            (user.user_metadata?.display_name as string) ||
+        setName(
+          (user.user_metadata?.display_name as string) ||
             user.email?.split('@')[0] ||
             'کاربر'
-          const { error: insErr } = await supabase.from('profiles').upsert({
-            id: user.id,
-            display_name: display,
-            updated_at: new Date().toISOString(),
-          })
-          if (insErr) {
-            console.warn('profile upsert', insErr.message)
-            setError(
-              'پروفایل ساخته نشد. در SQL این را Run کن: policy درج profiles. جزئیات: ' +
-                insErr.message
-            )
-          }
-          setName(display)
-          setStatus('پروفایل جدید ساخته شد')
-        } else {
-          if (profile.display_name) setName(profile.display_name)
-          setStatus(`سطح ${profile.level ?? 1} · XP ${profile.xp ?? 0}`)
-        }
-
-        // همگام‌سازی را خطا ندهد صفحه را
-        try {
-          await migrateLocalToServerIfNeeded()
-        } catch (e) {
-          console.warn('migrate', e)
-        }
-
-        try {
-          const map = await loadMindMapFromServer()
-          if (map?.summary) setMapSummary(String(map.summary))
-        } catch (e) {
-          console.warn('map', e)
-        }
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'خطا در بارگذاری حساب')
-      } finally {
+        )
+        setStatus('وارد شده‌ای')
         setLoading(false)
+
+        // بقیه در پس‌زمینه
+        void (async () => {
+          try {
+            const { data: profile, error: profileErr } = await withTimeout(
+              supabase
+                .from('profiles')
+                .select('display_name, xp, level, locale, theme')
+                .eq('id', user.id)
+                .maybeSingle(),
+              8000,
+              'profile'
+            )
+
+            if (profileErr) {
+              setHint('خواندن پروفایل: ' + profileErr.message)
+            }
+
+            if (!profile) {
+              const display =
+                (user.user_metadata?.display_name as string) ||
+                user.email?.split('@')[0] ||
+                'کاربر'
+              const { error: insErr } = await supabase.from('profiles').upsert({
+                id: user.id,
+                display_name: display,
+                updated_at: new Date().toISOString(),
+              })
+              if (insErr) {
+                setHint(
+                  'ساخت پروفایل ممکن نشد. در Supabase این SQL را Run کن:\n' +
+                    'create policy "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);\n' +
+                    'جزئیات: ' +
+                    insErr.message
+                )
+              } else {
+                setStatus('پروفایل ساخته شد')
+              }
+              setName(display)
+            } else {
+              if (profile.display_name) setName(profile.display_name)
+              setStatus(`سطح ${profile.level ?? 1} · XP ${profile.xp ?? 0}`)
+            }
+          } catch (e: unknown) {
+            setHint(e instanceof Error ? e.message : 'خطا در پروفایل')
+          }
+
+          try {
+            await withTimeout(migrateLocalToServerIfNeeded(), 10000, 'migrate')
+          } catch {
+            /* نادیده */
+          }
+
+          try {
+            const map = await withTimeout(loadMindMapFromServer(), 8000, 'map')
+            if (map?.summary) setMapSummary(String(map.summary))
+          } catch {
+            /* نادیده */
+          }
+        })()
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setError(
+            (e instanceof Error ? e.message : 'خطا در بارگذاری حساب') +
+              '\nاگر تازه لاگین کردی یک‌بار از /auth دوباره وارد شو.'
+          )
+          setLoading(false)
+        }
       }
     }
 
     void run()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const saveName = async () => {
     setError('')
-    const res = await upsertProfilePatch({ display_name: name.trim() })
-    if (res.ok) setStatus('نام ذخیره شد.')
-    else setError(res.reason || 'خطا در ذخیره')
+    try {
+      const res = await withTimeout(
+        upsertProfilePatch({ display_name: name.trim() }),
+        8000,
+        'saveName'
+      )
+      if (res.ok) setStatus('نام ذخیره شد.')
+      else setError(res.reason || 'خطا در ذخیره')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'خطا در ذخیره')
+    }
   }
 
   const logout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch {
+      /* ignore */
+    }
     window.location.href = '/auth'
   }
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center" style={{ color: 'var(--text)' }}>
-        در حال بارگذاری حساب...
+      <main className="min-h-screen flex flex-col items-center justify-center gap-3 px-4" style={{ color: 'var(--text)' }}>
+        <p>در حال بارگذاری حساب...</p>
+        <p className="text-xs text-[var(--muted)] text-center">اگر بیش از چند ثانیه ماند، به صفحه ورود برگرد.</p>
+        <Link href="/auth" className="text-sm text-[var(--accent)]">
+          رفتن به ورود
+        </Link>
       </main>
     )
   }
@@ -121,11 +204,20 @@ export default function AccountPage() {
 
         <div className="text-sm space-y-1">
           <p>
-            ایمیل: <span className="text-[var(--accent)]">{email}</span>
+            ایمیل: <span className="text-[var(--accent)]">{email || '—'}</span>
           </p>
           <p className="text-[var(--muted)]">{status}</p>
           {mapSummary && <p className="text-[var(--muted)]">آخرین نقشه: {mapSummary}</p>}
-          {error && <p className="text-rose-400 text-sm leading-relaxed">{error}</p>}
+          {error && (
+            <p className="text-rose-300 text-sm leading-relaxed whitespace-pre-wrap border border-rose-500/30 rounded-xl p-3">
+              {error}
+            </p>
+          )}
+          {hint && (
+            <p className="text-amber-200/90 text-xs leading-relaxed whitespace-pre-wrap border border-amber-500/30 rounded-xl p-3">
+              {hint}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
