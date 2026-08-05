@@ -3,8 +3,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { useLocale } from '@/lib/i18n/useLocale'
-import { localeMeta } from '@/lib/i18n/dictionaries'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 
 const domains = [
   { id: 'general', title: { fa: 'گفت‌وگوی آزاد', en: 'Open talk', ar: 'حوار حر' }, desc: { fa: 'هر موضوعی از دانش', en: 'Any knowledge topic', ar: 'أي موضوع معرفي' }, emoji: '🌐' },
@@ -23,8 +22,7 @@ const domains = [
 ]
 
 export default function StartPage() {
-  const { locale, dict } = useLocale()
-  const dir = localeMeta[locale].dir
+  const { locale, dict, dir } = useLocale()
 
   return (
     <main className="min-h-screen px-4 py-8 sm:py-12" dir={dir} style={{ color: 'var(--text)' }}>
