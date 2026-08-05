@@ -16,12 +16,13 @@ const fa = {
   featuresTitle: 'چرا WAIMA؟',
   feature1Title: 'گفتگوی هوشمند',
   feature1Desc: 'ارزیابی و آموزش در یک گفتگوی کوتاه و زنده',
-  feature2Title: 'نقشه ذهن',
+  feature2Title: 'نقشه ذهنی',
   feature2Desc: 'ببین چه می‌دانی و افق یادگیری‌ات کجاست',
   feature3Title: 'پیشرفت و بازی',
   feature3Desc: 'امتیاز، مأموریت و بازی‌های آموزشی',
   chooseDomain: 'از کجا شروع می‌کنی؟',
-  mindMap: 'نقشه ذهن',
+  chooseDomainHint: 'یک حوزه را انتخاب کن. همه گفتگوها روی یک نقشه ذهنی واحد جمع می‌شوند.',
+  mindMap: 'نقشه ذهنی',
   games: 'بازی‌ها',
   login: 'ورود',
   signup: 'ثبت‌نام',
@@ -29,7 +30,10 @@ const fa = {
   language: 'زبان',
   appearance: 'پوسته ظاهری',
   ctaTitle: 'ذهنت را ترسیم کن',
-  ctaBody: 'با گفتگو، بازی و نقشه ذهن مسیر رشدت را ببین.',
+  ctaBody: 'با گفتگو، بازی و نقشه ذهنی مسیر رشدت را ببین.',
+  home: 'خانه',
+  account: 'حساب من',
+  beta: 'نسخه زنده',
 }
 
 const en: typeof fa = {
@@ -45,6 +49,7 @@ const en: typeof fa = {
   feature3Title: 'Progress & play',
   feature3Desc: 'XP, missions, and learning games',
   chooseDomain: 'Where do you start?',
+  chooseDomainHint: 'Pick a field. Every conversation updates one unified mind map.',
   mindMap: 'Mind map',
   games: 'Games',
   login: 'Log in',
@@ -54,6 +59,9 @@ const en: typeof fa = {
   appearance: 'Appearance',
   ctaTitle: 'Map your mind',
   ctaBody: 'Learn through dialogue, play, and your living mind map.',
+  home: 'Home',
+  account: 'My account',
+  beta: 'Live version',
 }
 
 const ar: typeof fa = {
@@ -69,6 +77,7 @@ const ar: typeof fa = {
   feature3Title: 'تقدّم وألعاب',
   feature3Desc: 'نقاط ومهام وألعاب تعليمية',
   chooseDomain: 'من أين تبدأ؟',
+  chooseDomainHint: 'اختر مجالاً. كل حوار يغذي خريطة ذهنية واحدةحدة.',
   mindMap: 'الخريطة الذهنية',
   games: 'الألعاب',
   login: 'تسجيل الدخول',
@@ -78,6 +87,9 @@ const ar: typeof fa = {
   appearance: 'المظهر',
   ctaTitle: 'ارسم عقلك',
   ctaBody: 'تعلّم بالحوار واللعب وخريطتك الذهنية.',
+  home: 'الرئيسية',
+  account: 'حسابي',
+  beta: 'النسخة الحية',
 }
 
 export const dictionaries = { fa, en, ar }
@@ -86,3 +98,5 @@ export type Dictionary = typeof fa
 export function getDictionary(locale: Locale): Dictionary {
   return dictionaries[locale] || dictionaries.fa
 }
+
+export const LANG_KEY = 'waima_locale'
