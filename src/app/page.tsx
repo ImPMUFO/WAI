@@ -5,6 +5,8 @@ import { Brain, Map as MapIcon, Gamepad2, ArrowRight, Sparkles } from 'lucide-re
 import Link from 'next/link'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import { useLocale } from '@/lib/i18n/useLocale'
+import { localeMeta } from '@/lib/i18n/dictionaries'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -16,16 +18,19 @@ const staggerContainer = {
 }
 
 export default function Home() {
+  const { locale, dict } = useLocale()
+  const dir = localeMeta[locale].dir
+
   return (
-    <main className="min-h-screen rtl">
+    <main className="min-h-screen" dir={dir} style={{ color: 'var(--text)' }}>
       <nav className="sticky top-0 z-50 backdrop-blur-lg border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--bg0)_70%,transparent)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="text-2xl sm:text-3xl shrink-0">🧠</div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-xl font-bold leading-tight truncate">WAIMA</h1>
+              <h1 className="text-base sm:text-xl font-bold leading-tight truncate">{dict.brandName}</h1>
               <p className="text-[10px] sm:text-xs text-[var(--accent)]/90">
-                من کیستم؟ · ترسیم‌گر ذهنی
+                {dict.brandTag} · {dict.brandSub}
               </p>
             </div>
           </div>
@@ -33,7 +38,7 @@ export default function Home() {
             <LanguageSwitcher />
             <ThemeSwitcher />
             <Link href="/auth" className="text-xs sm:text-sm text-[var(--muted)] hover:text-[var(--accent)] px-2">
-              ورود
+              {dict.login}
             </Link>
           </div>
         </div>
@@ -55,17 +60,17 @@ export default function Home() {
             <motion.div variants={fadeInUp} className="space-y-3 sm:space-y-5">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-[var(--border)] bg-[var(--accent-dim)]">
                 <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent)]" />
-                <span className="text-xs sm:text-sm text-[var(--accent)]">WAIMA</span>
+                <span className="text-xs sm:text-sm text-[var(--accent)]">{dict.beta}</span>
               </div>
 
               <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                من کیستم؟
+                {dict.brandTag}
                 <br />
-                <span className="text-[var(--accent)]">ترسیم‌گر ذهنی</span>
+                <span className="text-[var(--accent)]">{dict.brandSub}</span>
               </h2>
 
               <p className="text-base sm:text-lg md:text-xl text-[var(--muted)] max-w-2xl mx-auto leading-relaxed px-1">
-                با گفتگو بیاموز، نقشه‌ات را ببین، بازی کن و رشدت را دنبال کن.
+                {dict.ctaBody}
               </p>
             </motion.div>
 
@@ -74,14 +79,14 @@ export default function Home() {
                 href="/start"
                 className="btn-primary flex items-center justify-center gap-2 px-6 py-3 sm:px-8 sm:py-3.5 text-base sm:text-lg"
               >
-                شروع کنید
-                <ArrowRight className="w-5 h-5" />
+                {dict.start}
+                <ArrowRight className={`w-5 h-5 ${dir === 'rtl' ? '' : 'rotate-180'}`} />
               </Link>
               <Link href="/map" className="btn-secondary px-5 py-3 text-sm sm:text-base">
-                نقشه ذهن
+                {dict.mindMap}
               </Link>
               <Link href="/play" className="btn-secondary px-5 py-3 text-sm sm:text-base">
-                بازی‌ها
+                {dict.games}
               </Link>
             </motion.div>
           </motion.div>
@@ -90,12 +95,12 @@ export default function Home() {
 
       <section className="py-14 sm:py-16 border-t border-[var(--border)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-xl sm:text-2xl font-bold mb-8">چرا WAIMA؟</h2>
+          <h2 className="text-center text-xl sm:text-2xl font-bold mb-8">{dict.featuresTitle}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { icon: Brain, title: 'گفتگوی هوشمند', desc: 'آموزش و سنجش در یک مکالمه کوتاه' },
-              { icon: MapIcon, title: 'نقشه ذهن', desc: 'معلوم‌ها روشن، افق‌ها در مه' },
-              { icon: Gamepad2, title: 'پیشرفت و بازی', desc: 'امتیاز، مأموریت و چالش آموزشی' },
+              { icon: Brain, title: dict.feature1Title, desc: dict.feature1Desc },
+              { icon: MapIcon, title: dict.feature2Title, desc: dict.feature2Desc },
+              { icon: Gamepad2, title: dict.feature3Title, desc: dict.feature3Desc },
             ].map((item, idx) => (
               <div key={idx} className="card text-center py-6">
                 <item.icon className="w-8 h-8 mx-auto mb-3 text-[var(--accent)]" />
@@ -108,8 +113,10 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-[var(--border)] py-8 text-center text-[var(--muted)]">
-        <p className="text-sm font-medium">WAIMA</p>
-        <p className="text-xs mt-1 opacity-70">من کیستم؟ · ترسیم‌گر ذهنی</p>
+        <p className="text-sm font-medium">{dict.brandName}</p>
+        <p className="text-xs mt-1 opacity-70">
+          {dict.brandTag} · {dict.brandSub}
+        </p>
       </footer>
     </main>
   )
