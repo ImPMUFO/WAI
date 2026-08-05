@@ -84,15 +84,19 @@ export default function AccountPage() {
         // بقیه در پس‌زمینه
         void (async () => {
           try {
-            const { data: profile, error: profileErr } = await withTimeout(
-              supabase
-                .from('profiles')
-                .select('display_name, xp, level, locale, theme')
-                .eq('id', user.id)
-                .maybeSingle(),
+            const profileRes = await withTimeout(
+              Promise.resolve(
+                supabase
+                  .from('profiles')
+                  .select('display_name, xp, level, locale, theme')
+                  .eq('id', user.id)
+                  .maybeSingle()
+              ),
               8000,
               'profile'
             )
+            const profile = (profileRes as any)?.data
+            const profileErr = (profileRes as any)?.error
 
             if (profileErr) {
               setHint('خواندن پروفایل: ' + profileErr.message)
