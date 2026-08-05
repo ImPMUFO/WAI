@@ -5,8 +5,7 @@ import { Brain, Map as MapIcon, Gamepad2, ArrowRight, Sparkles } from 'lucide-re
 import Link from 'next/link'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
-import { useLocale } from '@/lib/i18n/useLocale'
-import { localeMeta } from '@/lib/i18n/dictionaries'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -18,8 +17,7 @@ const staggerContainer = {
 }
 
 export default function Home() {
-  const { locale, dict } = useLocale()
-  const dir = localeMeta[locale].dir
+  const { locale, dict, dir } = useLocale()
 
   return (
     <main className="min-h-screen" dir={dir} style={{ color: 'var(--text)' }}>
