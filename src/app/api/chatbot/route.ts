@@ -27,30 +27,43 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const messages = body?.messages as { role: 'user' | 'assistant' | 'system'; content: string }[]
     const domain = (body?.domain as string) || 'general'
+    const suggestBook = Boolean(body?.suggestBook)
+
     if (!messages?.length) {
       return NextResponse.json({ success: false, error: 'messages الزامی است' }, { status: 400 })
     }
 
     const domainTitle = domainNames[domain] || domain
 
-    const systemPrompt = `تو «همراه یادگیری» پلتفرم من کیستم؟ هستی؛ صمیمی، دقیق، غیرخسته‌کننده.
+    const bookRule = suggestBook
+      ? `
+الان وقت پیشنهاد کتاب است.
+در پایان پاسخ، دقیقا در ۳ خط جدا و با همین قالب بنویس:
+کتاب پیشنهادی: <نام کتاب>
+نویسنده: <نام نویسنده یا «نامشخص»>
+چرا این کتاب: <یک دلیل کوتاه مرتبط با همین گفتگو>
+کتاب باید با موضوع و سطح همین مکالمه مرتبط باشد.
+`
+      : `
+هیچ کتابی پیشنهاد نده مگر کاربر صریحاً کتاب بخواهد.
+`
+
+    const systemPrompt = `تو «همراه یادگیری» پلتفرم WAIMA (من کیستم؟ · ترسیم‌گر ذهنی) هستی.
+صمیمی، دقیق، غیرخسته‌کننده.
 حوزه: ${domainTitle}
 
 سبک:
 - فارسی روان و انسانی
-- پاسخ کوتاه تا متوسط (حدود ۶۰ تا ۱۴۰ کلمه) مگر کاربر صریحاً جزئیات بیشتر بخواهد
-- ساختار پیشنهادی وقتی مفید است:
-  ۱) یک نکته کلیدی
-  ۲) یک مثال ملموس
-  ۳) یک سؤال کوتاه برای ادامه فکر
-- از لحن خشک کنکوری پرهیز کن
-- کتاب را فقط گاهی و در یک خط پیشنهاد بده (نه هر پیام)
-- اگر کاربر اشتباه فهمیده، لطیف اصلاح کن و دلیل بگو
-- هدف: یادگیری عمیق + انگیزه ادامه گفتگو`
+- پاسخ کوتاه تا متوسط (حدود ۶۰ تا ۱۴۰ کلمه) مگر کاربر جزئیات بیشتر بخواهد
+- وقتی مفید است: یک نکته کلیدی + یک مثال + یک سؤال کوتاه
+- لحن خشک کنکوری نداشته باش
+- اگر کاربر اشتباه فهمیده، لطیف اصلاح کن
+- هدف: یادگیری عمیق + ادامه گفتگو
+${bookRule}`
 
     const recent = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .slice(-8)
+      .slice(-10)
       .map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1500) }))
 
     const resp = await fetch(`${baseUrl}/chat/completions`, {
@@ -63,7 +76,7 @@ export async function POST(req: NextRequest) {
         model: 'gpt-4o-mini',
         messages: [{ role: 'system', content: systemPrompt }, ...recent],
         temperature: 0.65,
-        max_tokens: 380,
+        max_tokens: suggestBook ? 480 : 380,
       }),
     })
 
@@ -73,12 +86,12 @@ export async function POST(req: NextRequest) {
     }
     const data = JSON.parse(text)
     const content = data?.choices?.[0]?.message?.content || 'پاسخی دریافت نشد.'
-    return NextResponse.json({ success: true, content })
+    return NextResponse.json({ success: true, content, suggestBook })
   } catch {
     return NextResponse.json({ success: false, error: 'خطای داخلی سرور' }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'chatbot-v3' })
+  return NextResponse.json({ status: 'ok', api: 'chatbot-smart-book' })
 }
