@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react'
 import { Palette, Check } from 'lucide-react'
 import { THEMES, THEME_KEY, ThemeId, isThemeId } from '@/lib/themes'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 
 export default function ThemeSwitcher() {
+  const { dict } = useLocale()
   const [theme, setTheme] = useState<ThemeId>('main')
   const [open, setOpen] = useState(false)
 
@@ -28,17 +30,21 @@ export default function ThemeSwitcher() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]/50 transition-all text-xs sm:text-sm"
-        aria-label="پوسته ظاهری"
+        aria-label={dict.appearance}
       >
         <Palette className="w-4 h-4 text-[var(--accent)]" />
-        <span>پوسته ظاهری</span>
+        <span>{dict.appearance}</span>
       </button>
 
       {open && (
         <>
-          <button className="fixed inset-0 z-40 cursor-default" aria-label="بستن" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-[min(100vw-2rem,340px)] rounded-2xl border border-[var(--border)] bg-[var(--card-solid)] backdrop-blur-xl shadow-2xl p-3 animate-in fade-in">
-            <p className="text-[11px] text-[var(--muted)] mb-2 px-1">پوسته ظاهری را انتخاب کن</p>
+          <button
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="close"
+            onClick={() => setOpen(false)}
+          />
+          <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-[min(100vw-2rem,340px)] rounded-2xl border border-[var(--border)] bg-[var(--card-solid)] backdrop-blur-xl shadow-2xl p-3">
+            <p className="text-[11px] text-[var(--muted)] mb-2 px-1">{dict.appearance}</p>
             <div className="grid grid-cols-1 gap-1.5">
               {THEMES.map((t) => {
                 const active = theme === t.id
