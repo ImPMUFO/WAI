@@ -1,6 +1,14 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   LANG_KEY,
   getDictionary,
@@ -19,49 +27,69 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null)
 
+function applyDom(l: Locale) {
+  if (typeof document === 'undefined') return
+  document.documentElement.lang = l
+  document.documentElement.dir = localeMeta[l].dir
+  document.documentElement.setAttribute('data-locale', l)
+}
+
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('fa')
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const saved = (localStorage.getItem(LANG_KEY) as Locale) || 'fa'
-    const next = locales.includes(saved) ? saved : 'fa'
-    setLocaleState(next)
-    document.documentElement.lang = next
-    document.documentElement.dir = localeMeta[next].dir
-    document.documentElement.setAttribute('data-locale', next)
+    try {
+      const saved = localStorage.getItem(LANG_KEY) as Locale | null
+      const next = saved && locales.includes(saved) ? saved : 'fa'
+      setLocaleState(next)
+      applyDom(next)
+    } catch {
+      applyDom('fa')
+    }
+    setReady(true)
   }, [])
 
-  const setLocale = (l: Locale) => {
-    const next = locales.includes(l) ? l : 'fa'
+  const setLocale = useCallback((l: string) => {
+    const next: Locale = locales.includes(l as Locale) ? (l as Locale) : 'fa'
     setLocaleState(next)
-    localStorage.setItem(LANG_KEY, next)
-    document.documentElement.lang = next
-    document.documentElement.dir = localeMeta[next].dir
-    document.documentElement.setAttribute('data-locale', next)
-  }
+    try {
+      localStorage.setItem(LANG_KEY, next)
+    } catch {
+      /* ignore */
+    }
+    applyDom(next)
+    try {
+      window.dispatchEvent(new CustomEvent('waima-locale', { detail: next }))
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
-  const value = useMemo(
+  const value = useMemo<LocaleContextValue>(
     () => ({
       locale,
       dict: getDictionary(locale),
       setLocale,
       dir: localeMeta[locale].dir,
     }),
-    [locale]
+    [locale, setLocale]
   )
 
+  // تا localStorage خوانده شود، یک فریم با fa می‌ماند — مشکلی نیست
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
 
-export function useLocale() {
+export function useLocale(): LocaleContextValue {
   const ctx = useContext(LocaleContext)
   if (!ctx) {
-    // fallback اگر Provider نبود
     return {
-      locale: 'fa' as Locale,
+      locale: 'fa',
       dict: getDictionary('fa'),
-      setLocale: (_l: Locale) => {},
-      dir: 'rtl' as const,
+      setLocale: () => {
+        console.warn('LocaleProvider missing')
+      },
+      dir: 'rtl',
     }
   }
   return ctx
