@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     const messages = body?.messages as { role: 'user' | 'assistant' | 'system'; content: string }[]
     const domain = (body?.domain as string) || 'general'
     const suggestBook = Boolean(body?.suggestBook)
+    const lastBook = body?.lastBook as { title?: string; author?: string; reason?: string } | null
 
     if (!messages?.length) {
       return NextResponse.json({ success: false, error: 'messages الزامی است' }, { status: 400 })
@@ -35,36 +36,50 @@ export async function POST(req: NextRequest) {
 
     const domainTitle = domainNames[domain] || domain
 
+    const memory =
+      lastBook?.title
+        ? `
+یادآوری مهم: در همین گفتگو قبلاً این کتاب را پیشنهاد داده‌ای:
+- عنوان: ${lastBook.title}
+- نویسنده: ${lastBook.author || 'نامشخص'}
+- دلیل: ${lastBook.reason || '—'}
+اگر کاربر درباره «کتابی که گفتی» یا «چرا این کتاب» پرسید، دقیقاً به همین پیشنهاد اشاره کن و انکار نکن.
+`
+        : ''
+
     const bookRule = suggestBook
       ? `
-الان وقت پیشنهاد کتاب است.
-در پایان پاسخ، دقیقا در ۳ خط جدا و با همین قالب بنویس:
+الان وقت پیشنهاد یک کتاب جدید است.
+قوانین کتاب:
+- متنوع، جذاب، کاربردی و مرتبط با همین گفتگو باشد
+- از کتاب‌های کلیشه‌ای تکراری بی‌ربط پرهیز کن
+- سطحش با سطح کاربر در این مکالمه بخواند
+- ترجیحاً کتاب واقعی و شناخته‌شده
+در پایان پاسخ دقیقا این ۳ خط را بنویس:
 کتاب پیشنهادی: <نام کتاب>
-نویسنده: <نام نویسنده یا «نامشخص»>
-چرا این کتاب: <یک دلیل کوتاه مرتبط با همین گفتگو>
-کتاب باید با موضوع و سطح همین مکالمه مرتبط باشد.
-`
+نویسنده: <نام نویسنده>
+چرا این کتاب: <دلیل کوتاه و مشخص مرتبط با همین گفتگو>
       : `
-هیچ کتابی پیشنهاد نده مگر کاربر صریحاً کتاب بخواهد.
+کتاب جدید پیشنهاد نده مگر کاربر صریحاً کتاب بخواهد.
+اگر درباره کتاب قبلی پرسید، از یادآوری بالا استفاده کن.
 `
 
     const systemPrompt = `تو «همراه یادگیری» پلتفرم WAIMA (من کیستم؟ · ترسیم‌گر ذهنی) هستی.
-صمیمی، دقیق، غیرخسته‌کننده.
+صمیمی، دقیق، باحافظه نسبت به پیشنهادهای خودت.
 حوزه: ${domainTitle}
+${memory}
 
 سبک:
-- فارسی روان و انسانی
-- پاسخ کوتاه تا متوسط (حدود ۶۰ تا ۱۴۰ کلمه) مگر کاربر جزئیات بیشتر بخواهد
-- وقتی مفید است: یک نکته کلیدی + یک مثال + یک سؤال کوتاه
-- لحن خشک کنکوری نداشته باش
-- اگر کاربر اشتباه فهمیده، لطیف اصلاح کن
-- هدف: یادگیری عمیق + ادامه گفتگو
+- فارسی روان
+- پاسخ کوتاه تا متوسط (۶۰ تا ۱۴۰ کلمه) مگر کاربر جزئیات بخواهد
+- نکته + مثال + سؤال کوتاه وقتی مفید است
+- انکار نکن چیزی را که خودت در همین گفتگو گفته‌ای
 ${bookRule}`
 
     const recent = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .slice(-10)
-      .map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1500) }))
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1800) }))
 
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -75,8 +90,8 @@ ${bookRule}`
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'system', content: systemPrompt }, ...recent],
-        temperature: 0.65,
-        max_tokens: suggestBook ? 480 : 380,
+        temperature: 0.7,
+        max_tokens: suggestBook ? 520 : 400,
       }),
     })
 
@@ -93,5 +108,5 @@ ${bookRule}`
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'chatbot-smart-book' })
+  return NextResponse.json({ status: 'ok', api: 'chatbot-book-memory' })
 }
