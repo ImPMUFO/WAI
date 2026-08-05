@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Compass, Eye, EyeOff, Lock, Sparkles } from 'lucide-react'
+import { loadMindMapFromServer } from '@/lib/sync'
 
 type NodeStatus = 'known' | 'near' | 'far'
 type KnowledgeNode = {
@@ -119,17 +120,27 @@ export default function KnowledgeMapPage() {
   const pinchStart = useRef<number | null>(null)
   const scaleStart = useRef(1)
 
-  const load = () => {
+    const load = () => {
     const raw = localStorage.getItem(MAP_KEY)
-    if (!raw) {
-      setMap(null)
-      return
+    if (raw) {
+      try {
+        setMap(JSON.parse(raw))
+        return
+      } catch {
+        /* fallthrough */
+      }
     }
-    try {
-      setMap(JSON.parse(raw))
-    } catch {
-      setMap(null)
-    }
+    // اگر محلی نبود از سرور
+    void loadMindMapFromServer().then((remote) => {
+      if (remote) {
+        try {
+          localStorage.setItem(MAP_KEY, JSON.stringify(remote))
+        } catch {}
+        setMap(remote as any)
+      } else {
+        setMap(null)
+      }
+    })
   }
 
   useEffect(() => {
