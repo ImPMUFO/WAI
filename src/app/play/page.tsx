@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Gamepad2, CheckCircle2, XCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowRight, Gamepad2, CheckCircle2, XCircle, Timer, Trophy, Zap } from 'lucide-react'
 import GamificationBar from '@/components/GamificationBar'
 import { onQuizFinished } from '@/lib/gamification'
 
@@ -17,176 +18,150 @@ type QuizItem = {
 }
 
 const BANK: QuizItem[] = [
-  {
-    id: 'p1',
-    domain: 'philosophy',
-    type: 'tf',
-    question: 'معرفت‌شناسی شاخه‌ای از فلسفه است که دربارهٔ چیستی معرفت می‌پرسد.',
-    answer: 'درست',
-    explain: 'بله؛ معرفت‌شناسی (epistemology) دربارهٔ چیستی و امکان دانش است.',
-  },
-  {
-    id: 'p2',
-    domain: 'philosophy',
-    type: 'mc',
-    question: 'کدام گزینه بیشتر به «منطق» مربوط است؟',
-    options: ['استدلال معتبر', 'سبک ادبی', 'قیمت کالا', 'ژنتیک'],
-    answer: 'استدلال معتبر',
-    explain: 'منطق قواعد استدلال صحیح را بررسی می‌کند.',
-  },
-  {
-    id: 'h1',
-    domain: 'history',
-    type: 'mc',
-    question: 'برای فهم یک رویداد تاریخی، کدام مهم‌تر است؟',
-    options: ['فقط تاریخ دقیق', 'علت و زمینه', 'نام افراد معروف فقط', 'رنگ پرچم'],
-    answer: 'علت و زمینه',
-    explain: 'تاریخ فقط فهرست تاریخ‌ها نیست؛ علت‌ها و بستر اهمیت دارد.',
-  },
-  {
-    id: 'h2',
-    domain: 'history',
-    type: 'tf',
-    question: 'تطبیق شخصیت‌ها با رویدادها یکی از راه‌های یادگیری تاریخ است.',
-    answer: 'درست',
-    explain: 'ارتباط‌دادن افراد و رخدادها حافظهٔ تاریخی را تقویت می‌کند.',
-  },
-  {
-    id: 'm1',
-    domain: 'math',
-    type: 'mc',
-    question: 'اگر a=2 و b=3، مقدار a+b چند است؟',
-    options: ['5', '6', '1', '23'],
-    answer: '5',
-    explain: 'جمع ساده: ۲+۳=۵.',
-  },
-  {
-    id: 'phy1',
-    domain: 'physics',
-    type: 'tf',
-    question: 'نیرو می‌تواند سرعت یا جهت حرکت را تغییر دهد.',
-    answer: 'درست',
-    explain: 'طبق مکانیک کلاسیک، نیرو با شتاب مرتبط است.',
-  },
-  {
-    id: 'c1',
-    domain: 'chemistry',
-    type: 'mc',
-    question: 'آب از چه عناصری ساخته شده؟',
-    options: ['هیدروژن و اکسیژن', 'کربن و نیتروژن', 'آهن و مس', 'سدیم و کلر'],
-    answer: 'هیدروژن و اکسیژن',
-    explain: 'فرمول آب H₂O است.',
-  },
-  {
-    id: 'r1',
-    domain: 'religion',
-    type: 'tf',
-    question: 'در مطالعهٔ دین، تمایز بین باور، دلیل و تجربه مفید است.',
-    answer: 'درست',
-    explain: 'این تمایز گفتگو را دقیق‌تر و عمیق‌تر می‌کند.',
-  },
-  {
-    id: 'e1',
-    domain: 'ethics',
-    type: 'mc',
-    question: 'در اخلاق، کدام سؤال محوری‌تر است؟',
-    options: ['چه چیزی ارزشمند/درست است؟', 'قیمت دلار چند است؟', 'رنگ محبوب من چیست؟', 'ساعت چند است؟'],
-    answer: 'چه چیزی ارزشمند/درست است؟',
-    explain: 'اخلاق دربارهٔ ارزش و درستی عمل می‌پرسد.',
-  },
-  {
-    id: 'prog1',
-    domain: 'programming',
-    type: 'fill',
-    question: 'ساختاری که داده را به‌صورت کلید-مقدار نگه می‌دارد در بسیاری زبان‌ها .... نام دارد. (دیکشنری/آبجکت/مپ)',
-    answer: 'دیکشنری',
-    explain: 'نام‌ها متفاوت است اما مفهوم map/dict/object شبیه است.',
-  },
-  {
-    id: 'psy1',
-    domain: 'psychology',
-    type: 'tf',
-    question: 'سوگیری شناختی می‌تواند تصمیم‌گیری را منحرف کند.',
-    answer: 'درست',
-    explain: 'روان‌شناسی شناختی این سوگیری‌ها را مطالعه می‌کند.',
-  },
+  { id: 'p1', domain: 'philosophy', type: 'tf', question: 'معرفت‌شناسی دربارهٔ چیستی و امکان معرفت می‌پرسد.', answer: 'درست', explain: 'معرفت‌شناسی یکی از شاخه‌های اصلی فلسفه است.' },
+  { id: 'p2', domain: 'philosophy', type: 'mc', question: 'کدام بیشتر به منطق مربوط است؟', options: ['استدلال معتبر', 'سبک ادبی', 'قیمت کالا', 'ژنتیک'], answer: 'استدلال معتبر', explain: 'منطق قواعد استدلال درست را بررسی می‌کند.' },
+  { id: 'h1', domain: 'history', type: 'mc', question: 'برای فهم رویداد تاریخی چه چیزی مهم‌تر است؟', options: ['فقط تاریخ دقیق', 'علت و زمینه', 'فقط نام افراد', 'رنگ پرچم'], answer: 'علت و زمینه', explain: 'علت‌ها و بستر از فهرست تاریخ‌ها مهم‌ترند.' },
+  { id: 'h2', domain: 'history', type: 'tf', question: 'تطبیق شخصیت‌ها با رویدادها به یادگیری تاریخ کمک می‌کند.', answer: 'درست', explain: 'ارتباط افراد و رخدادها حافظه را قوی می‌کند.' },
+  { id: 'm1', domain: 'math', type: 'mc', question: 'اگر a=۲ و b=۳، مقدار a+b؟', options: ['۵', '۶', '۱', '۲۳'], answer: '۵', explain: '۲+۳=۵' },
+  { id: 'm2', domain: 'math', type: 'fill', question: 'نصف عدد ۱۰ چند است؟ (فقط عدد)', answer: '۵', explain: '۱۰÷۲=۵' },
+  { id: 'phy1', domain: 'physics', type: 'tf', question: 'نیرو می‌تواند سرعت یا جهت حرکت را تغییر دهد.', answer: 'درست', explain: 'نیرو با تغییر حرکت مرتبط است.' },
+  { id: 'c1', domain: 'chemistry', type: 'mc', question: 'آب از چه عناصری ساخته شده؟', options: ['هیدروژن و اکسیژن', 'کربن و نیتروژن', 'آهن و مس', 'سدیم و کلر'], answer: 'هیدروژن و اکسیژن', explain: 'فرمول آب H₂O است.' },
+  { id: 'r1', domain: 'religion', type: 'tf', question: 'تمایز بین باور، دلیل و تجربه در مطالعه دین مفید است.', answer: 'درست', explain: 'این تمایز گفتگو را دقیق‌تر می‌کند.' },
+  { id: 'e1', domain: 'ethics', type: 'mc', question: 'سؤال محوری اخلاق کدام است؟', options: ['چه باید کرد؟', 'هوا چند درجه است؟', 'رنگ دیوار چیست؟', 'ساعت چند است؟'], answer: 'چه باید کرد؟', explain: 'اخلاق درباره خوبی و مسئولیت است.' },
+  { id: 'pr1', domain: 'programming', type: 'mc', question: 'کدام مفهوم برای ذخیره جفت کلید-مقدار رایج است؟', options: ['دیکشنری/آبجکت', 'فقط عدد صحیح', 'فقط رشته خالی', 'پشته سخت‌افزاری'], answer: 'دیکشنری/آبجکت', explain: 'map و dict و object مفهوم مشابه‌اند.' },
+  { id: 'psy1', domain: 'psychology', type: 'tf', question: 'سوگیری شناختی می‌تواند تصمیم‌گیری را منحرف کند.', answer: 'درست', explain: 'روان‌شناسی شناختی این خطاها را مطالعه می‌کند.' },
+  { id: 'bio1', domain: 'biology', type: 'mc', question: 'واحد پایه وراثت معمولاً چیست؟', options: ['ژن', 'سنگ', 'بایت', 'وات'], answer: 'ژن', explain: 'ژن حامل اطلاعات وراثتی است.' },
+  { id: 'lit1', domain: 'literature', type: 'tf', question: 'در خواندن ادبی، توجه به فرم و معنا هر دو مفید است.', answer: 'درست', explain: 'ساختار متن هم مثل احساس مهم است.' },
+  { id: 'ec1', domain: 'economics', type: 'mc', question: 'ایده کمیابی بیشتر به چه اشاره دارد؟', options: ['منابع محدود و انتخاب', 'بی‌نهایت بودن همه چیز', 'فقط چاپ پول', 'حذف کامل نیاز'], answer: 'منابع محدود و انتخاب', explain: 'اقتصاد با انتخاب در محدودیت سروکار دارد.' },
 ]
 
-const domainLabel: Record<string, string> = {
-  philosophy: 'فلسفه',
-  history: 'تاریخ',
-  math: 'ریاضی',
-  physics: 'فیزیک',
-  chemistry: 'شیمی',
-  religion: 'دین',
-  ethics: 'اخلاق',
-  programming: 'برنامه‌نویسی',
-  psychology: 'روان‌شناسی',
+const STAGE_SIZE = 5
+const TIME_PER_Q = 20
+const BEST_KEY = 'waima_play_best'
+
+function shuffle<T>(arr: T[]) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
 }
 
+type Phase = 'ready' | 'playing' | 'feedback' | 'stageClear' | 'done'
+
 export default function PlayPage() {
-  const [domain, setDomain] = useState<string>('all')
+  const [deck, setDeck] = useState<QuizItem[]>([])
   const [index, setIndex] = useState(0)
-  const [selected, setSelected] = useState<string>('')
-  const [fill, setFill] = useState('')
-  const [feedback, setFeedback] = useState<'ok' | 'bad' | null>(null)
-  const [score, setScore] = useState({ ok: 0, total: 0 })
-  const [done, setDone] = useState(false)
+  const [stage, setStage] = useState(1)
+  const [phase, setPhase] = useState<Phase>('ready')
+  const [answer, setAnswer] = useState('')
+  const [correctCount, setCorrectCount] = useState(0)
+  const [stageCorrect, setStageCorrect] = useState(0)
+  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
+  const [seconds, setSeconds] = useState(TIME_PER_Q)
+  const [best, setBest] = useState(0)
+  const [combo, setCombo] = useState(0)
 
-  const items = useMemo(() => {
-    const list = domain === 'all' ? BANK : BANK.filter((q) => q.domain === domain)
-    return list.length ? list : BANK
-  }, [domain])
+  const totalStages = useMemo(() => Math.max(1, Math.ceil(BANK.length / STAGE_SIZE)), [])
+  const current = deck[index]
 
-  const q = items[index % items.length]
+  useEffect(() => {
+    try {
+      const b = Number(localStorage.getItem(BEST_KEY) || '0')
+      if (!Number.isNaN(b)) setBest(b)
+    } catch {}
+  }, [])
 
-  const submit = () => {
-    if (!q || feedback) return
-    const userAns =
-      q.type === 'fill' ? fill.trim() : selected.trim()
-    if (!userAns) return
-    const ok =
-      q.type === 'fill'
-        ? userAns.includes(q.answer) || q.answer.includes(userAns)
-        : userAns === q.answer
-    setFeedback(ok ? 'ok' : 'bad')
-    setScore((s) => ({ ok: s.ok + (ok ? 1 : 0), total: s.total + 1 }))
+  useEffect(() => {
+    if (phase !== 'playing') return
+    setSeconds(TIME_PER_Q)
+    const t = setInterval(() => {
+      setSeconds((s) => {
+        if (s <= 1) {
+          clearInterval(t)
+          submitAnswer(true)
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, index])
+
+  const startRun = () => {
+    setDeck(shuffle(BANK))
+    setIndex(0)
+    setStage(1)
+    setCorrectCount(0)
+    setStageCorrect(0)
+    setCombo(0)
+    setAnswer('')
+    setLastCorrect(null)
+    setPhase('playing')
+  }
+
+  const submitAnswer = (timeout = false) => {
+    if (!current || phase !== 'playing') return
+    const userAns = timeout ? '' : answer.trim()
+    const ok = !timeout && userAns === current.answer
+    setLastCorrect(ok)
+    if (ok) {
+      setCorrectCount((c) => c + 1)
+      setStageCorrect((c) => c + 1)
+      setCombo((c) => c + 1)
+    } else setCombo(0)
+    setPhase('feedback')
   }
 
   const next = () => {
-    if (score.total > 0 && score.total % 5 === 0) {
-      onQuizFinished(score.ok / Math.max(1, score.total))
-    }
-    setFeedback(null)
-    setSelected('')
-    setFill('')
-    if (index + 1 >= items.length) {
-      onQuizFinished(score.ok / Math.max(1, score.total + (feedback === 'ok' ? 0 : 0)))
-      setDone(true)
+    const nextIndex = index + 1
+    if (nextIndex >= deck.length) {
+      finishRun(correctCount)
       return
     }
-    setIndex((i) => i + 1)
+    if (nextIndex % STAGE_SIZE === 0) {
+      setPhase('stageClear')
+      return
+    }
+    setIndex(nextIndex)
+    setAnswer('')
+    setLastCorrect(null)
+    setPhase('playing')
   }
 
-  const restart = () => {
-    setIndex(0)
-    setScore({ ok: 0, total: 0 })
-    setFeedback(null)
-    setSelected('')
-    setFill('')
-    setDone(false)
+  const continueStage = () => {
+    setIndex(index + 1)
+    setStage((s) => s + 1)
+    setStageCorrect(0)
+    setAnswer('')
+    setLastCorrect(null)
+    setPhase('playing')
   }
+
+  const finishRun = (score: number) => {
+    setPhase('done')
+    try {
+      onQuizFinished(score, deck.length)
+    } catch {}
+    try {
+      if (score > best) {
+        localStorage.setItem(BEST_KEY, String(score))
+        setBest(score)
+      }
+    } catch {}
+  }
+
+  const progressPct = deck.length ? Math.round((index / deck.length) * 100) : 0
 
   return (
-    <main className="min-h-screen rtl px-4 py-8" style={{ color: 'var(--text)' }}>
-      <div className="max-w-3xl mx-auto space-y-5">
+    <main className="min-h-screen rtl px-4 py-6 sm:py-10" style={{ color: 'var(--text)' }}>
+      <div className="max-w-2xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Gamepad2 className="w-5 h-5 text-[var(--accent)]" />
-            <div>
-              <h1 className="text-xl font-bold">بازی‌ها و مأموریت‌ها</h1>
-              <p className="text-xs text-[var(--muted)]">یادگیری با چالش کوتاه</p>
-            </div>
+            <h1 className="text-lg sm:text-xl font-bold">بازی‌های آموزشی</h1>
           </div>
           <Link href="/" className="text-sm text-[var(--muted)] inline-flex items-center gap-1">
             <ArrowRight className="w-3.5 h-3.5 rotate-180" />
@@ -194,141 +169,194 @@ export default function PlayPage() {
           </Link>
         </div>
 
-        <GamificationBar />
+        <GamificationBar compact />
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => {
-              setDomain('all')
-              restart()
-            }}
-            className={`px-3 py-1.5 rounded-full text-xs border ${
-              domain === 'all' ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
-            }`}
-          >
-            همه
-          </button>
-          {Object.keys(domainLabel).map((d) => (
-            <button
-              key={d}
-              onClick={() => {
-                setDomain(d)
-                restart()
-              }}
-              className={`px-3 py-1.5 rounded-full text-xs border ${
-                domain === d ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
-              }`}
-            >
-              {domainLabel[d]}
-            </button>
-          ))}
+        <div className="card space-y-3">
+          <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-[var(--muted)]">
+            <span className="inline-flex items-center gap-1">
+              <Trophy className="w-3.5 h-3.5 text-[var(--accent)]" />
+              رکورد: {best}/{BANK.length}
+            </span>
+            <span>
+              مرحله {Math.min(stage, totalStages)} از {totalStages}
+            </span>
+            {phase === 'playing' && (
+              <span className="inline-flex items-center gap-1 text-[var(--accent)]">
+                <Timer className="w-3.5 h-3.5" />
+                {seconds}ث
+              </span>
+            )}
+            {combo > 1 && (
+              <span className="inline-flex items-center gap-1 text-amber-300">
+                <Zap className="w-3.5 h-3.5" />
+                کمبو ×{combo}
+              </span>
+            )}
+          </div>
+          <div className="h-2 rounded-full bg-[var(--border)] overflow-hidden">
+            <div
+              className="h-full bg-[var(--accent)] transition-all duration-300"
+              style={{ width: `${phase === 'ready' ? 0 : progressPct}%` }}
+            />
+          </div>
         </div>
 
-        {done ? (
-          <div className="card space-y-3 text-center">
-            <h2 className="text-lg font-semibold">پایان دور</h2>
-            <p className="text-[var(--muted)]">
-              امتیاز این دور: {score.ok} از {score.total}
-            </p>
-            <button onClick={restart} className="btn-primary px-5 py-2">
-              دوباره
-            </button>
-          </div>
-        ) : (
-          <div className="card space-y-4">
-            <div className="flex justify-between text-xs text-[var(--muted)]">
-              <span>{domainLabel[q.domain] || q.domain}</span>
-              <span>
-                سؤال {index + 1}/{items.length} · درست {score.ok}
-              </span>
-            </div>
-            <h2 className="text-base sm:text-lg font-semibold leading-relaxed">{q.question}</h2>
+        <AnimatePresence mode="wait">
+          {phase === 'ready' && (
+            <motion.div
+              key="ready"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="card space-y-4 text-center"
+            >
+              <p className="text-sm text-[var(--muted)] leading-relaxed">
+                چند مرحله کوتاه با زمان‌بندی.
+                هر پاسخ درست امتیاز می‌سازد و رکورد شخصی‌ات ذخیره می‌شود.
+              </p>
+              <button onClick={startRun} className="btn-primary px-6 py-3">
+                شروع چالش
+              </button>
+            </motion.div>
+          )}
 
-            {q.type === 'tf' && (
-              <div className="flex gap-2">
-                {['درست', 'نادرست'].map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setSelected(opt)}
-                    disabled={!!feedback}
-                    className={`flex-1 py-3 rounded-xl border ${
-                      selected === opt
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/15'
-                        : 'border-[var(--border)]'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
+          {phase === 'playing' && current && (
+            <motion.div
+              key={`q-${current.id}-${index}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="card space-y-4"
+            >
+              <div className="text-xs text-[var(--accent)]">
+                سؤال {index + 1} از {deck.length}
               </div>
-            )}
+              <h2 className="text-base sm:text-lg font-semibold leading-relaxed">{current.question}</h2>
 
-            {q.type === 'mc' && q.options && (
-              <div className="grid gap-2">
-                {q.options.map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setSelected(opt)}
-                    disabled={!!feedback}
-                    className={`text-right px-4 py-3 rounded-xl border ${
-                      selected === opt
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/15'
-                        : 'border-[var(--border)]'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {q.type === 'fill' && (
-              <input
-                value={fill}
-                onChange={(e) => setFill(e.target.value)}
-                disabled={!!feedback}
-                placeholder="پاسخ را بنویس..."
-                className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
-                style={{ color: 'var(--text)' }}
-              />
-            )}
-
-            {feedback && (
-              <div
-                className={`rounded-xl p-3 text-sm border ${
-                  feedback === 'ok'
-                    ? 'border-emerald-400/40 bg-emerald-500/10'
-                    : 'border-rose-400/40 bg-rose-500/10'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1 font-medium">
-                  {feedback === 'ok' ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : (
-                    <XCircle className="w-4 h-4" />
-                  )}
-                  {feedback === 'ok' ? 'درست!' : 'نادرست'}
+              {current.type === 'tf' && (
+                <div className="grid grid-cols-2 gap-2">
+                  {['درست', 'غلط'].map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setAnswer(opt)}
+                      className={`rounded-xl border px-3 py-3 text-sm ${
+                        answer === opt ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                 </div>
-                <p className="text-[var(--muted)] leading-relaxed">{q.explain}</p>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              {!feedback ? (
-                <button onClick={submit} className="btn-primary px-5 py-2.5">
-                  ثبت پاسخ
-                </button>
-              ) : (
-                <button onClick={next} className="btn-primary px-5 py-2.5">
-                  بعدی
-                </button>
               )}
-              <Link href="/start" className="btn-secondary px-4 py-2.5">
-                گفتگو
-              </Link>
-            </div>
-          </div>
-        )}
+
+              {current.type === 'mc' && current.options && (
+                <div className="space-y-2">
+                  {current.options.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setAnswer(opt)}
+                      className={`w-full text-right rounded-xl border px-3 py-3 text-sm ${
+                        answer === opt ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {current.type === 'fill' && (
+                <input
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && submitAnswer()}
+                  placeholder="جواب را بنویس..."
+                  className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
+                  style={{ color: 'var(--text)' }}
+                />
+              )}
+
+              <button
+                onClick={() => submitAnswer()}
+                disabled={!answer.trim()}
+                className="btn-primary w-full py-3 disabled:opacity-40"
+              >
+                ثبت پاسخ
+              </button>
+            </motion.div>
+          )}
+
+          {phase === 'feedback' && current && (
+            <motion.div
+              key="feedback"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="card space-y-3"
+            >
+              <div className="flex items-center gap-2">
+                {lastCorrect ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-rose-400" />
+                )}
+                <span className="font-semibold">{lastCorrect ? 'آفرین! درست بود' : 'این‌بار نه'}</span>
+              </div>
+              {!lastCorrect && (
+                <p className="text-sm text-[var(--muted)]">
+                  جواب درست: <span className="text-[var(--accent)]">{current.answer}</span>
+                </p>
+              )}
+              <p className="text-sm text-[var(--muted)] leading-relaxed">{current.explain}</p>
+              <button onClick={next} className="btn-primary w-full py-3">
+                ادامه
+              </button>
+            </motion.div>
+          )}
+
+          {phase === 'stageClear' && (
+            <motion.div
+              key="stage"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="card space-y-4 text-center"
+            >
+              <p className="text-lg font-semibold">مرحله {stage} تمام شد</p>
+              <p className="text-sm text-[var(--muted)]">
+                درست‌های این مرحله: {stageCorrect} از {STAGE_SIZE}
+              </p>
+              <button onClick={continueStage} className="btn-primary px-6 py-3">
+                مرحله بعد
+              </button>
+            </motion.div>
+          )}
+
+          {phase === 'done' && (
+            <motion.div
+              key="done"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="card space-y-4 text-center"
+            >
+              <Trophy className="w-8 h-8 mx-auto text-[var(--accent)]" />
+              <p className="text-lg font-semibold">پایان چالش</p>
+              <p className="text-sm text-[var(--muted)]">
+                امتیاز این دور: {correctCount} از {deck.length}
+              </p>
+              <p className="text-sm text-[var(--muted)]">بهترین رکورد: {best}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <button onClick={startRun} className="btn-primary px-5 py-3">
+                  دوباره
+                </button>
+                <Link href="/start" className="btn-secondary px-5 py-3">
+                  گفتگو
+                </Link>
+                <Link href="/map" className="btn-secondary px-5 py-3">
+                  نقشه ذهنی
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </main>
   )
