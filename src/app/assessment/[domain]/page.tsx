@@ -145,6 +145,22 @@ function pickBook(_domain: string, _used: string[], _force = false) {
   return null
 }
 
+function parseBookFromText(content: string): Book | null {
+  if (!content) return null
+  const title = content.match(/کتاب پیشنهادی\s*[:：]\s*(.+)/i)?.[1]?.trim()
+  if (!title) return null
+  const author = content.match(/نویسنده\s*[:：]\s*(.+)/i)?.[1]?.trim() || 'نامشخص'
+  const reason =
+    content.match(/چرا این کتاب\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
+    content.match(/دلیل\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
+    'مرتبط با گفتگوی جاری'
+  return {
+    title: title.replace(/\*+/g, '').trim(),
+    author: author.replace(/\*+/g, '').trim(),
+    reason: reason.replace(/\*+/g, '').trim(),
+  }
+}
+
 function buildLocalInsight(domain: string, messages: Message[]): SessionInsight {
   const info = domainInfo[domain] || domainInfo.general
   const userMessages = messages.filter((m) => m.role === 'user').map((m) => m.content.trim()).filter(Boolean)
@@ -189,6 +205,7 @@ export default function AssessmentPage() {
   const [mapUpdating, setMapUpdating] = useState(false)
   const [insight, setInsight] = useState<SessionInsight | null>(null)
   const [usedBooks, setUsedBooks] = useState<string[]>([])
+  const [lastBook, setLastBook] = useState<Book | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
 
@@ -273,6 +290,7 @@ export default function AssessmentPage() {
       body: JSON.stringify({
         domain,
         suggestBook,
+        lastBook,
         messages: [
           { role: 'user', content: `نام کاربر: ${userName || nameInput || 'کاربر'}` },
           ...allMessages.map((m) => ({ role: m.role, content: m.content })),
@@ -380,7 +398,26 @@ export default function AssessmentPage() {
       const reply = await callAI(next, suggestBook)
       const withReply: Message[] = [...next, { id: Date.now() + 1, role: 'assistant', content: reply }]
       setMessages(withReply)
-      computeInsight(withReply)
+      const parsedBook = parseBookFromText(reply)
+      if (parsedBook) {
+        setLastBook(parsedBook)
+        setInsight((prev) =>
+          prev
+            ? { ...prev, book: parsedBook }
+            : {
+                level: 'متوسط',
+                strengths: [],
+                gaps: [],
+                lessonTitle: 'کتاب پیشنهادی',
+                lessonText: parsedBook.reason,
+                lessonExample: '',
+                question: '',
+                book: parsedBook,
+              }
+        )
+      } else {
+        computeInsight(withReply)
+      }
       try { onChatMessage(domain) } catch {}
       setIsTyping(false)
       // نقشه در پس‌زمینه؛ چت را قفل نکند
@@ -412,7 +449,7 @@ export default function AssessmentPage() {
     ])
   }
 
-  const currentBook = useMemo(() => insight?.book || null, [insight])
+  const currentBook = useMemo(() => lastBook || insight?.book || null, [lastBook, insight])
 
   if (!ready) {
     return (
