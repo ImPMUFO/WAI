@@ -39,7 +39,7 @@ const fa = {
 const en: typeof fa = {
   brandName: 'WAIMA',
   brandTag: 'Who am I?',
-  brandSub: 'Mind Mapper',
+  brandSub: 'Mind Analyzer',
   start: 'Get started',
   featuresTitle: 'Why WAIMA?',
   feature1Title: 'Smart dialogue',
