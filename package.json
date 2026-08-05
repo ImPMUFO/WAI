@@ -1,7 +1,7 @@
 {
-  "name": "knowledge-mapper",
-  "version": "1.0.0",
-  "description": "AI Personal Knowledge Mapping & Intellectual Identity Platform",
+  "name": "WAIMA",
+  "version": "آزمایشی (بتا)",
+  "description": "من کیستم؟ ترسیم‌گر ذهنی",
   "private": true,
   "scripts": {
     "dev": "next dev",
