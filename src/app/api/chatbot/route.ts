@@ -1,261 +1,116 @@
-'use client'
+import { NextRequest, NextResponse } from 'next/server'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
-import { migrateLocalToServerIfNeeded, loadMindMapFromServer, upsertProfilePatch } from '@/lib/sync'
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`زمان‌تمام: ${label}`)), ms)
-    promise.then(
-      (v) => {
-        clearTimeout(t)
-        resolve(v)
-      },
-      (e) => {
-        clearTimeout(t)
-        reject(e)
-      }
-    )
-  })
+const domainNames: Record<string, string> = {
+  general: 'دانش عمومی',
+  philosophy: 'فلسفه',
+  programming: 'برنامه‌نویسی',
+  history: 'تاریخ',
+  psychology: 'روان‌شناسی',
+  religion: 'دین و الهیات',
+  ethics: 'اخلاق',
+  physics: 'فیزیک',
+  chemistry: 'شیمی',
+  math: 'ریاضی',
+  biology: 'زیست‌شناسی',
+  literature: 'ادبیات',
+  economics: 'اقتصاد',
 }
 
-export default function AccountPage() {
-  const [email, setEmail] = useState<string | null>(null)
-  const [name, setName] = useState('')
-  const [status, setStatus] = useState('—')
-  const [loading, setLoading] = useState(true)
-  const [mapSummary, setMapSummary] = useState('')
-  const [error, setError] = useState('')
-  const [hint, setHint] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-
-    const run = async () => {
-      try {
-        if (!isSupabaseConfigured()) {
-          if (!cancelled) {
-            setError('کلیدهای Supabase روی Vercel تنظیم نشده یا بعد از تنظیم Redeploy نشده.')
-            setLoading(false)
-          }
-          return
-        }
-
-        const supabase = createClient()
-
-        // سریع‌تر از getUser: اول سشن محلی
-        const sessionRes = await withTimeout(supabase.auth.getSession(), 6000, 'getSession')
-        const sessionUser = sessionRes.data.session?.user
-
-        if (!sessionUser) {
-          // یک‌بار هم با getUser امتحان کن
-          try {
-            const userRes = await withTimeout(supabase.auth.getUser(), 6000, 'getUser')
-            if (!userRes.data.user) {
-              window.location.href = '/auth'
-              return
-            }
-          } catch {
-            window.location.href = '/auth'
-            return
-          }
-        }
-
-        const user = sessionUser || (await supabase.auth.getUser()).data.user
-        if (!user) {
-          window.location.href = '/auth'
-          return
-        }
-
-        if (cancelled) return
-
-        // همین‌جا UI را باز کن — دیگر منتظر sync نباش
-        setEmail(user.email ?? null)
-        setName(
-          (user.user_metadata?.display_name as string) ||
-            user.email?.split('@')[0] ||
-            'کاربر'
-        )
-        setStatus('وارد شده‌ای')
-        setLoading(false)
-
-        // بقیه در پس‌زمینه
-        void (async () => {
-          try {
-            const profileRes = await withTimeout(
-              Promise.resolve(
-                supabase
-                  .from('profiles')
-                  .select('display_name, xp, level, locale, theme')
-                  .eq('id', user.id)
-                  .maybeSingle()
-              ),
-              8000,
-              'profile'
-            )
-            const profile = (profileRes as any)?.data
-            const profileErr = (profileRes as any)?.error
-
-            if (profileErr) {
-              setHint('خواندن پروفایل: ' + profileErr.message)
-            }
-
-            if (!profile) {
-              const display =
-                (user.user_metadata?.display_name as string) ||
-                user.email?.split('@')[0] ||
-                'کاربر'
-              const { error: insErr } = await supabase.from('profiles').upsert({
-                id: user.id,
-                display_name: display,
-                updated_at: new Date().toISOString(),
-              })
-              if (insErr) {
-                setHint(
-                  'ساخت پروفایل ممکن نشد. در Supabase این SQL را Run کن:\n' +
-                    'create policy "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);\n' +
-                    'جزئیات: ' +
-                    insErr.message
-                )
-              } else {
-                setStatus('پروفایل ساخته شد')
-              }
-              setName(display)
-            } else {
-              if (profile.display_name) setName(profile.display_name)
-              setStatus(`سطح ${profile.level ?? 1} · XP ${profile.xp ?? 0}`)
-            }
-          } catch (e: unknown) {
-            setHint(e instanceof Error ? e.message : 'خطا در پروفایل')
-          }
-
-          try {
-            await withTimeout(migrateLocalToServerIfNeeded(), 10000, 'migrate')
-          } catch {
-            /* نادیده */
-          }
-
-          try {
-            const map = await withTimeout(loadMindMapFromServer(), 8000, 'map')
-            if (map?.summary) setMapSummary(String(map.summary))
-          } catch {
-            /* نادیده */
-          }
-        })()
-      } catch (e: unknown) {
-        if (!cancelled) {
-          setError(
-            (e instanceof Error ? e.message : 'خطا در بارگذاری حساب') +
-              '\nاگر تازه لاگین کردی یک‌بار از /auth دوباره وارد شو.'
-          )
-          setLoading(false)
-        }
-      }
+export async function POST(req: NextRequest) {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY
+    const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '')
+    if (!apiKey) {
+      return NextResponse.json({ success: false, error: 'OPENAI_API_KEY تنظیم نشده است' }, { status: 500 })
     }
 
-    void run()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    const body = await req.json()
+    const messages = body?.messages as { role: 'user' | 'assistant' | 'system'; content: string }[]
+    const domain = (body?.domain as string) || 'general'
+    const suggestBook = Boolean(body?.suggestBook)
+    const lastBook = body?.lastBook as { title?: string; author?: string; reason?: string } | null
 
-  const saveName = async () => {
-    setError('')
-    try {
-      const res = await withTimeout(
-        upsertProfilePatch({ display_name: name.trim() }),
-        8000,
-        'saveName'
-      )
-      if (res.ok) setStatus('نام ذخیره شد.')
-      else setError(res.reason || 'خطا در ذخیره')
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'خطا در ذخیره')
+    if (!messages?.length) {
+      return NextResponse.json({ success: false, error: 'messages الزامی است' }, { status: 400 })
     }
+
+    const domainTitle = domainNames[domain] || domain
+
+    const memory = lastBook?.title
+      ? [
+          'یادآوری مهم: در همین گفتگو قبلاً این کتاب را پیشنهاد داده‌ای:',
+          `- عنوان: ${lastBook.title}`,
+          `- نویسنده: ${lastBook.author || 'نامشخص'}`,
+          `- دلیل: ${lastBook.reason || '—'}`,
+          'اگر کاربر درباره کتابی که گفتی یا چرا این کتاب پرسید، دقیقاً به همین پیشنهاد اشاره کن و انکار نکن.',
+        ].join('\n')
+      : ''
+
+    const bookRule = suggestBook
+      ? [
+          'الان وقت پیشنهاد یک کتاب جدید است.',
+          'قوانین کتاب:',
+          '- متنوع، جذاب، کاربردی و مرتبط با همین گفتگو باشد',
+          '- از کتاب‌های کلیشه‌ای تکراری بی‌ربط پرهیز کن',
+          '- سطحش با سطح کاربر در این مکالمه بخواند',
+          '- ترجیحاً کتاب واقعی و شناخته‌شده',
+          'در پایان پاسخ دقیقا این ۳ خط را بنویس:',
+          'کتاب پیشنهادی: <نام کتاب>',
+          'نویسنده: <نام نویسنده>',
+          'چرا این کتاب: <دلیل کوتاه و مشخص مرتبط با همین گفتگو>',
+        ].join('\n')
+      : [
+          'کتاب جدید پیشنهاد نده مگر کاربر صریحاً کتاب بخواهد.',
+          'اگر درباره کتاب قبلی پرسید، از یادآوری بالا استفاده کن.',
+        ].join('\n')
+
+    const systemPrompt = [
+      'تو «همراه یادگیری» پلتفرم WAIMA (من کیستم؟ · ترسیم‌گر ذهنی) هستی.',
+      'صمیمی، دقیق، باحافظه نسبت به پیشنهادهای خودت.',
+      `حوزه: ${domainTitle}`,
+      memory,
+      '',
+      'سبک:',
+      '- فارسی روان',
+      '- پاسخ کوتاه تا متوسط (۶۰ تا ۱۴۰ کلمه) مگر کاربر جزئیات بخواهد',
+      '- نکته + مثال + سؤال کوتاه وقتی مفید است',
+      '- انکار نکن چیزی را که خودت در همین گفتگو گفته‌ای',
+      bookRule,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const recent = messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1800) }))
+
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'system', content: systemPrompt }, ...recent],
+        temperature: 0.7,
+        max_tokens: suggestBook ? 520 : 400,
+      }),
+    })
+
+    const text = await resp.text()
+    if (!resp.ok) {
+      return NextResponse.json({ success: false, error: 'خطا از مدل', details: text }, { status: 502 })
+    }
+    const data = JSON.parse(text)
+    const content = data?.choices?.[0]?.message?.content || 'پاسخی دریافت نشد.'
+    return NextResponse.json({ success: true, content, suggestBook })
+  } catch {
+    return NextResponse.json({ success: false, error: 'خطای داخلی سرور' }, { status: 500 })
   }
+}
 
-  const logout = async () => {
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut()
-    } catch {
-      /* ignore */
-    }
-    window.location.href = '/auth'
-  }
-
-  if (loading) {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-3 px-4" style={{ color: 'var(--text)' }}>
-        <p>در حال بارگذاری حساب...</p>
-        <p className="text-xs text-[var(--muted)] text-center">اگر بیش از چند ثانیه ماند، به صفحه ورود برگرد.</p>
-        <Link href="/auth" className="text-sm text-[var(--accent)]">
-          رفتن به ورود
-        </Link>
-      </main>
-    )
-  }
-
-  return (
-    <main className="min-h-screen rtl px-4 py-10" style={{ color: 'var(--text)' }}>
-      <div className="max-w-lg mx-auto card space-y-5">
-        <div>
-          <h1 className="text-xl font-bold">حساب من · WAIMA</h1>
-          <p className="text-sm text-[var(--muted)]">من کیستم؟ · ترسیم‌گر ذهنی</p>
-        </div>
-
-        <div className="text-sm space-y-1">
-          <p>
-            ایمیل: <span className="text-[var(--accent)]">{email || '—'}</span>
-          </p>
-          <p className="text-[var(--muted)]">{status}</p>
-          {mapSummary && <p className="text-[var(--muted)]">آخرین نقشه: {mapSummary}</p>}
-          {error && (
-            <p className="text-rose-300 text-sm leading-relaxed whitespace-pre-wrap border border-rose-500/30 rounded-xl p-3">
-              {error}
-            </p>
-          )}
-          {hint && (
-            <p className="text-amber-200/90 text-xs leading-relaxed whitespace-pre-wrap border border-amber-500/30 rounded-xl p-3">
-              {hint}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-[var(--muted)]">نام نمایشی</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
-            style={{ color: 'var(--text)' }}
-          />
-          <button onClick={saveName} className="btn-primary px-4 py-2 text-sm">
-            ذخیره نام
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-2 text-sm">
-          <Link href="/start" className="btn-primary px-4 py-2">
-            گفتگو
-          </Link>
-          <Link href="/map" className="btn-secondary px-4 py-2">
-            نقشه ذهن
-          </Link>
-          <Link href="/play" className="btn-secondary px-4 py-2">
-            بازی‌ها
-          </Link>
-          <button onClick={logout} className="btn-secondary px-4 py-2">
-            خروج
-          </button>
-        </div>
-
-        <Link href="/" className="block text-center text-sm text-[var(--muted)]">
-          خانه
-        </Link>
-      </div>
-    </main>
-  )
+export async function GET() {
+  return NextResponse.json({ status: 'ok', api: 'chatbot-book-memory' })
 }
