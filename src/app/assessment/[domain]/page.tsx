@@ -140,11 +140,9 @@ function safeArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : []
 }
 
-function pickBook(domain: string, used: string[], force = false) {
-  // فقط گاهی کتاب پیشنهاد بده (حدود هر ۳ تبادل یک‌بار)
-  if (!force && Math.random() > 0.34) return null
-  const books = domainInfo[domain]?.books || domainInfo.general.books
-  return books.find((b) => !used.includes(`${b.title}::${b.author}`)) || books[0] || null
+function pickBook(_domain: string, _used: string[], _force = false) {
+  // کتاب ثابت حذف شد؛ پیشنهاد فقط از پاسخ هوش مصنوعی می‌آید
+  return null
 }
 
 function buildLocalInsight(domain: string, messages: Message[]): SessionInsight {
@@ -268,12 +266,13 @@ export default function AssessmentPage() {
     ])
   }
 
-  const callAI = async (allMessages: Message[]) => {
+  const callAI = async (allMessages: Message[], suggestBook = false) => {
     const res = await fetch('/api/chatbot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         domain,
+        suggestBook,
         messages: [
           { role: 'user', content: `نام کاربر: ${userName || nameInput || 'کاربر'}` },
           ...allMessages.map((m) => ({ role: m.role, content: m.content })),
@@ -375,7 +374,10 @@ export default function AssessmentPage() {
     setInput('')
     setIsTyping(true)
     try {
-      const reply = await callAI(next)
+      const userCount = next.filter((m) => m.role === 'user').length
+      // حدود هر ۵ پیام کاربر یک کتاب مرتبط
+      const suggestBook = userCount > 0 && userCount % 5 === 0
+      const reply = await callAI(next, suggestBook)
       const withReply: Message[] = [...next, { id: Date.now() + 1, role: 'assistant', content: reply }]
       setMessages(withReply)
       computeInsight(withReply)
