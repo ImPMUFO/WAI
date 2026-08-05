@@ -84,7 +84,7 @@ const ar: typeof fa = {
   signup: 'إنشاء حساب',
   logout: 'خروج',
   language: 'اللغة',
-  appearance: 'الظواهر',
+  appearance: 'المظاهر',
   ctaTitle: 'ارسم عقلك',
   ctaBody: 'تعلّم بالحوار واللعب وخريطتك الذهنية.',
   home: 'الرئيسية',
