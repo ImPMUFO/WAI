@@ -20,7 +20,7 @@ export default function Home() {
   const { locale, dict, dir } = useLocale()
 
   return (
-    <main className="min-h-screen" dir={dir} style={{ color: 'var(--text)' }}>
+    <main key={locale} className="min-h-screen" dir={dir} style={{ color: 'var(--text)' }}>
       <nav className="sticky top-0 z-50 backdrop-blur-lg border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--bg0)_70%,transparent)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
