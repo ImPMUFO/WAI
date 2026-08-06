@@ -18,6 +18,7 @@ import {
 import SpeakButton from '@/components/SpeakButton'
 import GamificationBar from '@/components/GamificationBar'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 import {
   saveConversationToServer,
   loadConversationFromServer,
@@ -124,26 +125,6 @@ const USER_KEY = 'wai_user_name'
 const STAGE_KEY = 'wai_assessment_stage'
 const MAP_KEY = 'wai_map_unified'
 
-function siteLocale(): 'fa' | 'en' | 'ar' {
-  try {
-    const l = localStorage.getItem('waima_locale') || 'fa'
-    if (l === 'en' || l === 'ar' || l === 'fa') return l
-  } catch {}
-  return 'fa'
-}
-
-function welcomeText(name: string, domainTitle: string) {
-  const l = siteLocale()
-  if (l === 'en') {
-    return `Hi ${name}. We'll talk about "${domainTitle}". Answer in your own words — short is fine.`
-  }
-  if (l === 'ar') {
-    return `مرحباً ${name}. سنتحدث عن «${domainTitle}». أجب بكلماتك، باختصار إن شئت.`
-  }
-  return `سلام ${name}. دربارهٔ «${domainTitle}» حرف می‌زنیم. کوتاه و با زبان خودت جواب بده.`
-}
-
-
 function chatKey(domain: string) {
   return `wai_chat_${domain}`
 }
@@ -167,19 +148,13 @@ function pickBook(_domain: string, _used: string[], _force = false) {
 
 function parseBookFromText(content: string): Book | null {
   if (!content) return null
-  const title =
-    content.match(/کتاب پیشنهادی\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
-    content.match(/Book\s*[:：]\s*(.+)/i)?.[1]?.trim()
+  const title = content.match(/کتاب پیشنهادی\s*[:：]\s*(.+)/i)?.[1]?.trim()
   if (!title) return null
-  const author =
-    content.match(/نویسنده\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
-    content.match(/Author\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
-    '—'
+  const author = content.match(/نویسنده\s*[:：]\s*(.+)/i)?.[1]?.trim() || 'نامشخص'
   const reason =
     content.match(/چرا این کتاب\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
     content.match(/دلیل\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
-    content.match(/Why\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
-    '—'
+    'مرتبط با گفتگوی جاری'
   return {
     title: title.replace(/\*+/g, '').trim(),
     author: author.replace(/\*+/g, '').trim(),
@@ -217,6 +192,8 @@ function buildLocalInsight(domain: string, messages: Message[]): SessionInsight 
 }
 
 export default function AssessmentPage() {
+  const { dict, dir } = useLocale()
+
   const params = useParams()
   const domain = (params.domain as string) || 'general'
   const info = domainInfo[domain] || domainInfo.general
@@ -271,7 +248,7 @@ export default function AssessmentPage() {
         {
           id: 1,
           role: 'assistant',
-          content: welcomeText(savedName, info.title),
+          content: `سلام ${savedName}. دربارهٔ «${info.title}» حرف می‌زنیم. کوتاه و با زبان خودت جواب بده.`,
         },
       ])
     }
@@ -304,7 +281,7 @@ export default function AssessmentPage() {
       {
         id: Date.now(),
         role: 'assistant',
-        content: welcomeText(n, info.title),
+        content: `سلام ${n}. دربارهٔ «${info.title}» شروع کنیم.`,
       },
     ])
   }
@@ -375,8 +352,40 @@ export default function AssessmentPage() {
     return local
   }
 
-  // بدون فراخوانی AI قبل از اولین پیام کاربر
-
+  useEffect(() => {
+    if (!ready || needsName || !userName || startedRef.current) return
+    if (messages.length === 0) return
+    const onlyWelcome = messages.length === 1 && messages[0].role === 'assistant'
+    if (!onlyWelcome) {
+      startedRef.current = true
+      return
+    }
+    const timer = setTimeout(async () => {
+      startedRef.current = true
+      setIsTyping(true)
+      try {
+        const reply = await callAI(messages)
+        const withReply: Message[] = [...messages, { id: Date.now(), role: 'assistant', content: reply }]
+        setMessages(withReply)
+        computeInsight(withReply)
+      } catch {
+        const fallback = buildLocalInsight(domain, messages)
+        setInsight(fallback)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            role: 'assistant',
+            content: `فعلاً وصل نشدم. این سؤال را جواب بده:\n\n${fallback.question}`,
+          },
+        ])
+      } finally {
+        setIsTyping(false)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, needsName, userName, messages.length])
 
   const sendMessage = async () => {
     if (!input.trim() || isTyping || needsName) return
@@ -438,12 +447,7 @@ export default function AssessmentPage() {
       {
         id: Date.now(),
         role: 'assistant',
-        content:
-          siteLocale() === 'en'
-            ? `Okay ${userName}. New chat on "${info.title}".`
-            : siteLocale() === 'ar'
-              ? `حسناً ${userName}. محادثة جديدة عن «${info.title}».`
-              : `باشه ${userName}. گفت‌وگوی «${info.title}» از نو شروع شد.`,
+        content: `باشه ${userName}. گفت‌وگوی «${info.title}» از نو شروع شد.`,
       },
     ])
   }
@@ -452,7 +456,7 @@ export default function AssessmentPage() {
 
   if (!ready) {
     return (
-      <main className="min-h-screen flex items-center justify-center" style={{ color: 'var(--text)' }}>
+      <main dir={dir} className="min-h-screen flex items-center justify-center" style={{ color: 'var(--text)' }}>
         <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
       </main>
     )
@@ -460,20 +464,20 @@ export default function AssessmentPage() {
 
   if (needsName) {
     return (
-      <main className="min-h-screen rtl flex items-center justify-center px-4" style={{ color: 'var(--text)' }}>
+      <main dir={dir} className="min-h-screen flex items-center justify-center px-4" style={{ color: 'var(--text)' }}>
         <div className="w-full max-w-md card space-y-5">
           <div className="flex items-center gap-2 text-[var(--accent)]">
             <User className="w-5 h-5" />
-            <h1 className="text-lg font-semibold">خوش آمدی</h1>
+            <h1 className="text-lg font-semibold">{dict.welcomeTitle}</h1>
           </div>
           <p className="text-sm text-[var(--muted)] leading-relaxed">
-            قبل از شروع «{info.title}»، اسمت را بگو تا گفت‌وگو و نقشه ذهنت ذخیره شود.
+            قبل از شروع «{info.title}»، اسمت را بگو تا گفت‌وگو و {dict.mindMap}ت ذخیره شود.
           </p>
           <input
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && saveName()}
-            placeholder="مثلاً علی"
+            placeholder="{dict.namePlaceholder}"
             className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)] focus:outline-none"
             style={{ color: 'var(--text)' }}
           />
@@ -481,7 +485,7 @@ export default function AssessmentPage() {
             شروع کنیم
           </button>
           <Link href="/start" className="block text-center text-sm text-[var(--muted)]">
-            بازگشت
+            {dict.back}
           </Link>
         </div>
       </main>
@@ -489,32 +493,32 @@ export default function AssessmentPage() {
   }
 
   return (
-    <main className="min-h-screen rtl flex flex-col" style={{ color: 'var(--text)' }}>
+    <main dir={dir} className="min-h-screen flex flex-col" style={{ color: 'var(--text)' }}>
       <header className="sticky top-0 z-50 backdrop-blur-lg border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--bg0)_78%,transparent)]">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="text-xl shrink-0">{info.emoji}</span>
             <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-semibold truncate">ارزیابی {info.title}</h1>
+              <h1 className="text-sm sm:text-base font-semibold truncate">{dict.assessment} {info.title}</h1>
               <p className="text-[10px] sm:text-xs text-[var(--accent)] truncate">
-                {userName} {mapUpdating ? ' · به‌روزرسانی نقشه...' : ' · نقشه واحد'}
+                {userName} {mapUpdating ? ` · ${dict.mapUpdating}` : ` · ${dict.unifiedMap}`}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button onClick={clearChat} className="text-[10px] sm:text-xs text-[var(--muted)]">
-              گفت‌وگوی جدید
+              {dict.newChat}
             </button>
             <Link href="/play" className="text-[10px] sm:text-xs text-[var(--muted)]">
-              بازی‌ها
+              {dict.games}
             </Link>
             <Link href="/map" className="text-[10px] sm:text-xs text-[var(--accent)] inline-flex items-center gap-1">
               <Map className="w-3.5 h-3.5" />
-              نقشه ذهن
+              {dict.mindMap}
             </Link>
             <Link href="/start" className="text-xs text-[var(--muted)] inline-flex items-center gap-1">
               <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-              <span className="hidden sm:inline">بازگشت</span>
+              <span className="hidden sm:inline">{dict.back}</span>
             </Link>
           </div>
         </div>
@@ -542,7 +546,7 @@ export default function AssessmentPage() {
                     <div className="flex items-center justify-between gap-2 mb-1.5 text-[var(--accent)]">
                       <div className="flex items-center gap-1.5">
                         <Brain className="w-3.5 h-3.5" />
-                        <span className="text-[10px] sm:text-xs">ارزیاب</span>
+                        <span className="text-[10px] sm:text-xs">{dict.evaluator}</span>
                       </div>
                       <SpeakButton text={msg.content} />
                     </div>
@@ -561,16 +565,16 @@ export default function AssessmentPage() {
             >
               <div className="flex items-center gap-2 text-[var(--accent)]">
                 <Sparkles className="w-4 h-4" />
-                <h2 className="text-sm font-semibold">جمع‌بندی کوتاه</h2>
+                <h2 className="text-sm font-semibold">{dict.shortSummary}</h2>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 text-sm">
                 <div className="rounded-xl border border-[var(--border)] p-3">
-                  <div className="text-[var(--muted)] text-xs mb-1">سطح</div>
+                  <div className="text-[var(--muted)] text-xs mb-1">{dict.level}</div>
                   <div className="font-semibold">{insight.level}</div>
                 </div>
                 {currentBook && (
                   <div className="rounded-xl border border-[var(--border)] p-3">
-                    <div className="text-[var(--muted)] text-xs mb-1">کتاب</div>
+                    <div className="text-[var(--muted)] text-xs mb-1">{dict.book}</div>
                     <div className="font-semibold">{currentBook.title}</div>
                   </div>
                 )}
@@ -606,7 +610,7 @@ export default function AssessmentPage() {
             <div className="flex justify-end">
               <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-2 text-[var(--muted)] text-sm">
                 <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
-                در حال فکر کردن...
+                {dict.thinking}
               </div>
             </div>
           )}
@@ -626,7 +630,7 @@ export default function AssessmentPage() {
                   sendMessage()
                 }
               }}
-              placeholder="جوابت را بنویس..."
+              placeholder="{dict.typeAnswer}"
               rows={1}
               className="flex-1 rounded-xl px-4 py-3 text-sm sm:text-base border border-[var(--border)] bg-[var(--card)] focus:outline-none resize-none max-h-32"
               style={{ color: 'var(--text)' }}
