@@ -8,12 +8,12 @@ import {
   loadGame,
   levelFromXp,
   achievementList,
+  MAX_LEVEL,
   type GameState,
 } from '@/lib/gamification'
 
 export default function GamificationBar({ compact = false }: { compact?: boolean }) {
   const { dict } = useLocale()
-
   const [g, setG] = useState<GameState | null>(null)
 
   const refresh = () => setG(loadGame())
@@ -26,22 +26,52 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
   }, [])
 
   if (!g) return null
-  const { level, intoLevel, need } = levelFromXp(g.xp)
-  const pct = Math.min(100, Math.round((intoLevel / need) * 100))
+  const prog = levelFromXp(g.xp)
+  const { level, intoLevel, need } = prog
+  const remaining = (prog as { remaining?: number }).remaining ?? Math.max(0, need - intoLevel)
+  const atMax = level >= MAX_LEVEL
+  const pct = atMax ? 100 : need > 0 ? Math.min(100, Math.round((intoLevel / need) * 100)) : 0
   const achievements = achievementList()
+
+  // رنگ نوار بر اساس درصد
+  const barColor =
+    pct >= 80 ? 'bg-emerald-400' : pct >= 45 ? 'bg-[var(--accent)]' : 'bg-sky-400'
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 text-[10px] sm:text-xs text-[var(--muted)]">
-        <span className="inline-flex items-center gap-1 text-[var(--accent)]">
-          <Zap className="w-3.5 h-3.5" />
-          {dict.levelWord} {level}
-        </span>
-        <span>{g.xp} XP</span>
-        <span className="inline-flex items-center gap-1">
-          <Flame className="w-3.5 h-3.5" />
-          {g.streak} {dict.days}
-        </span>
+      <div className="card !py-3 space-y-2">
+        <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-[var(--muted)]">
+          <span className="inline-flex items-center gap-1 text-[var(--accent)] font-semibold">
+            <Zap className="w-3.5 h-3.5" />
+            {dict.levelWord} {level}
+            {atMax ? ' (MAX)' : ''}
+          </span>
+          <span>
+            {g.xp} XP
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Flame className="w-3.5 h-3.5" />
+            {g.streak} {dict.days}
+          </span>
+        </div>
+        <div>
+          <div className="flex justify-between text-[10px] text-[var(--muted)] mb-1">
+            <span>
+              {atMax
+                ? `${dict.levelWord} ${MAX_LEVEL}`
+                : `${dict.untilNextLevel} · ${remaining} XP`}
+            </span>
+            <span>
+              {atMax ? '100%' : `${intoLevel}/${need}`}
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full bg-[var(--border)] overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
       </div>
     )
   }
@@ -62,11 +92,14 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
         <span className="inline-flex items-center gap-1">
           <Zap className="w-3.5 h-3.5 text-[var(--accent)]" />
           {dict.levelWord} {level}
+          {atMax ? ' · MAX' : ''}
         </span>
-        <span>{g.xp} XP</span>
+        <span>
+          {g.xp} XP
+        </span>
         <span className="inline-flex items-center gap-1">
           <Flame className="w-3.5 h-3.5" />
-          پیاپی {g.streak} {dict.days}
+          {dict.streakDays}: {g.streak}
         </span>
         <span className="inline-flex items-center gap-1">
           <Target className="w-3.5 h-3.5" />
@@ -75,14 +108,29 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
       </div>
 
       <div>
-        <div className="flex justify-between text-[10px] text-[var(--muted)] mb-1">
-          <span>{dict.untilNextLevel}</span>
+        <div className="flex justify-between text-[10px] sm:text-xs text-[var(--muted)] mb-1.5">
           <span>
-            {intoLevel}/{need}
+            {atMax
+              ? `${dict.levelWord} ${MAX_LEVEL}`
+              : `${dict.levelWord} ${level} → ${level + 1}`}
+          </span>
+          <span className="font-medium text-[var(--text)]">
+            {atMax ? 'MAX' : `${intoLevel} / ${need} XP`}
           </span>
         </div>
-        <div className="h-2 rounded-full bg-[var(--border)] overflow-hidden">
-          <div className="h-full rounded-full bg-[var(--accent)] transition-all" style={{ width: `${pct}%` }} />
+        <div className="flex justify-between text-[10px] text-[var(--muted)] mb-1">
+          <span>{atMax ? '100%' : `${pct}%`}</span>
+          {!atMax && (
+            <span>
+              {remaining} XP
+            </span>
+          )}
+        </div>
+        <div className="h-3 rounded-full bg-[var(--border)] overflow-hidden border border-[var(--border)]">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+            style={{ width: `${pct}%` }}
+          />
         </div>
       </div>
 
