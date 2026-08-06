@@ -154,13 +154,13 @@ function prepareItems(items: QuizItem[], seedKey: string): QuizItem[] {
 
 function normalizeItem(q: any, i: number, date: string): QuizItem | null {
   if (!q || !q.question) return null
-  const options = Array.isArray(q.options) ? q.options.map((o: any) => String(o).trim()) : []
+  const options = Array.isArray(q.options) ? q.options.map((o: unknown) => String(o).trim()) : []
   if (options.length < 2) return null
   let answer = String(q.answer ?? '').trim()
   if (/^[0-3]$/.test(answer) && options[Number(answer)]) answer = options[Number(answer)]
   else if (/^[1-4]$/.test(answer) && options[Number(answer) - 1]) answer = options[Number(answer) - 1]
   if (!options.includes(answer)) {
-    const hit = options.find((o) => o === answer || o.includes(answer) || answer.includes(o))
+    const hit = options.find((o: string) => o === answer || o.includes(answer) || answer.includes(o))
     if (hit) answer = hit
     else answer = options[0]
   }
