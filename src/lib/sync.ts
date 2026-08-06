@@ -51,13 +51,48 @@ export async function upsertProfilePatch(patch: {
 
 /** همگام XP از localStorage به سرور */
 export async function syncGameStateToServer(gameState: unknown, xp?: number, level?: number, streak?: number) {
+  let display_name: string | undefined
+  try {
+    display_name = localStorage.getItem('wai_user_name') || localStorage.getItem('waima_user_name') || undefined
+  } catch {
+    display_name = undefined
+  }
   return upsertProfilePatch({
     game_state: gameState,
     xp,
     level,
     streak,
+    ...(display_name ? { display_name } : {}),
   })
 }
+
+export type LeaderboardRow = {
+  display_name: string | null
+  xp: number | null
+  level: number | null
+}
+
+/** جدول امتیازات عمومی (نیاز به policy خواندن profiles) */
+export async function fetchLeaderboard(limit = 50): Promise<LeaderboardRow[]> {
+  try {
+    if (!isSupabaseConfigured()) return []
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('display_name, xp, level')
+      .order('xp', { ascending: false })
+      .limit(limit)
+    if (error || !data) {
+      console.warn('leaderboard', error?.message)
+      return []
+    }
+    return data as LeaderboardRow[]
+  } catch (e) {
+    console.warn('leaderboard', e)
+    return []
+  }
+}
+
 
 /** ذخیره نقشه ذهن یکپارچه */
 export async function saveMindMapToServer(map: {
@@ -68,10 +103,6 @@ export async function saveMindMapToServer(map: {
 }) {
   const user = await getCurrentUser()
   if (!user) return { ok: false as const, reason: 'no-user' }
-  // هرگز نقشه خالی روی نسخه موجود ننویس
-  const nodes = map.nodes
-  const count = Array.isArray(nodes) ? nodes.length : nodes ? 1 : 0
-  if (count === 0) return { ok: false as const, reason: 'empty-map-refused' }
   const supabase = createClient()
   const { error } = await supabase.from('mind_maps').upsert(
     {
