@@ -146,6 +146,14 @@ function normalizeGame(g: GameState): GameState {
 export function saveGame(g: GameState) {
   localStorage.setItem(GAME_KEY, JSON.stringify(g))
   window.dispatchEvent(new Event('wai-game-updated'))
+  // همگام با سرور برای جدول امتیازات (بدون بلاک کردن UI)
+  try {
+    void import('@/lib/sync').then((m) => {
+      void m.syncGameStateToServer(g, g.xp, g.level, g.streak)
+    })
+  } catch {
+    /* ignore */
+  }
 }
 
 export function markDomainActive(domain: string) {
