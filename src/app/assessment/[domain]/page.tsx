@@ -19,6 +19,7 @@ import SpeakButton from '@/components/SpeakButton'
 import GamificationBar from '@/components/GamificationBar'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
+import { domainTitle as domainTitleI18n } from '@/lib/i18n/dictionaries'
 import {
   saveConversationToServer,
   loadConversationFromServer,
@@ -125,6 +126,13 @@ const USER_KEY = 'wai_user_name'
 const STAGE_KEY = 'wai_assessment_stage'
 const MAP_KEY = 'wai_map_unified'
 
+function welcomeByLocale(locale: string, name: string, domainTitle: string) {
+  if (locale === 'en') return `Hi ${name}. We'll talk about "${domainTitle}". Answer in your own words — short is fine.`
+  if (locale === 'ar') return `مرحباً ${name}. سنتحدث عن «${domainTitle}». أجب بكلماتك.`
+  return `سلام ${name}. دربارهٔ «${domainTitle}» حرف می‌زنیم. کوتاه و با زبان خودت جواب بده.`
+}
+
+
 function chatKey(domain: string) {
   return `wai_chat_${domain}`
 }
@@ -192,7 +200,8 @@ function buildLocalInsight(domain: string, messages: Message[]): SessionInsight 
 }
 
 export default function AssessmentPage() {
-  const { dict, dir } = useLocale()
+  const { dict, dir, locale } = useLocale()
+  const domainLabel = domainTitleI18n(locale, domain)
 
   const params = useParams()
   const domain = (params.domain as string) || 'general'
@@ -248,12 +257,12 @@ export default function AssessmentPage() {
         {
           id: 1,
           role: 'assistant',
-          content: `سلام ${savedName}. دربارهٔ «${info.title}» حرف می‌زنیم. کوتاه و با زبان خودت جواب بده.`,
+          content: welcomeByLocale(locale, savedName, domainLabel || info.title),
         },
       ])
     }
     setReady(true)
-  }, [domain, info.title])
+  }, [domain, info.title, locale, domainLabel])
 
   useEffect(() => {
     if (!ready || messages.length === 0) return
@@ -281,7 +290,7 @@ export default function AssessmentPage() {
       {
         id: Date.now(),
         role: 'assistant',
-        content: `سلام ${n}. دربارهٔ «${info.title}» شروع کنیم.`,
+        content: welcomeByLocale(locale, n, domainLabel || info.title),
       },
     ])
   }
@@ -447,7 +456,12 @@ export default function AssessmentPage() {
       {
         id: Date.now(),
         role: 'assistant',
-        content: `باشه ${userName}. گفت‌وگوی «${info.title}» از نو شروع شد.`,
+        content:
+          locale === 'en'
+            ? `Okay ${userName}. New chat on "${domainLabel}".`
+            : locale === 'ar'
+              ? `حسناً ${userName}. محادثة جديدة عن «${domainLabel}».`
+              : `باشه ${userName}. گفت‌وگوی «${domainLabel}» از نو شروع شد.`,
       },
     ])
   }
@@ -499,7 +513,7 @@ export default function AssessmentPage() {
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="text-xl shrink-0">{info.emoji}</span>
             <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-semibold truncate">{dict.assessment} {info.title}</h1>
+              <h1 className="text-sm sm:text-base font-semibold truncate">{dict.assessment} {domainLabel}</h1>
               <p className="text-[10px] sm:text-xs text-[var(--accent)] truncate">
                 {userName} {mapUpdating ? ` · ${dict.mapUpdating}` : ` · ${dict.unifiedMap}`}
               </p>
