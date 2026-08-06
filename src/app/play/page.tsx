@@ -232,9 +232,7 @@ export default function PlayPage() {
                     )}
                     <span className="font-semibold">
                       {already
-                        ? dir === 'ltr'
-                          ? 'Already answered'
-                          : 'قبلاً پاسخ داده شده'
+                        ? dict.alreadyAnswered
                         : lastCorrect
                           ? dict.wellDone
                           : dict.notThisTime}
@@ -261,10 +259,10 @@ export default function PlayPage() {
             <motion.div key="empty" className="card text-center space-y-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Trophy className="w-8 h-8 mx-auto text-[var(--accent)]" />
               <p className="font-semibold">
-                {dir === 'ltr' ? "Today's quiz is done" : 'سؤالات امروز تمام شد'}
+                {dict.quizDoneToday}
               </p>
               <p className="text-sm text-[var(--muted)]">
-                {dir === 'ltr' ? 'Come back tomorrow for a new set.' : 'فردا مجموعهٔ جدیدی می‌آید.'}
+                {dict.quizComeTomorrow}
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 <Link href="/start" className="btn-primary px-5 py-3">
