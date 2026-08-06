@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Volume2, Square, Gauge } from 'lucide-react'
+import { Volume2, Square } from 'lucide-react'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 
-/** Text-to-Speech با Web Speech API مرورگر (رایگان، بدون کلید) */
 export default function SpeakButton({ text }: { text: string }) {
+  const { dict, locale } = useLocale()
   const [speaking, setSpeaking] = useState(false)
   const [rate, setRate] = useState(1)
-  const utterRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   useEffect(() => {
     return () => {
@@ -19,6 +19,8 @@ export default function SpeakButton({ text }: { text: string }) {
     return null
   }
 
+  const lang = locale === 'en' ? 'en-US' : locale === 'ar' ? 'ar-SA' : 'fa-IR'
+
   const stop = () => {
     window.speechSynthesis.cancel()
     setSpeaking(false)
@@ -28,11 +30,10 @@ export default function SpeakButton({ text }: { text: string }) {
     if (!text?.trim()) return
     window.speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'fa-IR'
+    u.lang = lang
     u.rate = rate
     u.onend = () => setSpeaking(false)
     u.onerror = () => setSpeaking(false)
-    utterRef.current = u
     setSpeaking(true)
     window.speechSynthesis.speak(u)
   }
@@ -42,21 +43,20 @@ export default function SpeakButton({ text }: { text: string }) {
       <button
         type="button"
         onClick={speaking ? stop : play}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] sm:text-xs border border-[var(--border)] text-[var(--muted)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
-        title={speaking ? 'توقف صدا' : 'خواندن با صدا'}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] sm:text-xs border border-[var(--border)] text-[var(--muted)] hover:text-[var(--accent)]"
       >
         {speaking ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-        {speaking ? 'توقف' : 'صدا'}
+        {speaking ? dict.stop : dict.speak}
       </button>
-      <button
-        type="button"
-        onClick={() => setRate((r) => (r >= 1.25 ? 0.85 : Number((r + 0.2).toFixed(2))))}
-        className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] border border-[var(--border)] text-[var(--muted)]"
-        title="سرعت پخش"
+      <select
+        value={rate}
+        onChange={(e) => setRate(Number(e.target.value))}
+        className="text-[10px] bg-transparent border border-[var(--border)] rounded px-1 text-[var(--muted)]"
       >
-        <Gauge className="w-3 h-3" />
-        {rate.toFixed(2)}x
-      </button>
+        <option value={0.85}>0.85×</option>
+        <option value={1}>1×</option>
+        <option value={1.15}>1.15×</option>
+      </select>
     </div>
   )
 }
