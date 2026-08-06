@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -110,6 +111,8 @@ function layoutRadial(nodes: KnowledgeNode[]) {
 }
 
 export default function KnowledgeMapPage() {
+  const { dict, dir } = useLocale()
+
   const [map, setMap] = useState<MapData | null>(null)
   const [selected, setSelected] = useState<KnowledgeNode | null>(null)
   const [scale, setScale] = useState(0.72)
@@ -177,14 +180,14 @@ export default function KnowledgeMapPage() {
   }, [laidOut])
 
   return (
-    <main className="min-h-screen rtl overflow-hidden" style={{ color: 'var(--text)' }}>
+    <main dir={dir} className="min-h-screen rtl overflow-hidden" style={{ color: 'var(--text)' }}>
       <header className="relative z-30 border-b border-[var(--border)] backdrop-blur-xl bg-[color-mix(in_srgb,var(--bg0)_80%,transparent)]">
         <div className="max-w-6xl mx-auto px-3 py-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Compass className="w-5 h-5 text-[var(--accent)]" />
             <div>
-              <h1 className="text-sm sm:text-base font-semibold">نقشه کامل ذهن</h1>
-              <p className="text-[10px] text-[var(--accent)]">یک نقشه · همه دانش‌ها</p>
+              <h1 className="text-sm sm:text-base font-semibold">{dict.mapTitle}</h1>
+              <p className="text-[10px] text-[var(--accent)]">{dict.mapSubtitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 text-xs">
@@ -193,7 +196,7 @@ export default function KnowledgeMapPage() {
             </Link>
             <Link href="/" className="text-[var(--muted)] hover:opacity-80 inline-flex items-center gap-1">
               <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-              خانه
+              {dict.home}
             </Link>
           </div>
         </div>
@@ -270,10 +273,10 @@ export default function KnowledgeMapPage() {
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
               <div className="max-w-sm space-y-3">
                 <p className="text-sm text-[var(--muted)] leading-relaxed">
-                  هنوز نقشه‌ای ساخته نشده. با اولین گفت‌وگو، دایرهٔ ذهن تو اینجا شکل می‌گیرد.
+                  {dict.mapEmpty}
                 </p>
                 <Link href="/start" className="btn-primary inline-flex px-4 py-2 text-sm">
-                  شروع گفت‌وگو
+                  {dict.startChat}
                 </Link>
               </div>
             </div>
