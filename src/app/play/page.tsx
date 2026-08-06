@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -51,6 +52,8 @@ function shuffle<T>(arr: T[]) {
 type Phase = 'ready' | 'playing' | 'feedback' | 'stageClear' | 'done'
 
 export default function PlayPage() {
+  const { dict, dir } = useLocale()
+
   const [deck, setDeck] = useState<QuizItem[]>([])
   const [index, setIndex] = useState(0)
   const [stage, setStage] = useState(1)
@@ -156,16 +159,16 @@ export default function PlayPage() {
   const progressPct = deck.length ? Math.round((index / deck.length) * 100) : 0
 
   return (
-    <main className="min-h-screen rtl px-4 py-6 sm:py-10" style={{ color: 'var(--text)' }}>
+    <main dir={dir} className="min-h-screen rtl px-4 py-6 sm:py-10" style={{ color: 'var(--text)' }}>
       <div className="max-w-2xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Gamepad2 className="w-5 h-5 text-[var(--accent)]" />
-            <h1 className="text-lg sm:text-xl font-bold">بازی‌های آموزشی</h1>
+            <h1 className="text-lg sm:text-xl font-bold">{dict.playTitle}</h1>
           </div>
           <Link href="/" className="text-sm text-[var(--muted)] inline-flex items-center gap-1">
             <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-            خانه
+            {dict.home}
           </Link>
         </div>
 
@@ -175,10 +178,10 @@ export default function PlayPage() {
           <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-[var(--muted)]">
             <span className="inline-flex items-center gap-1">
               <Trophy className="w-3.5 h-3.5 text-[var(--accent)]" />
-              رکورد: {best}/{BANK.length}
+              {dict.record}: {best}/{BANK.length}
             </span>
             <span>
-              مرحله {Math.min(stage, totalStages)} از {totalStages}
+              {dict.stage} {Math.min(stage, totalStages)} {dict.of} {totalStages}
             </span>
             {phase === 'playing' && (
               <span className="inline-flex items-center gap-1 text-[var(--accent)]">
@@ -211,11 +214,10 @@ export default function PlayPage() {
               className="card space-y-4 text-center"
             >
               <p className="text-sm text-[var(--muted)] leading-relaxed">
-                چند مرحله کوتاه با زمان‌بندی.
-                هر پاسخ درست امتیاز می‌سازد و رکورد شخصی‌ات ذخیره می‌شود.
+                {dict.playIntro}
               </p>
               <button onClick={startRun} className="btn-primary px-6 py-3">
-                شروع چالش
+                {dict.startChallenge}
               </button>
             </motion.div>
           )}
@@ -229,7 +231,7 @@ export default function PlayPage() {
               className="card space-y-4"
             >
               <div className="text-xs text-[var(--accent)]">
-                سؤال {index + 1} از {deck.length}
+                {dict.question} {index + 1} {dict.of} {deck.length}
               </div>
               <h2 className="text-base sm:text-lg font-semibold leading-relaxed">{current.question}</h2>
 
@@ -270,7 +272,7 @@ export default function PlayPage() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && submitAnswer()}
-                  placeholder="جواب را بنویس..."
+                  placeholder="{dict.writeAnswer}"
                   className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
                   style={{ color: 'var(--text)' }}
                 />
@@ -281,7 +283,7 @@ export default function PlayPage() {
                 disabled={!answer.trim()}
                 className="btn-primary w-full py-3 disabled:opacity-40"
               >
-                ثبت پاسخ
+                {dict.submitAnswer}
               </button>
             </motion.div>
           )}
@@ -299,16 +301,16 @@ export default function PlayPage() {
                 ) : (
                   <XCircle className="w-5 h-5 text-rose-400" />
                 )}
-                <span className="font-semibold">{lastCorrect ? 'آفرین! درست بود' : 'این‌بار نه'}</span>
+                <span className="font-semibold">{lastCorrect ? dict.wellDone : dict.notThisTime}</span>
               </div>
               {!lastCorrect && (
                 <p className="text-sm text-[var(--muted)]">
-                  جواب درست: <span className="text-[var(--accent)]">{current.answer}</span>
+                  {dict.correctAnswer}: <span className="text-[var(--accent)]">{current.answer}</span>
                 </p>
               )}
               <p className="text-sm text-[var(--muted)] leading-relaxed">{current.explain}</p>
               <button onClick={next} className="btn-primary w-full py-3">
-                ادامه
+                {dict.continue}
               </button>
             </motion.div>
           )}
@@ -320,12 +322,12 @@ export default function PlayPage() {
               animate={{ opacity: 1, y: 0 }}
               className="card space-y-4 text-center"
             >
-              <p className="text-lg font-semibold">مرحله {stage} تمام شد</p>
+              <p className="text-lg font-semibold">{dict.stageDone} ({dict.stage} {stage})</p>
               <p className="text-sm text-[var(--muted)]">
-                درست‌های این مرحله: {stageCorrect} از {STAGE_SIZE}
+                {dict.stageScore}: {stageCorrect} از {STAGE_SIZE}
               </p>
               <button onClick={continueStage} className="btn-primary px-6 py-3">
-                مرحله بعد
+                {dict.nextStage}
               </button>
             </motion.div>
           )}
@@ -338,11 +340,11 @@ export default function PlayPage() {
               className="card space-y-4 text-center"
             >
               <Trophy className="w-8 h-8 mx-auto text-[var(--accent)]" />
-              <p className="text-lg font-semibold">پایان چالش</p>
+              <p className="text-lg font-semibold">{dict.challengeEnd}</p>
               <p className="text-sm text-[var(--muted)]">
-                امتیاز این دور: {correctCount} از {deck.length}
+                {dict.thisRound}: {correctCount} از {deck.length}
               </p>
-              <p className="text-sm text-[var(--muted)]">بهترین رکورد: {best}</p>
+              <p className="text-sm text-[var(--muted)]">بهترین {dict.record}: {best}</p>
               <div className="flex flex-wrap justify-center gap-2">
                 <button onClick={startRun} className="btn-primary px-5 py-3">
                   دوباره
