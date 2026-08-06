@@ -204,10 +204,9 @@ function buildLocalInsight(domain: string, messages: Message[]): SessionInsight 
 
 export default function AssessmentPage() {
   const { dict, dir, locale } = useLocale()
-  const domainLabel = domainTitleI18n(locale, domain)
-
   const params = useParams()
   const domain = (params.domain as string) || 'general'
+  const domainLabel = domainTitleI18n(locale, domain)
   const info = domainInfo[domain] || domainInfo.general
 
   const [userName, setUserName] = useState('')
