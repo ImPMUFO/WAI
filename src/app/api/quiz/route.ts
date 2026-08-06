@@ -131,7 +131,11 @@ function shuffleOptions(item: QuizItem, rand: () => number): QuizItem {
   }
   while (options.length < 4) options.push(`گزینه ${options.length + 1}`)
   options = options.slice(0, 4)
-  options = shuffleWith(options, rand)
+  options = shuffleWith(shuffleWith(options, rand), () => Math.random())
+  if (answer && options[0] === answer && Math.random() < 0.8) {
+    const j = 1 + Math.floor(Math.random() * 3)
+    const t = options[0]; options[0] = options[j]; options[j] = t
+  }
   if (answer && !options.includes(answer)) {
     const idx = Math.floor(rand() * 4)
     options[idx] = answer
