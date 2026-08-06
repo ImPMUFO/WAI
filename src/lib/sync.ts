@@ -181,7 +181,22 @@ export async function saveConversationToServer(domain: string, messages: ChatMes
     convId = created.id
   }
 
-  // پاک کردن پیام‌های قبلی این مکالمه و نوشتن دوباره (ساده)
+  // هرگز با آرایه خالی یا کوتاه‌تر از قبل، تاریخچه را نابود نکن
+  if (!messages.length) {
+    return { ok: false as const, reason: 'empty-messages-refused' }
+  }
+
+  const { count: existingCount } = await supabase
+    .from('messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('conversation_id', convId)
+
+  if (typeof existingCount === 'number' && existingCount > messages.length) {
+    // نسخهٔ سرور غنی‌تر است — بازنویسی مخرب ممنوع
+    return { ok: false as const, reason: 'server-has-more-messages' }
+  }
+
+  // جایگزینی ایمن فقط وقتی دادهٔ جدید کامل‌تر یا مساوی است
   await supabase.from('messages').delete().eq('conversation_id', convId)
 
   const rows = messages.map((m) => ({
@@ -229,27 +244,106 @@ export async function loadConversationFromServer(domain: string): Promise<ChatMe
 }
 
 /** بعد از لاگین: local → server برای نقشه و game */
-export async function migrateLocalToServerIfNeeded() {
+
+/** آرشیو محلی گفتگو — هیچ‌وقت پاک نمی‌شود */
+export function archiveLocalChat(domain: string, messages: ChatMessage[]) {
+  if (typeof window === 'undefined' || !messages?.length) return
+  try {
+    const key = `wai_chat_archive_${domain}_${Date.now()}`
+    localStorage.setItem(key, JSON.stringify({ domain, savedAt: new Date().toISOString(), messages }))
+    // فهرست آرشیوها
+    const idxKey = 'wai_chat_archive_index'
+    const raw = localStorage.getItem(idxKey)
+    const idx: string[] = raw ? JSON.parse(raw) : []
+    idx.push(key)
+    localStorage.setItem(idxKey, JSON.stringify(idx.slice(-200)))
+  } catch {
+    /* quota */
+  }
+}
+
+/** بازیابی بهترین گفتگوی موجود برای یک حوزه (محلی + آرشیو + سرور) */
+export async function recoverConversation(domain: string): Promise<ChatMessage[] | null> {
+  let best: ChatMessage[] = []
+  try {
+    const cur = localStorage.getItem(`wai_chat_${domain}`)
+    if (cur) {
+      const parsed = JSON.parse(cur)
+      if (Array.isArray(parsed) && parsed.length > best.length) best = parsed
+    }
+  } catch {}
+  try {
+    const idxRaw = localStorage.getItem('wai_chat_archive_index')
+    const idx: string[] = idxRaw ? JSON.parse(idxRaw) : []
+    for (const k of idx) {
+      if (!k.includes(`_${domain}_`) && !k.includes(`wai_chat_archive_${domain}_`)) continue
+      try {
+        const a = JSON.parse(localStorage.getItem(k) || 'null')
+        const msgs = a?.messages
+        if (Array.isArray(msgs) && msgs.length > best.length) best = msgs
+      } catch {}
+    }
+    // اسکن همه کلیدها برای آرشیوهای قدیمی
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || ''
+      if (k.startsWith('wai_chat_archive_') && k.includes(domain)) {
+        try {
+          const a = JSON.parse(localStorage.getItem(k) || 'null')
+          const msgs = a?.messages
+          if (Array.isArray(msgs) && msgs.length > best.length) best = msgs
+        } catch {}
+      }
+    }
+  } catch {}
+  const remote = await loadConversationFromServer(domain)
+  if (remote && remote.length > best.length) best = remote
+  if (best.length) {
+    try {
+      localStorage.setItem(`wai_chat_${domain}`, JSON.stringify(best))
+    } catch {}
+    // اگر سرور کوتاه‌تر بود، دوباره بالا بفرست
+    if (!remote || remote.length < best.length) {
+      void saveConversationToServer(domain, best)
+    }
+  }
+  return best.length ? best : null
+}
+
+/** مهاجرت همه داده‌های محلی به سرور بعد از ورود */
+export async function recoverAllLocalDataToServer() {
   const user = await getCurrentUser()
   if (!user) return
-
   try {
+    // نقشه
     const mapRaw = localStorage.getItem('wai_map_unified')
     if (mapRaw) {
       const map = JSON.parse(mapRaw)
-      await saveMindMapToServer(map)
+      if (map?.nodes?.length) await saveMindMapToServer(map)
     }
-  } catch {
-    /* ignore */
-  }
-
+  } catch {}
   try {
-    const gameRaw = localStorage.getItem('wai_game_state_v1')
-    if (gameRaw) {
-      const g = JSON.parse(gameRaw)
+    // بازی
+    const gRaw = localStorage.getItem('wai_game_state_v1')
+    if (gRaw) {
+      const g = JSON.parse(gRaw)
       await syncGameStateToServer(g, g.xp, g.level, g.streak)
     }
-  } catch {
-    /* ignore */
-  }
+  } catch {}
+  try {
+    // همه گفتگوهای فعلی
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || ''
+      if (k.startsWith('wai_chat_') && !k.includes('archive')) {
+        const domain = k.replace('wai_chat_', '')
+        try {
+          const msgs = JSON.parse(localStorage.getItem(k) || '[]')
+          if (Array.isArray(msgs) && msgs.length) await saveConversationToServer(domain, msgs)
+        } catch {}
+      }
+    }
+  } catch {}
+}
+
+export async function migrateLocalToServerIfNeeded() {
+  await recoverAllLocalDataToServer()
 }
