@@ -16,7 +16,6 @@ import {
   User,
 } from 'lucide-react'
 import SpeakButton from '@/components/SpeakButton'
-import GamificationBar from '@/components/GamificationBar'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { domainTitle as domainTitleI18n, getDictionary } from '@/lib/i18n/dictionaries'
@@ -555,7 +554,6 @@ export default function AssessmentPage() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          <GamificationBar compact />
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
               <motion.div
