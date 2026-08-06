@@ -350,10 +350,10 @@ export default function PlayPage() {
                   دوباره
                 </button>
                 <Link href="/start" className="btn-secondary px-5 py-3">
-                  گفتگو
+                  {dict.chat}
                 </Link>
                 <Link href="/map" className="btn-secondary px-5 py-3">
-                  نقشه ذهنی
+                  {dict.mindMap}
                 </Link>
               </div>
             </motion.div>
