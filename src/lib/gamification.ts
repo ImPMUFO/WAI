@@ -28,12 +28,14 @@ export type GameState = {
     { progress: number; target: number; claimed: boolean; resetAt: string }
   >
   history: { ts: number; reason: string; xp: number }[]
+  /** id سؤالاتی که یک‌بار پاسخ داده شده‌اند (XP تکراری ممنوع) */
+  answeredQuestions: string[]
 }
 
-const LEVEL_BASE = 100
+const LEVEL_BASE = 140
 
 export function xpForLevel(level: number) {
-  return Math.floor(LEVEL_BASE * Math.pow(level, 1.35))
+  return Math.floor(LEVEL_BASE * Math.pow(level, 1.48))
 }
 
 export function levelFromXp(xp: number) {
@@ -45,7 +47,8 @@ export function levelFromXp(xp: number) {
     level += 1
     need = xpForLevel(level)
   }
-  return { level, intoLevel: remain, need }
+  /* load return */
+    return { level, intoLevel: remain, need }
 }
 
 function today() {
@@ -79,6 +82,7 @@ export function defaultGameState(): GameState {
     achievements: [],
     missions: defaultMissions(),
     history: [],
+    answeredQuestions: [],
   }
 }
 
@@ -117,6 +121,7 @@ function normalizeGame(g: GameState): GameState {
     missions,
     achievements: Array.isArray(g.achievements) ? g.achievements : [],
     history: Array.isArray(g.history) ? g.history.slice(-40) : [],
+    answeredQuestions: Array.isArray(g.answeredQuestions) ? g.answeredQuestions : [],
   }
 }
 
@@ -290,4 +295,47 @@ export function progressPercentForActiveNodes(
     relevant.reduce((s, n) => s + (typeof n.mastery === 'number' ? n.mastery : 0), 0) /
     relevant.length
   return { percent: Math.round(avg), counted: relevant.length }
+}
+
+
+export function hasAnsweredQuestion(g: GameState, id: string) {
+  return (g.answeredQuestions || []).includes(id)
+}
+
+/** ثبت پاسخ یک سؤال؛ فقط بار اول XP می‌دهد */
+export function onQuizQuestionAnswered(
+  questionId: string,
+  correct: boolean,
+  opts?: { xpCorrect?: number; xpWrong?: number }
+): { state: GameState; alreadyAnswered: boolean; gainedXp: number } {
+  let g = loadGame()
+  g = touchStreak(g)
+  if (!g.answeredQuestions) g.answeredQuestions = []
+  if (g.answeredQuestions.includes(questionId)) {
+    return { state: g, alreadyAnswered: true, gainedXp: 0 }
+  }
+  const before = g.xp
+  g.answeredQuestions = [...g.answeredQuestions, questionId]
+  g.totalQuizzes += 1
+  const xpC = opts?.xpCorrect ?? 14
+  const xpW = opts?.xpWrong ?? 2
+  g = addXp(g, correct ? xpC : xpW, correct ? 'پاسخ درست بازی' : 'تلاش در بازی')
+  if (g.totalQuizzes >= 10) g = grantAchievement(g, 'quiz_master')
+  const m = { ...g.missions }
+  if (m.daily_quiz && !m.daily_quiz.claimed) {
+    m.daily_quiz = {
+      ...m.daily_quiz,
+      progress: Math.min(m.daily_quiz.target, m.daily_quiz.progress + 1),
+    }
+    if (m.daily_quiz.progress >= m.daily_quiz.target) {
+      m.daily_quiz.claimed = true
+      g = addXp(g, 20, 'مأموریت روزانه آزمون')
+    }
+  }
+  g.missions = m
+  // level از xp
+  const lv = levelFromXp(g.xp)
+  g.level = lv.level
+  saveGame(g)
+  return { state: g, alreadyAnswered: false, gainedXp: g.xp - before }
 }
