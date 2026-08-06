@@ -471,18 +471,18 @@ export default function AssessmentPage() {
             <h1 className="text-lg font-semibold">{dict.welcomeTitle}</h1>
           </div>
           <p className="text-sm text-[var(--muted)] leading-relaxed">
-            قبل از شروع «{info.title}»، اسمت را بگو تا گفت‌وگو و {dict.mindMap}ت ذخیره شود.
+            {dict.welcomeHint}
           </p>
           <input
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && saveName()}
-            placeholder="{dict.namePlaceholder}"
+            placeholder={dict.namePlaceholder}
             className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)] focus:outline-none"
             style={{ color: 'var(--text)' }}
           />
           <button onClick={saveName} disabled={!nameInput.trim()} className="btn-primary w-full py-3 disabled:opacity-40">
-            شروع کنیم
+            {dict.letsStart}
           </button>
           <Link href="/start" className="block text-center text-sm text-[var(--muted)]">
             {dict.back}
@@ -630,7 +630,7 @@ export default function AssessmentPage() {
                   sendMessage()
                 }
               }}
-              placeholder="{dict.typeAnswer}"
+              placeholder={dict.typeAnswer}
               rows={1}
               className="flex-1 rounded-xl px-4 py-3 text-sm sm:text-base border border-[var(--border)] bg-[var(--card)] focus:outline-none resize-none max-h-32"
               style={{ color: 'var(--text)' }}
