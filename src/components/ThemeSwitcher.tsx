@@ -38,11 +38,7 @@ export default function ThemeSwitcher() {
 
       {open && (
         <>
-          <button
-            className="fixed inset-0 z-40 cursor-default"
-            aria-label="close"
-            onClick={() => setOpen(false)}
-          />
+          <button className="fixed inset-0 z-40 cursor-default" aria-label="close" onClick={() => setOpen(false)} />
           <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-[min(100vw-2rem,340px)] rounded-2xl border border-[var(--border)] bg-[var(--card-solid)] backdrop-blur-xl shadow-2xl p-3">
             <p className="text-[11px] text-[var(--muted)] mb-2 px-1">{dict.appearance}</p>
             <div className="grid grid-cols-1 gap-1.5">
@@ -61,16 +57,12 @@ export default function ThemeSwitcher() {
                   >
                     <span className="flex gap-1 shrink-0">
                       {t.preview.map((c) => (
-                        <span
-                          key={c}
-                          className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm"
-                          style={{ background: c }}
-                        />
+                        <span key={c} className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm" style={{ background: c }} />
                       ))}
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-medium text-[var(--text)]">{t.name}</span>
-                      <span className="block text-[10px] text-[var(--muted)]">{t.desc}</span>
+                      <span className="block text-sm font-medium text-[var(--text)]">{dict[t.nameKey]}</span>
+                      <span className="block text-[10px] text-[var(--muted)]">{dict[t.descKey]}</span>
                     </span>
                     {active && <Check className="w-4 h-4 mr-auto text-[var(--accent)]" />}
                   </button>
