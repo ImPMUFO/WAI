@@ -205,13 +205,13 @@ export default function KnowledgeMapPage() {
       <div className="max-w-6xl mx-auto px-3 pt-3 space-y-2 relative z-20">
         <div className="flex flex-wrap gap-2 text-[10px] sm:text-xs">
           <span className="px-2 py-1 rounded-full border border-[var(--border)] bg-[var(--accent)]/15 text-[var(--accent)]">
-            <Eye className="w-3 h-3 inline ml-1" /> معلوم ({stats.known})
+            <Eye className="w-3 h-3 inline ml-1" /> {dict.mapKnown} ({stats.known})
           </span>
           <span className="px-2 py-1 rounded-full border border-[var(--border)] bg-[var(--card)]">
-            <Sparkles className="w-3 h-3 inline ml-1" /> نزدیک ({stats.near})
+            <Sparkles className="w-3 h-3 inline ml-1" /> {dict.mapNear} ({stats.near})
           </span>
           <span className="px-2 py-1 rounded-full border border-[var(--border)] text-[var(--muted)]">
-            <EyeOff className="w-3 h-3 inline ml-1" /> افق ({stats.far})
+            <EyeOff className="w-3 h-3 inline ml-1" /> {dict.mapFar} ({stats.far})
           </span>
         </div>
         {map?.summary && (
@@ -360,7 +360,7 @@ export default function KnowledgeMapPage() {
           )}
 
           <p className="absolute bottom-2 inset-x-0 text-center text-[10px] text-[var(--muted)] pointer-events-none">
-            بکش · دو انگشتی زوم کن · اسکرول ماوس
+            {dict.mapHint}
           </p>
         </div>
       </div>
