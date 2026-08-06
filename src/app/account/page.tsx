@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
@@ -22,6 +23,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 export default function AccountPage() {
+  const { dict, dir } = useLocale()
+
   const [email, setEmail] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [status, setStatus] = useState('—')
@@ -188,30 +191,30 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-3 px-4" style={{ color: 'var(--text)' }}>
-        <p>در حال بارگذاری حساب...</p>
-        <p className="text-xs text-[var(--muted)] text-center">اگر بیش از چند ثانیه ماند، به صفحه ورود برگرد.</p>
+      <main dir={dir} className="min-h-screen flex flex-col items-center justify-center gap-3 px-4" style={{ color: 'var(--text)' }}>
+        <p>{dict.loadingAccount}</p>
+        <p className="text-xs text-[var(--muted)] text-center">{dict.loadingHint}</p>
         <Link href="/auth" className="text-sm text-[var(--accent)]">
-          رفتن به ورود
+          {dict.goLogin}
         </Link>
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen rtl px-4 py-10" style={{ color: 'var(--text)' }}>
+    <main dir={dir} className="min-h-screen rtl px-4 py-10" style={{ color: 'var(--text)' }}>
       <div className="max-w-lg mx-auto card space-y-5">
         <div>
-          <h1 className="text-xl font-bold">حساب من · WAIMA</h1>
+          <h1 className="text-xl font-bold">{dict.accountTitle} · WAIMA</h1>
           <p className="text-sm text-[var(--muted)]">من کیستم؟ · ترسیم‌گر ذهنی</p>
         </div>
 
         <div className="text-sm space-y-1">
           <p>
-            ایمیل: <span className="text-[var(--accent)]">{email || '—'}</span>
+            {dict.email}: <span className="text-[var(--accent)]">{email || '—'}</span>
           </p>
           <p className="text-[var(--muted)]">{status}</p>
-          {mapSummary && <p className="text-[var(--muted)]">آخرین نقشه: {mapSummary}</p>}
+          {mapSummary && <p className="text-[var(--muted)]">{dict.lastMap}: {mapSummary}</p>}
           {error && (
             <p className="text-rose-300 text-sm leading-relaxed whitespace-pre-wrap border border-rose-500/30 rounded-xl p-3">
               {error}
@@ -225,7 +228,7 @@ export default function AccountPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs text-[var(--muted)]">نام نمایشی</label>
+          <label className="text-xs text-[var(--muted)]">{dict.displayName}</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -233,27 +236,27 @@ export default function AccountPage() {
             style={{ color: 'var(--text)' }}
           />
           <button onClick={saveName} className="btn-primary px-4 py-2 text-sm">
-            ذخیره نام
+            {dict.saveName}
           </button>
         </div>
 
         <div className="flex flex-wrap gap-2 text-sm">
           <Link href="/start" className="btn-primary px-4 py-2">
-            گفتگو
+            {dict.chat}
           </Link>
           <Link href="/map" className="btn-secondary px-4 py-2">
-            نقشه ذهن
+            {dict.mindMap}
           </Link>
           <Link href="/play" className="btn-secondary px-4 py-2">
-            بازی‌ها
+            {dict.games}
           </Link>
           <button onClick={logout} className="btn-secondary px-4 py-2">
-            خروج
+            {dict.logout}
           </button>
         </div>
 
         <Link href="/" className="block text-center text-sm text-[var(--muted)]">
-          خانه
+          {dict.home}
         </Link>
       </div>
     </main>
