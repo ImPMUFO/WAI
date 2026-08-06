@@ -40,7 +40,7 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
         <span>{g.xp} XP</span>
         <span className="inline-flex items-center gap-1">
           <Flame className="w-3.5 h-3.5" />
-          {g.streak} روز
+          {g.streak} {dict.days}
         </span>
       </div>
     )
@@ -51,7 +51,7 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[var(--accent)]">
           <Trophy className="w-4 h-4" />
-          <span className="font-semibold text-sm">پیشرفت تو</span>
+          <span className="font-semibold text-sm">{dict.yourProgress}</span>
         </div>
         <Link href="/play" className="text-xs text-[var(--accent)] hover:opacity-80">
           {dict.missions}
@@ -66,17 +66,17 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
         <span>{g.xp} XP</span>
         <span className="inline-flex items-center gap-1">
           <Flame className="w-3.5 h-3.5" />
-          پیاپی {g.streak} روز
+          پیاپی {g.streak} {dict.days}
         </span>
         <span className="inline-flex items-center gap-1">
           <Target className="w-3.5 h-3.5" />
-          {g.totalMessages} پیام
+          {g.totalMessages} {dict.messagesCount}
         </span>
       </div>
 
       <div>
         <div className="flex justify-between text-[10px] text-[var(--muted)] mb-1">
-          <span>تا {dict.levelWord} بعد</span>
+          <span>{dict.untilNextLevel}</span>
           <span>
             {intoLevel}/{need}
           </span>
@@ -90,10 +90,10 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
         {Object.entries(g.missions).map(([id, m]) => (
           <div key={id} className="rounded-xl border border-[var(--border)] p-2">
             <div className="text-[var(--muted)] mb-1">
-              {id === 'daily_chat' && 'مأموریت روزانه: ۵ پیام'}
+              {id === 'daily_chat' && dict.dailyChatMission}
               {id === 'daily_quiz' && dict.dailyQuizMission}
-              {id === 'weekly_domains' && 'هفتگی: ۳ حوزه'}
-              {id === 'weekly_messages' && 'هفتگی: ۲۵ پیام'}
+              {id === 'weekly_domains' && dict.weeklyDomains}
+              {id === 'weekly_messages' && dict.weeklyMessages}
             </div>
             <div className="font-medium">
               {m.progress}/{m.target} {m.claimed ? '✓' : ''}
