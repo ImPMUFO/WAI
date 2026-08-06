@@ -32,23 +32,41 @@ export type GameState = {
   answeredQuestions: string[]
 }
 
-const LEVEL_BASE = 140
+/** حداکثر سطح فعلی */
+export const MAX_LEVEL = 20
 
+/**
+ * XP لازم برای رفتن از سطح `level` به سطح بعد.
+ * الگو: سطح1→2 = 50، 2→3 = 100، 3→4 = 150، ... = 50 * level
+ * مجموع برای رسیدن به سطح L: 50 * (L-1)*L/2
+ * L2=50, L3=150, L4=300, L5=500, ...
+ */
 export function xpForLevel(level: number) {
-  return Math.floor(LEVEL_BASE * Math.pow(level, 1.48))
+  if (level < 1) return 50
+  if (level >= MAX_LEVEL) return 0
+  return 50 * level
+}
+
+/** مجموع XP لازم برای رسیدن به ابتدای یک سطح (سطح 1 = 0) */
+export function totalXpForLevel(level: number) {
+  const L = Math.max(1, Math.min(level, MAX_LEVEL))
+  // sum 50*k for k=1..L-1 = 50*(L-1)*L/2
+  return (50 * (L - 1) * L) / 2
 }
 
 export function levelFromXp(xp: number) {
+  const safeXp = Math.max(0, Math.floor(xp || 0))
   let level = 1
-  let need = xpForLevel(1)
-  let remain = xp
-  while (remain >= need) {
+  let remain = safeXp
+  while (level < MAX_LEVEL) {
+    const need = xpForLevel(level)
+    if (remain < need) {
+      return { level, intoLevel: remain, need, remaining: need - remain }
+    }
     remain -= need
     level += 1
-    need = xpForLevel(level)
   }
-  /* load return */
-    return { level, intoLevel: remain, need }
+  return { level: MAX_LEVEL, intoLevel: 0, need: 0, remaining: 0 }
 }
 
 function today() {
@@ -317,8 +335,8 @@ export function onQuizQuestionAnswered(
   const before = g.xp
   g.answeredQuestions = [...g.answeredQuestions, questionId]
   g.totalQuizzes += 1
-  const xpC = opts?.xpCorrect ?? 14
-  const xpW = opts?.xpWrong ?? 2
+  const xpC = opts?.xpCorrect ?? 5
+  const xpW = opts?.xpWrong ?? 0
   g = addXp(g, correct ? xpC : xpW, correct ? 'پاسخ درست بازی' : 'تلاش در بازی')
   if (g.totalQuizzes >= 10) g = grantAchievement(g, 'quiz_master')
   const m = { ...g.missions }
