@@ -124,6 +124,26 @@ const USER_KEY = 'wai_user_name'
 const STAGE_KEY = 'wai_assessment_stage'
 const MAP_KEY = 'wai_map_unified'
 
+function siteLocale(): 'fa' | 'en' | 'ar' {
+  try {
+    const l = localStorage.getItem('waima_locale') || 'fa'
+    if (l === 'en' || l === 'ar' || l === 'fa') return l
+  } catch {}
+  return 'fa'
+}
+
+function welcomeText(name: string, domainTitle: string) {
+  const l = siteLocale()
+  if (l === 'en') {
+    return `Hi ${name}. We'll talk about "${domainTitle}". Answer in your own words — short is fine.`
+  }
+  if (l === 'ar') {
+    return `مرحباً ${name}. سنتحدث عن «${domainTitle}». أجب بكلماتك، باختصار إن شئت.`
+  }
+  return `سلام ${name}. دربارهٔ «${domainTitle}» حرف می‌زنیم. کوتاه و با زبان خودت جواب بده.`
+}
+
+
 function chatKey(domain: string) {
   return `wai_chat_${domain}`
 }
@@ -147,13 +167,19 @@ function pickBook(_domain: string, _used: string[], _force = false) {
 
 function parseBookFromText(content: string): Book | null {
   if (!content) return null
-  const title = content.match(/کتاب پیشنهادی\s*[:：]\s*(.+)/i)?.[1]?.trim()
+  const title =
+    content.match(/کتاب پیشنهادی\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
+    content.match(/Book\s*[:：]\s*(.+)/i)?.[1]?.trim()
   if (!title) return null
-  const author = content.match(/نویسنده\s*[:：]\s*(.+)/i)?.[1]?.trim() || 'نامشخص'
+  const author =
+    content.match(/نویسنده\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
+    content.match(/Author\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
+    '—'
   const reason =
     content.match(/چرا این کتاب\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
     content.match(/دلیل\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
-    'مرتبط با گفتگوی جاری'
+    content.match(/Why\s*[:：]\s*(.+)/i)?.[1]?.trim() ||
+    '—'
   return {
     title: title.replace(/\*+/g, '').trim(),
     author: author.replace(/\*+/g, '').trim(),
@@ -245,7 +271,7 @@ export default function AssessmentPage() {
         {
           id: 1,
           role: 'assistant',
-          content: `سلام ${savedName}. دربارهٔ «${info.title}» حرف می‌زنیم. کوتاه و با زبان خودت جواب بده.`,
+          content: welcomeText(savedName, info.title),
         },
       ])
     }
@@ -278,7 +304,7 @@ export default function AssessmentPage() {
       {
         id: Date.now(),
         role: 'assistant',
-        content: `سلام ${n}. دربارهٔ «${info.title}» شروع کنیم.`,
+        content: welcomeText(n, info.title),
       },
     ])
   }
@@ -349,40 +375,8 @@ export default function AssessmentPage() {
     return local
   }
 
-  useEffect(() => {
-    if (!ready || needsName || !userName || startedRef.current) return
-    if (messages.length === 0) return
-    const onlyWelcome = messages.length === 1 && messages[0].role === 'assistant'
-    if (!onlyWelcome) {
-      startedRef.current = true
-      return
-    }
-    const timer = setTimeout(async () => {
-      startedRef.current = true
-      setIsTyping(true)
-      try {
-        const reply = await callAI(messages)
-        const withReply: Message[] = [...messages, { id: Date.now(), role: 'assistant', content: reply }]
-        setMessages(withReply)
-        computeInsight(withReply)
-      } catch {
-        const fallback = buildLocalInsight(domain, messages)
-        setInsight(fallback)
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            role: 'assistant',
-            content: `فعلاً وصل نشدم. این سؤال را جواب بده:\n\n${fallback.question}`,
-          },
-        ])
-      } finally {
-        setIsTyping(false)
-      }
-    }, 400)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, needsName, userName, messages.length])
+  // بدون فراخوانی AI قبل از اولین پیام کاربر
+
 
   const sendMessage = async () => {
     if (!input.trim() || isTyping || needsName) return
@@ -444,7 +438,12 @@ export default function AssessmentPage() {
       {
         id: Date.now(),
         role: 'assistant',
-        content: `باشه ${userName}. گفت‌وگوی «${info.title}» از نو شروع شد.`,
+        content:
+          siteLocale() === 'en'
+            ? `Okay ${userName}. New chat on "${info.title}".`
+            : siteLocale() === 'ar'
+              ? `حسناً ${userName}. محادثة جديدة عن «${info.title}».`
+              : `باشه ${userName}. گفت‌وگوی «${info.title}» از نو شروع شد.`,
       },
     ])
   }
