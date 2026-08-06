@@ -128,7 +128,7 @@ export default function AccountPage() {
               setName(display)
             } else {
               if (profile.display_name) setName(profile.display_name)
-              setStatus(`سطح ${profile.level ?? 1} · XP ${profile.xp ?? 0}`)
+              setStatus(`${dict.levelWord} ${profile.level ?? 1} · XP ${profile.xp ?? 0}`)
             }
           } catch (e: unknown) {
             setHint(e instanceof Error ? e.message : 'خطا در پروفایل')
@@ -172,7 +172,7 @@ export default function AccountPage() {
         8000,
         'saveName'
       )
-      if (res.ok) setStatus('نام ذخیره شد.')
+      if (res.ok) setStatus(dict.nameSaved)
       else setError(res.reason || 'خطا در ذخیره')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'خطا در ذخیره')
@@ -206,7 +206,7 @@ export default function AccountPage() {
       <div className="max-w-lg mx-auto card space-y-5">
         <div>
           <h1 className="text-xl font-bold">{dict.accountTitle} · WAIMA</h1>
-          <p className="text-sm text-[var(--muted)]">من کیستم؟ · ترسیم‌گر ذهنی</p>
+          <p className="text-sm text-[var(--muted)]">{dict.brandTag} · {dict.brandSub}</p>
         </div>
 
         <div className="text-sm space-y-1">
