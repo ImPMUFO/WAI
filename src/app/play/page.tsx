@@ -23,7 +23,7 @@ type QuizItem = {
   explain: string
 }
 
-const CACHE_KEY = 'waima_daily_quiz_v1'
+const CACHE_KEY = 'waima_daily_quiz_v2'
 
 type Phase = 'loading' | 'list' | 'feedback' | 'empty'
 
@@ -133,7 +133,7 @@ export default function PlayPage() {
     if (!current || locked) return
     setPicked(opt)
     setLocked(true)
-    const correct = opt === current.answer
+    const correct = opt.trim() === String(current.answer || '').trim()
     setLastCorrect(correct)
     const res = onQuizQuestionAnswered(current.id, correct)
     setAlready(res.alreadyAnswered)
@@ -273,7 +273,7 @@ export default function PlayPage() {
               <div className="space-y-2">
                 {current.options.map((opt) => {
                   const show = locked
-                  const isAns = opt === current.answer
+                  const isAns = opt.trim() === String(current.answer || '').trim()
                   const isPick = opt === picked
                   let cls = 'border-[var(--border)]'
                   if (show && isAns) cls = 'border-emerald-400 bg-emerald-500/15'
