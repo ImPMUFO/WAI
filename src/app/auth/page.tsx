@@ -4,6 +4,7 @@ import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import { recoverAllLocalDataToServer, migrateLocalToServerIfNeeded } from '@/lib/sync'
 import { migrateLocalToServerIfNeeded } from '@/lib/sync'
 
 type Mode = 'login' | 'signup' | 'forgot'
@@ -119,6 +120,8 @@ export default function AuthPage() {
         }
         await migrateLocalToServerIfNeeded()
         setMessage('ورود موفق بود. در حال رفتن به حساب...', 'ok')
+        void recoverAllLocalDataToServer()
+        void migrateLocalToServerIfNeeded()
         window.location.href = '/account'
       }
     } catch (e: unknown) {
