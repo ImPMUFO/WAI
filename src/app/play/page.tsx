@@ -12,6 +12,7 @@ import {
   hasAnsweredQuestion,
 } from '@/lib/gamification'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
+import { fetchLeaderboard, type LeaderboardRow } from '@/lib/sync'
 
 type QuizItem = {
   id: string
@@ -42,6 +43,9 @@ export default function PlayPage() {
   const [gained, setGained] = useState(0)
   const [answeredSet, setAnsweredSet] = useState<Set<string>>(new Set())
   const [source, setSource] = useState('')
+  const [board, setBoard] = useState<LeaderboardRow[]>([])
+  const [boardLoading, setBoardLoading] = useState(true)
+
 
   const remaining = useMemo(
     () => items.filter((q) => !answeredSet.has(q.id)),
@@ -52,8 +56,19 @@ export default function PlayPage() {
     const g = loadGame()
     setAnsweredSet(new Set(g.answeredQuestions || []))
     void loadDaily()
+    void loadBoard()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale])
+
+  const loadBoard = async () => {
+    setBoardLoading(true)
+    try {
+      const rows = await fetchLeaderboard(40)
+      setBoard(rows)
+    } finally {
+      setBoardLoading(false)
+    }
+  }
 
   const loadDaily = async () => {
     setPhase('loading')
@@ -155,6 +170,61 @@ export default function PlayPage() {
         </div>
 
         <GamificationBar compact />
+
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold text-sm sm:text-base flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[var(--accent)]" />
+              {dir === 'ltr' ? 'Leaderboard' : dir === 'rtl' ? 'جدول امتیازات' : 'جدول امتیازات'}
+            </h2>
+            <button type="button" onClick={() => void loadBoard()} className="text-xs text-[var(--accent)]">
+              {dir === 'ltr' ? 'Refresh' : 'بروزرسانی'}
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+            {dir === 'ltr'
+              ? 'Name, level and XP of players (login required to appear here).'
+              : 'اسم، سطح و XP بازیکنان. برای دیده شدن در جدول وارد حساب شو.'}
+          </p>
+          {boardLoading ? (
+            <p className="text-sm text-[var(--muted)]">{dict.thinking}</p>
+          ) : board.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">
+              {dir === 'ltr'
+                ? 'No public scores yet. Play and stay logged in.'
+                : 'هنوز امتیازی ثبت نشده. وارد حساب شو و بازی کن.'}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] sm:text-xs text-[var(--muted)] border-b border-[var(--border)]">
+                    <th className="text-right py-2 px-1 font-medium">#</th>
+                    <th className="text-right py-2 px-1 font-medium">{dir === 'ltr' ? 'Name' : 'نام'}</th>
+                    <th className="text-right py-2 px-1 font-medium">{dict.levelWord}</th>
+                    <th className="text-right py-2 px-1 font-medium">XP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {board.map((row, i) => (
+                    <tr
+                      key={`${row.display_name}-${i}`}
+                      className={`border-b border-[var(--border)]/60 ${i < 3 ? 'bg-[var(--accent)]/10' : ''}`}
+                    >
+                      <td className="py-2 px-1 text-[var(--accent)] font-semibold">{i + 1}</td>
+                      <td className="py-2 px-1 font-medium truncate max-w-[140px]">
+                        {row.display_name || (dir === 'ltr' ? 'Player' : 'بازیکن')}
+                      </td>
+                      <td className="py-2 px-1">{row.level ?? 1}</td>
+                      <td className="py-2 px-1 text-[var(--accent)]">{row.xp ?? 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
 
         <div className="card text-sm text-[var(--muted)] leading-relaxed">
           {dict.playIntro}
