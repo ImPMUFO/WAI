@@ -1,165 +1,147 @@
 'use client'
 
-import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Gamepad2, CheckCircle2, XCircle, Timer, Trophy, Zap } from 'lucide-react'
+import { ArrowRight, Gamepad2, CheckCircle2, XCircle, Trophy, Lock } from 'lucide-react'
 import GamificationBar from '@/components/GamificationBar'
-import { onQuizFinished } from '@/lib/gamification'
+import {
+  getActiveDomains,
+  loadGame,
+  onQuizQuestionAnswered,
+  hasAnsweredQuestion,
+} from '@/lib/gamification'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 
 type QuizItem = {
   id: string
   domain: string
-  type: 'tf' | 'mc' | 'fill'
   question: string
-  options?: string[]
+  options: string[]
   answer: string
   explain: string
 }
 
-const BANK: QuizItem[] = [
-  { id: 'p1', domain: 'philosophy', type: 'tf', question: 'معرفت‌شناسی دربارهٔ چیستی و امکان معرفت می‌پرسد.', answer: 'درست', explain: 'معرفت‌شناسی یکی از شاخه‌های اصلی فلسفه است.' },
-  { id: 'p2', domain: 'philosophy', type: 'mc', question: 'کدام بیشتر به منطق مربوط است؟', options: ['استدلال معتبر', 'سبک ادبی', 'قیمت کالا', 'ژنتیک'], answer: 'استدلال معتبر', explain: 'منطق قواعد استدلال درست را بررسی می‌کند.' },
-  { id: 'h1', domain: 'history', type: 'mc', question: 'برای فهم رویداد تاریخی چه چیزی مهم‌تر است؟', options: ['فقط تاریخ دقیق', 'علت و زمینه', 'فقط نام افراد', 'رنگ پرچم'], answer: 'علت و زمینه', explain: 'علت‌ها و بستر از فهرست تاریخ‌ها مهم‌ترند.' },
-  { id: 'h2', domain: 'history', type: 'tf', question: 'تطبیق شخصیت‌ها با رویدادها به یادگیری تاریخ کمک می‌کند.', answer: 'درست', explain: 'ارتباط افراد و رخدادها حافظه را قوی می‌کند.' },
-  { id: 'm1', domain: 'math', type: 'mc', question: 'اگر a=۲ و b=۳، مقدار a+b؟', options: ['۵', '۶', '۱', '۲۳'], answer: '۵', explain: '۲+۳=۵' },
-  { id: 'm2', domain: 'math', type: 'fill', question: 'نصف عدد ۱۰ چند است؟ (فقط عدد)', answer: '۵', explain: '۱۰÷۲=۵' },
-  { id: 'phy1', domain: 'physics', type: 'tf', question: 'نیرو می‌تواند سرعت یا جهت حرکت را تغییر دهد.', answer: 'درست', explain: 'نیرو با تغییر حرکت مرتبط است.' },
-  { id: 'c1', domain: 'chemistry', type: 'mc', question: 'آب از چه عناصری ساخته شده؟', options: ['هیدروژن و اکسیژن', 'کربن و نیتروژن', 'آهن و مس', 'سدیم و کلر'], answer: 'هیدروژن و اکسیژن', explain: 'فرمول آب H₂O است.' },
-  { id: 'r1', domain: 'religion', type: 'tf', question: 'تمایز بین باور، دلیل و تجربه در مطالعه دین مفید است.', answer: 'درست', explain: 'این تمایز گفتگو را دقیق‌تر می‌کند.' },
-  { id: 'e1', domain: 'ethics', type: 'mc', question: 'سؤال محوری اخلاق کدام است؟', options: ['چه باید کرد؟', 'هوا چند درجه است؟', 'رنگ دیوار چیست؟', 'ساعت چند است؟'], answer: 'چه باید کرد؟', explain: 'اخلاق درباره خوبی و مسئولیت است.' },
-  { id: 'pr1', domain: 'programming', type: 'mc', question: 'کدام مفهوم برای ذخیره جفت کلید-مقدار رایج است؟', options: ['دیکشنری/آبجکت', 'فقط عدد صحیح', 'فقط رشته خالی', 'پشته سخت‌افزاری'], answer: 'دیکشنری/آبجکت', explain: 'map و dict و object مفهوم مشابه‌اند.' },
-  { id: 'psy1', domain: 'psychology', type: 'tf', question: 'سوگیری شناختی می‌تواند تصمیم‌گیری را منحرف کند.', answer: 'درست', explain: 'روان‌شناسی شناختی این خطاها را مطالعه می‌کند.' },
-  { id: 'bio1', domain: 'biology', type: 'mc', question: 'واحد پایه وراثت معمولاً چیست؟', options: ['ژن', 'سنگ', 'بایت', 'وات'], answer: 'ژن', explain: 'ژن حامل اطلاعات وراثتی است.' },
-  { id: 'lit1', domain: 'literature', type: 'tf', question: 'در خواندن ادبی، توجه به فرم و معنا هر دو مفید است.', answer: 'درست', explain: 'ساختار متن هم مثل احساس مهم است.' },
-  { id: 'ec1', domain: 'economics', type: 'mc', question: 'ایده کمیابی بیشتر به چه اشاره دارد؟', options: ['منابع محدود و انتخاب', 'بی‌نهایت بودن همه چیز', 'فقط چاپ پول', 'حذف کامل نیاز'], answer: 'منابع محدود و انتخاب', explain: 'اقتصاد با انتخاب در محدودیت سروکار دارد.' },
-]
+const CACHE_KEY = 'waima_daily_quiz_v1'
 
-const STAGE_SIZE = 5
-const TIME_PER_Q = 20
-const BEST_KEY = 'waima_play_best'
+type Phase = 'loading' | 'list' | 'feedback' | 'empty'
 
-function shuffle<T>(arr: T[]) {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
+function today() {
+  return new Date().toISOString().slice(0, 10)
 }
 
-type Phase = 'ready' | 'playing' | 'feedback' | 'stageClear' | 'done'
-
 export default function PlayPage() {
-  const { dict, dir } = useLocale()
-
-  const [deck, setDeck] = useState<QuizItem[]>([])
-  const [index, setIndex] = useState(0)
-  const [stage, setStage] = useState(1)
-  const [phase, setPhase] = useState<Phase>('ready')
-  const [answer, setAnswer] = useState('')
-  const [correctCount, setCorrectCount] = useState(0)
-  const [stageCorrect, setStageCorrect] = useState(0)
+  const { dict, dir, locale } = useLocale()
+  const [items, setItems] = useState<QuizItem[]>([])
+  const [phase, setPhase] = useState<Phase>('loading')
+  const [current, setCurrent] = useState<QuizItem | null>(null)
+  const [picked, setPicked] = useState<string | null>(null)
+  const [locked, setLocked] = useState(false)
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
-  const [seconds, setSeconds] = useState(TIME_PER_Q)
-  const [best, setBest] = useState(0)
-  const [combo, setCombo] = useState(0)
+  const [already, setAlready] = useState(false)
+  const [gained, setGained] = useState(0)
+  const [answeredSet, setAnsweredSet] = useState<Set<string>>(new Set())
+  const [source, setSource] = useState('')
 
-  const totalStages = useMemo(() => Math.max(1, Math.ceil(BANK.length / STAGE_SIZE)), [])
-  const current = deck[index]
-
-  useEffect(() => {
-    try {
-      const b = Number(localStorage.getItem(BEST_KEY) || '0')
-      if (!Number.isNaN(b)) setBest(b)
-    } catch {}
-  }, [])
+  const remaining = useMemo(
+    () => items.filter((q) => !answeredSet.has(q.id)),
+    [items, answeredSet]
+  )
 
   useEffect(() => {
-    if (phase !== 'playing') return
-    setSeconds(TIME_PER_Q)
-    const t = setInterval(() => {
-      setSeconds((s) => {
-        if (s <= 1) {
-          clearInterval(t)
-          submitAnswer(true)
-          return 0
-        }
-        return s - 1
-      })
-    }, 1000)
-    return () => clearInterval(t)
+    const g = loadGame()
+    setAnsweredSet(new Set(g.answeredQuestions || []))
+    void loadDaily()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, index])
+  }, [locale])
 
-  const startRun = () => {
-    setDeck(shuffle(BANK))
-    setIndex(0)
-    setStage(1)
-    setCorrectCount(0)
-    setStageCorrect(0)
-    setCombo(0)
-    setAnswer('')
-    setLastCorrect(null)
-    setPhase('playing')
+  const loadDaily = async () => {
+    setPhase('loading')
+    const date = today()
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed?.date === date && Array.isArray(parsed.items) && parsed.items.length) {
+          setItems(parsed.items)
+          setSource(parsed.source || 'cache')
+          setPhase(parsed.items.some((q: QuizItem) => !hasAnsweredQuestion(loadGame(), q.id)) ? 'list' : 'empty')
+          return
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const g = loadGame()
+      const res = await fetch('/api/quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locale,
+          level: g.level || 1,
+          domains: getActiveDomains(),
+          date,
+        }),
+      })
+      const data = await res.json()
+      const list = (data?.items || []) as QuizItem[]
+      setItems(list)
+      setSource(data?.source || 'api')
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ date, items: list, source: data?.source }))
+      } catch {
+        /* ignore */
+      }
+      const ans = new Set(loadGame().answeredQuestions || [])
+      setAnsweredSet(ans)
+      setPhase(list.some((q) => !ans.has(q.id)) ? 'list' : 'empty')
+    } catch {
+      setItems([])
+      setPhase('empty')
+    }
   }
 
-  const submitAnswer = (timeout = false) => {
-    if (!current || phase !== 'playing') return
-    const userAns = timeout ? '' : answer.trim()
-    const ok = !timeout && userAns === current.answer
-    setLastCorrect(ok)
-    if (ok) {
-      setCorrectCount((c) => c + 1)
-      setStageCorrect((c) => c + 1)
-      setCombo((c) => c + 1)
-    } else setCombo(0)
+  const openQuestion = (q: QuizItem) => {
+    if (answeredSet.has(q.id)) return
+    setCurrent(q)
+    setPicked(null)
+    setLocked(false)
+    setLastCorrect(null)
+    setAlready(false)
+    setGained(0)
     setPhase('feedback')
   }
 
-  const next = () => {
-    const nextIndex = index + 1
-    if (nextIndex >= deck.length) {
-      finishRun(correctCount)
-      return
-    }
-    if (nextIndex % STAGE_SIZE === 0) {
-      setPhase('stageClear')
-      return
-    }
-    setIndex(nextIndex)
-    setAnswer('')
-    setLastCorrect(null)
-    setPhase('playing')
+  const submit = (opt: string) => {
+    if (!current || locked) return
+    setPicked(opt)
+    setLocked(true)
+    const correct = opt === current.answer
+    setLastCorrect(correct)
+    const res = onQuizQuestionAnswered(current.id, correct)
+    setAlready(res.alreadyAnswered)
+    setGained(res.gainedXp)
+    const nextSet = new Set(answeredSet)
+    nextSet.add(current.id)
+    setAnsweredSet(nextSet)
+    window.dispatchEvent(new Event('wai-game-updated'))
   }
 
-  const continueStage = () => {
-    setIndex(index + 1)
-    setStage((s) => s + 1)
-    setStageCorrect(0)
-    setAnswer('')
-    setLastCorrect(null)
-    setPhase('playing')
+  const backToList = () => {
+    setCurrent(null)
+    setPicked(null)
+    setLocked(false)
+    const left = items.some((q) => !answeredSet.has(q.id) && q.id !== current?.id)
+    // recompute with updated set
+    const ans = new Set(loadGame().answeredQuestions || [])
+    setAnsweredSet(ans)
+    setPhase(items.some((q) => !ans.has(q.id)) ? 'list' : 'empty')
   }
-
-  const finishRun = (score: number) => {
-    setPhase('done')
-    try {
-      onQuizFinished(score, deck.length)
-    } catch {}
-    try {
-      if (score > best) {
-        localStorage.setItem(BEST_KEY, String(score))
-        setBest(score)
-      }
-    } catch {}
-  }
-
-  const progressPct = deck.length ? Math.round((index / deck.length) * 100) : 0
 
   return (
-    <main dir={dir} className="min-h-screen rtl px-4 py-6 sm:py-10" style={{ color: 'var(--text)' }}>
+    <main dir={dir} className="min-h-screen px-4 py-6 sm:py-10" style={{ color: 'var(--text)' }}>
       <div className="max-w-2xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -167,189 +149,125 @@ export default function PlayPage() {
             <h1 className="text-lg sm:text-xl font-bold">{dict.playTitle}</h1>
           </div>
           <Link href="/" className="text-sm text-[var(--muted)] inline-flex items-center gap-1">
-            <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+            <ArrowRight className={`w-3.5 h-3.5 ${dir === 'rtl' ? 'rotate-180' : ''}`} />
             {dict.home}
           </Link>
         </div>
 
         <GamificationBar compact />
 
-        <div className="card space-y-3">
-          <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-[var(--muted)]">
-            <span className="inline-flex items-center gap-1">
-              <Trophy className="w-3.5 h-3.5 text-[var(--accent)]" />
-              {dict.record}: {best}/{BANK.length}
-            </span>
-            <span>
-              {dict.stage} {Math.min(stage, totalStages)} {dict.of} {totalStages}
-            </span>
-            {phase === 'playing' && (
-              <span className="inline-flex items-center gap-1 text-[var(--accent)]">
-                <Timer className="w-3.5 h-3.5" />
-                {seconds}ث
-              </span>
-            )}
-            {combo > 1 && (
-              <span className="inline-flex items-center gap-1 text-amber-300">
-                <Zap className="w-3.5 h-3.5" />
-                کمبو ×{combo}
-              </span>
-            )}
-          </div>
-          <div className="h-2 rounded-full bg-[var(--border)] overflow-hidden">
-            <div
-              className="h-full bg-[var(--accent)] transition-all duration-300"
-              style={{ width: `${phase === 'ready' ? 0 : progressPct}%` }}
-            />
+        <div className="card text-sm text-[var(--muted)] leading-relaxed">
+          {dict.playIntro}
+          <div className="mt-2 text-xs opacity-80">
+            {today()} · {remaining.length} {dict.of} {items.length}
+            {source === 'ai' ? ' · AI' : source ? ` · ${source}` : ''}
           </div>
         </div>
 
         <AnimatePresence mode="wait">
-          {phase === 'ready' && (
-            <motion.div
-              key="ready"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="card space-y-4 text-center"
-            >
-              <p className="text-sm text-[var(--muted)] leading-relaxed">
-                {dict.playIntro}
-              </p>
-              <button onClick={startRun} className="btn-primary px-6 py-3">
-                {dict.startChallenge}
-              </button>
+          {phase === 'loading' && (
+            <motion.div key="loading" className="card text-center text-[var(--muted)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {dict.thinking}
             </motion.div>
           )}
 
-          {phase === 'playing' && current && (
-            <motion.div
-              key={`q-${current.id}-${index}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="card space-y-4"
-            >
-              <div className="text-xs text-[var(--accent)]">
-                {dict.question} {index + 1} {dict.of} {deck.length}
-              </div>
-              <h2 className="text-base sm:text-lg font-semibold leading-relaxed">{current.question}</h2>
-
-              {current.type === 'tf' && (
-                <div className="grid grid-cols-2 gap-2">
-                  {['درست', 'غلط'].map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setAnswer(opt)}
-                      className={`rounded-xl border px-3 py-3 text-sm ${
-                        answer === opt ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {current.type === 'mc' && current.options && (
-                <div className="space-y-2">
-                  {current.options.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setAnswer(opt)}
-                      className={`w-full text-right rounded-xl border px-3 py-3 text-sm ${
-                        answer === opt ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {current.type === 'fill' && (
-                <input
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && submitAnswer()}
-                  placeholder="{dict.writeAnswer}"
-                  className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
-                  style={{ color: 'var(--text)' }}
-                />
-              )}
-
-              <button
-                onClick={() => submitAnswer()}
-                disabled={!answer.trim()}
-                className="btn-primary w-full py-3 disabled:opacity-40"
-              >
-                {dict.submitAnswer}
-              </button>
+          {phase === 'list' && (
+            <motion.div key="list" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+              {items.map((q, i) => {
+                const done = answeredSet.has(q.id)
+                return (
+                  <button
+                    key={q.id}
+                    disabled={done}
+                    onClick={() => openQuestion(q)}
+                    className={`w-full text-right card !py-3 flex items-center gap-3 ${
+                      done ? 'opacity-55 cursor-not-allowed' : 'hover:border-[var(--accent)]/40'
+                    }`}
+                  >
+                    <span className="text-xs text-[var(--accent)] w-6">{i + 1}</span>
+                    <span className="flex-1 text-sm font-medium line-clamp-2">{q.question}</span>
+                    {done ? (
+                      <Lock className="w-4 h-4 text-[var(--muted)] shrink-0" />
+                    ) : (
+                      <span className="text-xs text-[var(--accent)] shrink-0">MCQ</span>
+                    )}
+                  </button>
+                )
+              })}
             </motion.div>
           )}
 
           {phase === 'feedback' && current && (
-            <motion.div
-              key="feedback"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="card space-y-3"
-            >
-              <div className="flex items-center gap-2">
-                {lastCorrect ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-rose-400" />
-                )}
-                <span className="font-semibold">{lastCorrect ? dict.wellDone : dict.notThisTime}</span>
+            <motion.div key="q" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card space-y-4">
+              <h2 className="text-base sm:text-lg font-semibold leading-relaxed">{current.question}</h2>
+              <div className="space-y-2">
+                {current.options.map((opt) => {
+                  const show = locked
+                  const isAns = opt === current.answer
+                  const isPick = opt === picked
+                  let cls = 'border-[var(--border)]'
+                  if (show && isAns) cls = 'border-emerald-400 bg-emerald-500/15'
+                  else if (show && isPick && !isAns) cls = 'border-rose-400 bg-rose-500/15'
+                  else if (!show && isPick) cls = 'border-[var(--accent)] bg-[var(--accent)]/15'
+                  return (
+                    <button
+                      key={opt}
+                      disabled={locked}
+                      onClick={() => submit(opt)}
+                      className={`w-full text-right rounded-xl border px-3 py-3 text-sm transition-colors ${cls} disabled:cursor-default`}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
               </div>
-              {!lastCorrect && (
-                <p className="text-sm text-[var(--muted)]">
-                  {dict.correctAnswer}: <span className="text-[var(--accent)]">{current.answer}</span>
-                </p>
+
+              {locked && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {lastCorrect ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-rose-400" />
+                    )}
+                    <span className="font-semibold">
+                      {already
+                        ? dir === 'ltr'
+                          ? 'Already answered'
+                          : 'قبلاً پاسخ داده شده'
+                        : lastCorrect
+                          ? dict.wellDone
+                          : dict.notThisTime}
+                    </span>
+                  </div>
+                  {!lastCorrect && (
+                    <p className="text-sm text-[var(--muted)]">
+                      {dict.correctAnswer}: <span className="text-[var(--accent)]">{current.answer}</span>
+                    </p>
+                  )}
+                  <p className="text-sm text-[var(--muted)] leading-relaxed">{current.explain}</p>
+                  {!already && gained > 0 && (
+                    <p className="text-xs text-[var(--accent)]">+{gained} XP</p>
+                  )}
+                  <button onClick={backToList} className="btn-primary w-full py-3">
+                    {dict.continue}
+                  </button>
+                </div>
               )}
-              <p className="text-sm text-[var(--muted)] leading-relaxed">{current.explain}</p>
-              <button onClick={next} className="btn-primary w-full py-3">
-                {dict.continue}
-              </button>
             </motion.div>
           )}
 
-          {phase === 'stageClear' && (
-            <motion.div
-              key="stage"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="card space-y-4 text-center"
-            >
-              <p className="text-lg font-semibold">{dict.stageDone} ({dict.stage} {stage})</p>
-              <p className="text-sm text-[var(--muted)]">
-                {dict.stageScore}: {stageCorrect} از {STAGE_SIZE}
-              </p>
-              <button onClick={continueStage} className="btn-primary px-6 py-3">
-                {dict.nextStage}
-              </button>
-            </motion.div>
-          )}
-
-          {phase === 'done' && (
-            <motion.div
-              key="done"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="card space-y-4 text-center"
-            >
+          {phase === 'empty' && (
+            <motion.div key="empty" className="card text-center space-y-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Trophy className="w-8 h-8 mx-auto text-[var(--accent)]" />
-              <p className="text-lg font-semibold">{dict.challengeEnd}</p>
-              <p className="text-sm text-[var(--muted)]">
-                {dict.thisRound}: {correctCount} از {deck.length}
+              <p className="font-semibold">
+                {dir === 'ltr' ? "Today's quiz is done" : 'سؤالات امروز تمام شد'}
               </p>
-              <p className="text-sm text-[var(--muted)]">بهترین {dict.record}: {best}</p>
+              <p className="text-sm text-[var(--muted)]">
+                {dir === 'ltr' ? 'Come back tomorrow for a new set.' : 'فردا مجموعهٔ جدیدی می‌آید.'}
+              </p>
               <div className="flex flex-wrap justify-center gap-2">
-                <button onClick={startRun} className="btn-primary px-5 py-3">
-                  دوباره
-                </button>
-                <Link href="/start" className="btn-secondary px-5 py-3">
+                <Link href="/start" className="btn-primary px-5 py-3">
                   {dict.chat}
                 </Link>
                 <Link href="/map" className="btn-secondary px-5 py-3">
