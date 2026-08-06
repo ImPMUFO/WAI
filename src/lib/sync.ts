@@ -345,5 +345,171 @@ export async function recoverAllLocalDataToServer() {
 }
 
 export async function migrateLocalToServerIfNeeded() {
+  await recoverEverything()
+}
+
+
+/** بازیابی کامل از سرور: همه گفتگوها + نقشه + بازی */
+export async function recoverEverything() {
+  const user = await getCurrentUser()
+  if (!user) {
+    // بدون لاگین فقط از local/آرشیو کمک بگیر
+    return { ok: false as const, reason: 'no-user' }
+  }
+  const supabase = createClient()
+
+  // 1) نقشه
+  try {
+    const remoteMap = await loadMindMapFromServer()
+    if (remoteMap && Array.isArray((remoteMap as any).nodes) && (remoteMap as any).nodes.length) {
+      try {
+        const localRaw = localStorage.getItem('wai_map_unified')
+        const local = localRaw ? JSON.parse(localRaw) : null
+        // نگه داشتن غنی‌تر
+        const remoteNodes = (remoteMap as any).nodes as any[]
+        const localNodes = Array.isArray(local?.nodes) ? local.nodes : []
+        const byId = new Map<string, any>()
+        for (const n of localNodes) if (n?.id) byId.set(n.id, n)
+        for (const n of remoteNodes) {
+          if (!n?.id) continue
+          const prev = byId.get(n.id)
+          if (!prev) byId.set(n.id, n)
+          else {
+            byId.set(n.id, {
+              ...prev,
+              ...n,
+              mastery: Math.max(Number(prev.mastery) || 0, Number(n.mastery) || 0),
+              status: [prev.status, n.status].includes('known')
+                ? 'known'
+                : [prev.status, n.status].includes('near')
+                  ? 'near'
+                  : n.status || prev.status,
+            })
+          }
+        }
+        // mind node
+        if (![...byId.keys()].includes('mind')) {
+          byId.set('mind', {
+            id: 'mind',
+            title: 'ذهن',
+            status: 'known',
+            mastery: 50,
+            note: 'مرکز نقشه',
+          })
+        }
+        const merged = {
+          domain: 'unified',
+          domainTitle: (remoteMap as any).domainTitle || local?.domainTitle || 'نقشه کامل ذهن',
+          summary: (remoteMap as any).summary || local?.summary || '',
+          updatedAt: new Date().toISOString(),
+          nodes: Array.from(byId.values()),
+        }
+        localStorage.setItem('wai_map_unified', JSON.stringify(merged))
+        await saveMindMapToServer(merged)
+        window.dispatchEvent(new Event('wai-map-updated'))
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 2) همه گفتگوها از سرور
+  try {
+    const { data: convs } = await supabase
+      .from('conversations')
+      .select('id, domain, title, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+
+    for (const c of convs || []) {
+      if (!c?.domain || !c?.id) continue
+      const { data: msgs } = await supabase
+        .from('messages')
+        .select('role, content, created_at')
+        .eq('conversation_id', c.id)
+        .order('created_at', { ascending: true })
+      if (!msgs?.length) continue
+      const mapped = msgs.map((m, i) => ({
+        id: i + 1,
+        role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
+        content: m.content,
+      }))
+      const key = `wai_chat_${c.domain}`
+      try {
+        const prevRaw = localStorage.getItem(key)
+        const prev = prevRaw ? JSON.parse(prevRaw) : []
+        // هرگز کوتاه‌تر را جایگزین نکن
+        if (Array.isArray(prev) && prev.length > mapped.length) {
+          await saveConversationToServer(c.domain, prev, c.title || c.domain)
+        } else {
+          localStorage.setItem(key, JSON.stringify(mapped))
+        }
+      } catch {
+        localStorage.setItem(key, JSON.stringify(mapped))
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 3) بازی / XP از پروفایل
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, xp, level, streak, game_state')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (profile) {
+      if (profile.display_name) {
+        try {
+          localStorage.setItem('wai_user_name', profile.display_name)
+        } catch {}
+      }
+      try {
+        const raw = localStorage.getItem('wai_game_state_v1')
+        const localG = raw ? JSON.parse(raw) : null
+        const remoteXp = Number(profile.xp) || 0
+        const localXp = Number(localG?.xp) || 0
+        if (profile.game_state && typeof profile.game_state === 'object') {
+          const gs = profile.game_state as any
+          if (!localG || remoteXp >= localXp) {
+            localStorage.setItem(
+              'wai_game_state_v1',
+              JSON.stringify({
+                ...localG,
+                ...gs,
+                xp: Math.max(remoteXp, localXp, Number(gs.xp) || 0),
+                level: Math.max(Number(profile.level) || 1, Number(localG?.level) || 1, Number(gs.level) || 1),
+              })
+            )
+          }
+        } else if (remoteXp > localXp) {
+          const base = localG || {
+            xp: 0,
+            level: 1,
+            totalMessages: 0,
+            totalQuizzes: 0,
+            streak: 0,
+            lastActiveDate: '',
+            achievements: [],
+            missions: {},
+            history: [],
+            answeredQuestions: [],
+          }
+          base.xp = remoteXp
+          base.level = Number(profile.level) || base.level
+          localStorage.setItem('wai_game_state_v1', JSON.stringify(base))
+        }
+        window.dispatchEvent(new Event('wai-game-updated'))
+      } catch {}
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 4) آپلود باقی‌مانده محلی
   await recoverAllLocalDataToServer()
+  return { ok: true as const }
 }
