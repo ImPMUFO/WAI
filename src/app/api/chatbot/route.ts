@@ -38,43 +38,48 @@ export async function POST(req: NextRequest) {
 
     const memory = lastBook?.title
       ? [
-          'یادآوری مهم: در همین گفتگو قبلاً این کتاب را پیشنهاد داده‌ای:',
-          `- عنوان: ${lastBook.title}`,
-          `- نویسنده: ${lastBook.author || 'نامشخص'}`,
-          `- دلیل: ${lastBook.reason || '—'}`,
-          'اگر کاربر درباره کتابی که گفتی یا چرا این کتاب پرسید، دقیقاً به همین پیشنهاد اشاره کن و انکار نکن.',
+          'Memory: you already recommended this book in this chat:',
+          `- title: ${lastBook.title}`,
+          `- author: ${lastBook.author || 'unknown'}`,
+          `- reason: ${lastBook.reason || '-'}`,
+          'If the user asks about that book, acknowledge it. Do not deny it.',
         ].join('\n')
       : ''
 
     const bookRule = suggestBook
       ? [
-          'الان وقت پیشنهاد یک کتاب جدید است.',
-          'قوانین کتاب:',
-          '- متنوع، جذاب، کاربردی و مرتبط با همین گفتگو باشد',
-          '- از کتاب‌های کلیشه‌ای تکراری بی‌ربط پرهیز کن',
-          '- سطحش با سطح کاربر در این مکالمه بخواند',
-          '- ترجیحاً کتاب واقعی و شناخته‌شده',
-          'در پایان پاسخ دقیقا این ۳ خط را بنویس:',
-          'کتاب پیشنهادی: <نام کتاب>',
-          'نویسنده: <نام نویسنده>',
-          'چرا این کتاب: <دلیل کوتاه و مشخص مرتبط با همین گفتگو>',
+          'Now suggest ONE book relevant to this conversation.',
+          'Make it practical and interesting, matching the user level.',
+          'Write the book block in the SAME language as the user.',
+          'End with exactly 3 lines using labels in the user language, or:',
+          'Book: <title>',
+          'Author: <author>',
+          'Why: <short reason>',
+          'Persian labels also OK: کتاب پیشنهادی / نویسنده / چرا این کتاب',
         ].join('\n')
       : [
-          'کتاب جدید پیشنهاد نده مگر کاربر صریحاً کتاب بخواهد.',
-          'اگر درباره کتاب قبلی پرسید، از یادآوری بالا استفاده کن.',
+          'Do not suggest a new book unless the user asks for one.',
+          'If they ask about a previous book recommendation, use the memory above.',
         ].join('\n')
 
     const systemPrompt = [
-      'تو «همراه یادگیری» پلتفرم WAIMA (من کیستم؟ · ترسیم‌گر ذهنی) هستی.',
-      'صمیمی، دقیق، باحافظه نسبت به پیشنهادهای خودت.',
-      `حوزه: ${domainTitle}`,
+      'You are the learning companion of WAIMA (Who am I? / Mind Mapper).',
+      'Be warm, precise, and concise.',
+      `Domain focus: ${domainTitle}`,
       memory,
       '',
-      'سبک:',
-      '- فارسی روان',
-      '- پاسخ کوتاه تا متوسط (۶۰ تا ۱۴۰ کلمه) مگر کاربر جزئیات بخواهد',
-      '- نکته + مثال + سؤال کوتاه وقتی مفید است',
-      '- انکار نکن چیزی را که خودت در همین گفتگو گفته‌ای',
+      'LANGUAGE RULE (mandatory):',
+      "- Reply in the SAME language as the user's latest message.",
+      '- If the user writes in English, answer in English.',
+      '- If Arabic, answer in Arabic.',
+      '- If Persian/Farsi, answer in Persian.',
+      '- If they mix languages, follow the main language of their last message.',
+      '- Never force Persian when the user is not writing in Persian.',
+      '',
+      'Style:',
+      '- Short to medium answers (about 60-140 words) unless they ask for more',
+      '- When useful: one key point + one example + one short question',
+      '- Do not deny things you already said in this chat',
       bookRule,
     ]
       .filter(Boolean)
@@ -99,18 +104,18 @@ export async function POST(req: NextRequest) {
       }),
     })
 
-    const text = await resp.text()
+    const textBody = await resp.text()
     if (!resp.ok) {
-      return NextResponse.json({ success: false, error: 'خطا از مدل', details: text }, { status: 502 })
+      return NextResponse.json({ success: false, error: 'model error', details: textBody }, { status: 502 })
     }
-    const data = JSON.parse(text)
-    const content = data?.choices?.[0]?.message?.content || 'پاسخی دریافت نشد.'
+    const data = JSON.parse(textBody)
+    const content = data?.choices?.[0]?.message?.content || 'No response.'
     return NextResponse.json({ success: true, content, suggestBook })
   } catch {
-    return NextResponse.json({ success: false, error: 'خطای داخلی سرور' }, { status: 500 })
+    return NextResponse.json({ success: false, error: 'server error' }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'chatbot-book-memory' })
+  return NextResponse.json({ status: 'ok', api: 'chatbot-lang' })
 }
