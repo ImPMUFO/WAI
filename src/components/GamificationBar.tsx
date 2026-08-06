@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Trophy, Zap, Target, Flame } from 'lucide-react'
@@ -11,6 +12,8 @@ import {
 } from '@/lib/gamification'
 
 export default function GamificationBar({ compact = false }: { compact?: boolean }) {
+  const { dict } = useLocale()
+
   const [g, setG] = useState<GameState | null>(null)
 
   const refresh = () => setG(loadGame())
@@ -32,7 +35,7 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
       <div className="flex items-center gap-2 text-[10px] sm:text-xs text-[var(--muted)]">
         <span className="inline-flex items-center gap-1 text-[var(--accent)]">
           <Zap className="w-3.5 h-3.5" />
-          سطح {level}
+          {dict.levelWord} {level}
         </span>
         <span>{g.xp} XP</span>
         <span className="inline-flex items-center gap-1">
@@ -51,14 +54,14 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
           <span className="font-semibold text-sm">پیشرفت تو</span>
         </div>
         <Link href="/play" className="text-xs text-[var(--accent)] hover:opacity-80">
-          بازی‌ها و مأموریت‌ها
+          {dict.missions}
         </Link>
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs text-[var(--muted)]">
         <span className="inline-flex items-center gap-1">
           <Zap className="w-3.5 h-3.5 text-[var(--accent)]" />
-          سطح {level}
+          {dict.levelWord} {level}
         </span>
         <span>{g.xp} XP</span>
         <span className="inline-flex items-center gap-1">
@@ -73,7 +76,7 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
 
       <div>
         <div className="flex justify-between text-[10px] text-[var(--muted)] mb-1">
-          <span>تا سطح بعد</span>
+          <span>تا {dict.levelWord} بعد</span>
           <span>
             {intoLevel}/{need}
           </span>
@@ -88,7 +91,7 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
           <div key={id} className="rounded-xl border border-[var(--border)] p-2">
             <div className="text-[var(--muted)] mb-1">
               {id === 'daily_chat' && 'مأموریت روزانه: ۵ پیام'}
-              {id === 'daily_quiz' && 'مأموریت روزانه: ۱ بازی'}
+              {id === 'daily_quiz' && dict.dailyQuizMission}
               {id === 'weekly_domains' && 'هفتگی: ۳ حوزه'}
               {id === 'weekly_messages' && 'هفتگی: ۲۵ پیام'}
             </div>
