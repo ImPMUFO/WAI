@@ -19,7 +19,7 @@ import SpeakButton from '@/components/SpeakButton'
 import GamificationBar from '@/components/GamificationBar'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
-import { domainTitle as domainTitleI18n } from '@/lib/i18n/dictionaries'
+import { domainTitle as domainTitleI18n, getDictionary } from '@/lib/i18n/dictionaries'
 import {
   saveConversationToServer,
   loadConversationFromServer,
@@ -432,8 +432,10 @@ export default function AssessmentPage() {
       }
       try { onChatMessage(domain) } catch {}
       setIsTyping(false)
-      // نقشه در پس‌زمینه؛ چت را قفل نکند
-      void updateMapFromChat(withReply)
+      // نقشه فقط هر ۵ پیام کاربر (کاهش فشار + اطلاع به کاربر)
+      if (userCount > 0 && userCount % 5 === 0) {
+        void updateMapFromChat(withReply)
+      }
     } catch {
       const localInsight = computeInsight(next)
       setMessages((prev) => [
