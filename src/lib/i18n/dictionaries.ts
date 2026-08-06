@@ -28,7 +28,7 @@ const fa = {
   signup: 'ثبت\u200cنام',
   logout: 'خروج',
   language: 'زبان',
-  appearance: 'پوسته ظاهری',
+  themes: 'پوسته ظاهری',
   ctaTitle: 'ذهنت را ترسیم کن',
   ctaBody: 'با گفتگو، بازی و نقشه ذهنی مسیر رشدت را ببین.',
   home: 'خانه',
