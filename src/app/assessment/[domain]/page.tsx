@@ -26,7 +26,7 @@ import {
   saveMindMapToServer,
   archiveLocalChat,
   recoverConversation,
-  recoverAllLocalDataToServer,
+  recoverEverything,
 } from '@/lib/sync'
 
 type Book = { title: string; author: string; reason: string }
