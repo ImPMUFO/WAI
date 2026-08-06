@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import {
-  recoverAllLocalDataToServer,
+  recoverEverything,
   migrateLocalToServerIfNeeded,
   loadMindMapFromServer,
   upsertProfilePatch,
