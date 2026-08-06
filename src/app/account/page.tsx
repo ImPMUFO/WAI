@@ -4,7 +4,9 @@ import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import { recoverAllLocalDataToServer, migrateLocalToServerIfNeeded } from '@/lib/sync'
 import { migrateLocalToServerIfNeeded, loadMindMapFromServer, upsertProfilePatch } from '@/lib/sync'
+// recover injected
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
