@@ -68,6 +68,10 @@ export async function saveMindMapToServer(map: {
 }) {
   const user = await getCurrentUser()
   if (!user) return { ok: false as const, reason: 'no-user' }
+  // هرگز نقشه خالی روی نسخه موجود ننویس
+  const nodes = map.nodes
+  const count = Array.isArray(nodes) ? nodes.length : nodes ? 1 : 0
+  if (count === 0) return { ok: false as const, reason: 'empty-map-refused' }
   const supabase = createClient()
   const { error } = await supabase.from('mind_maps').upsert(
     {
