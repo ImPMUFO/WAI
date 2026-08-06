@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
@@ -8,6 +9,8 @@ import { migrateLocalToServerIfNeeded } from '@/lib/sync'
 type Mode = 'login' | 'signup' | 'forgot'
 
 export default function AuthPage() {
+  const { dict, dir } = useLocale()
+
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -141,7 +144,7 @@ export default function AuthPage() {
         : 'text-[var(--muted)] border-[var(--border)] bg-[var(--card)]'
 
   return (
-    <main className="min-h-screen rtl flex items-center justify-center px-4" style={{ color: 'var(--text)' }}>
+    <main dir={dir} className="min-h-screen flex items-center justify-center px-4" style={{ color: 'var(--text)' }}>
       <div className="w-full max-w-md card space-y-4">
         <div>
           <h1 className="text-xl font-bold">WAIMA</h1>
@@ -149,21 +152,20 @@ export default function AuthPage() {
         </div>
 
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-xs sm:text-sm text-[var(--muted)] leading-relaxed">
-          بعد از ثبت‌نام، یک ایمیل تأیید برایت ارسال می‌شود. باید روی لینک داخل آن ایمیل بزنی تا
-          ایمیلت تأیید شود و حسابت فعال گردد. بعد می‌توانی وارد شوی.
+          {dict.authHint}
         </div>
 
         {userEmail && (
           <div className="rounded-xl border border-[var(--border)] p-3 text-sm space-y-2">
             <p>
-              وارد شده‌ای: <span className="text-[var(--accent)]">{userEmail}</span>
+              {dict.loggedInAs}: <span className="text-[var(--accent)]">{userEmail}</span>
             </p>
             <div className="flex gap-2">
               <Link href="/account" className="btn-primary px-3 py-2 text-xs">
-                حساب من
+                {dict.account}
               </Link>
               <button onClick={logout} className="btn-secondary px-3 py-2 text-xs">
-                خروج
+                {dict.logout}
               </button>
             </div>
           </div>
@@ -172,9 +174,9 @@ export default function AuthPage() {
         <div className="flex gap-2 text-sm">
           {(
             [
-              ['login', 'ورود'],
-              ['signup', 'ثبت‌نام'],
-              ['forgot', 'فراموشی رمز'],
+              ['login', dict.login],
+              ['signup', dict.signup],
+              ['forgot', dict.forgotPassword],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -196,7 +198,7 @@ export default function AuthPage() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="نام نمایشی"
+            placeholder={dict.displayName}
             className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
             style={{ color: 'var(--text)' }}
           />
@@ -205,7 +207,7 @@ export default function AuthPage() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="ایمیل"
+          placeholder={dict.email}
           className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
           style={{ color: 'var(--text)' }}
         />
@@ -214,7 +216,7 @@ export default function AuthPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="رمز عبور"
+            placeholder={dict.password}
             className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
             style={{ color: 'var(--text)' }}
           />
@@ -224,10 +226,10 @@ export default function AuthPage() {
           {loading
             ? '...'
             : mode === 'login'
-              ? 'ورود'
+              ? dict.login
               : mode === 'signup'
-                ? 'ثبت‌نام'
-                : 'ارسال لینک بازیابی'}
+                ? dict.signup
+                : dict.sendResetLink}
         </button>
 
         {msg && (
@@ -237,7 +239,7 @@ export default function AuthPage() {
         )}
 
         <Link href="/" className="block text-center text-sm text-[var(--muted)]">
-          بازگشت
+          {dict.back}
         </Link>
       </div>
     </main>
