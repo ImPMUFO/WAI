@@ -23,7 +23,48 @@ type QuizItem = {
   explain: string
 }
 
-const CACHE_KEY = 'waima_daily_quiz_v2'
+const CACHE_KEY = 'waima_daily_quiz_v3'
+
+/** قاطی کردن گزینه‌ها روی کلاینت — جواب همیشه گزینه ۱ نباشد */
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = a[i]
+    a[i] = a[j]
+    a[j] = tmp
+  }
+  return a
+}
+
+function randomizeQuestion(q: QuizItem): QuizItem {
+  const answer = String(q.answer || '').trim()
+  let options = (q.options || []).map((o) => String(o).trim()).filter(Boolean)
+  if (answer && !options.includes(answer)) {
+    options = [answer, ...options]
+  }
+  // یکتا و حداکثر ۴
+  const uniq: string[] = []
+  for (const o of options) {
+    if (!uniq.includes(o)) uniq.push(o)
+  }
+  while (uniq.length < 4) uniq.push(`— ${uniq.length + 1}`)
+  let opts = shuffleArray(uniq.slice(0, 4))
+  // تضمین وجود جواب
+  if (answer && !opts.includes(answer)) {
+    opts[Math.floor(Math.random() * opts.length)] = answer
+    opts = shuffleArray(opts)
+  }
+  return {
+    ...q,
+    options: opts,
+    answer: answer || opts[0],
+  }
+}
+
+function randomizeList(items: QuizItem[]): QuizItem[] {
+  return shuffleArray(items.map(randomizeQuestion))
+}
 
 type Phase = 'loading' | 'list' | 'feedback' | 'empty'
 
@@ -78,7 +119,7 @@ export default function PlayPage() {
       if (cached) {
         const parsed = JSON.parse(cached)
         if (parsed?.date === date && Array.isArray(parsed.items) && parsed.items.length) {
-          setItems(parsed.items)
+          setItems(randomizeList(parsed.items as QuizItem[])) // client shuffle
           setSource(parsed.source || 'cache')
           setPhase(parsed.items.some((q: QuizItem) => !hasAnsweredQuestion(loadGame(), q.id)) ? 'list' : 'empty')
           return
@@ -101,7 +142,7 @@ export default function PlayPage() {
         }),
       })
       const data = await res.json()
-      const list = (data?.items || []) as QuizItem[]
+      const list = randomizeList((data?.items || []) as QuizItem[])
       setItems(list)
       setSource(data?.source || 'api')
       try {
@@ -120,7 +161,7 @@ export default function PlayPage() {
 
   const openQuestion = (q: QuizItem) => {
     if (answeredSet.has(q.id)) return
-    setCurrent(q)
+    setCurrent(randomizeQuestion(q))
     setPicked(null)
     setLocked(false)
     setLastCorrect(null)
