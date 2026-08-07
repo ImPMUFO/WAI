@@ -6,6 +6,7 @@ import { ArrowRight, Globe2, Send } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { createClient, isSupabaseConfigured, waitForSession } from '@/lib/supabase/client'
 import { MAX_BODY, MAX_PER_HOUR, MIN_INTERVAL_MS, sanitizeGlobalMessage } from '@/lib/chat-safety'
+import { getSavedAvatar, defaultAvatarUrl } from '@/lib/avatars'
 
 type Msg = {
   id: string
@@ -13,6 +14,13 @@ type Msg = {
   body: string
   created_at: string
   user_id?: string
+  avatar_url?: string | null
+}
+
+function avatarFor(m: Msg) {
+  if (m.avatar_url) return m.avatar_url
+  const seed = encodeURIComponent(m.username || m.user_id || 'user')
+  return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${seed}`
 }
 
 function timeLabel(iso: string) {
@@ -51,7 +59,7 @@ export default function WorldChatPage() {
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
       const { data } = await supabase
         .from('global_messages')
-        .select('id, username, body, created_at, user_id')
+        .select('id, username, body, created_at, user_id, avatar_url')
         .gt('created_at', cutoff)
         .order('created_at', { ascending: true })
         .limit(200)
@@ -129,7 +137,7 @@ export default function WorldChatPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username, display_name')
+        .select('username, display_name, avatar_url')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -142,10 +150,29 @@ export default function WorldChatPage() {
         .toString()
         .slice(0, 24)
 
+      const avatar_url =
+        getSavedAvatar() ||
+        profile?.avatar_url ||
+        defaultAvatarUrl()
+
+      // همگام با پروفایل
+      try {
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            avatar_url,
+            username: profile?.username || username,
+            updated_at: new Date().toISOString(),
+          })
+      } catch {
+        /* ignore */
+      }
+
       const { data, error: insErr } = await supabase
         .from('global_messages')
-        .insert({ user_id: user.id, username, body: safe.text })
-        .select('id, username, body, created_at, user_id')
+        .insert({ user_id: user.id, username, body: safe.text, avatar_url })
+        .select('id, username, body, created_at, user_id, avatar_url')
         .single()
 
       if (insErr) {
@@ -189,12 +216,20 @@ export default function WorldChatPage() {
             <p className="text-sm text-[var(--muted)] text-center py-10">هنوز پیامی نیست. اولین نفر باش.</p>
           )}
           {messages.map((m) => (
-            <div key={m.id} className="card !py-2.5 !px-3 space-y-1">
+            <div key={m.id} className="card !py-2.5 !px-3 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-mono text-[var(--accent)]">{m.username}</span>
-                <span className="text-[10px] text-[var(--muted)]">{timeLabel(m.created_at)}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={avatarFor(m)}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover border border-[var(--accent)]/40 bg-[var(--card)] shrink-0"
+                  />
+                  <span className="text-xs font-mono text-[var(--accent)] truncate">{m.username}</span>
+                </div>
+                <span className="text-[10px] text-[var(--muted)] shrink-0">{timeLabel(m.created_at)}</span>
               </div>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words pr-10">{m.body}</p>
             </div>
           ))}
           <div ref={bottomRef} />
