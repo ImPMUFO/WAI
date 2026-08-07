@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getUnlockedSpecial,
-  loadAvatarManifest,
   rollSpecialReward,
   setSavedAvatar,
-  specialAvatarUrl,
   unlockSpecial,
 } from '@/lib/avatars'
 
@@ -39,7 +37,8 @@ function playSpinSound(durationMs = 2800) {
 
 export default function LevelUpWheel({ open, level, onClose }: Props) {
   const [spinning, setSpinning] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
+  const [resultUrl, setResultUrl] = useState<string | null>(null)
+  const [resultLabel, setResultLabel] = useState('')
   const [miss, setMiss] = useState(false)
   const [rotation, setRotation] = useState(0)
   const done = useRef(false)
@@ -49,32 +48,31 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
   useEffect(() => {
     if (!open) {
       setSpinning(false)
-      setResult(null)
+      setResultUrl(null)
+      setResultLabel('')
       setMiss(false)
       done.current = false
     }
   }, [open])
 
-  const spin = async () => {
+  const spin = () => {
     if (spinning || done.current) return
     setSpinning(true)
-    setResult(null)
+    setResultUrl(null)
     setMiss(false)
     playSpinSound(3000)
     const extra = 5 + Math.floor(Math.random() * 4)
     const land = Math.floor(Math.random() * segments.length)
-    const deg = extra * 360 + land * (360 / segments.length)
-    setRotation((r) => r + deg)
+    setRotation((r) => r + extra * 360 + land * (360 / segments.length))
 
-    window.setTimeout(async () => {
-      const manifest = await loadAvatarManifest()
+    window.setTimeout(() => {
       const already = getUnlockedSpecial()
-      const prize = rollSpecialReward(manifest, already)
+      const prize = rollSpecialReward(already)
       if (prize) {
-        unlockSpecial(prize)
-        const path = specialAvatarUrl(prize)
-        setSavedAvatar(path)
-        setResult(path)
+        unlockSpecial(prize.id)
+        setSavedAvatar(prize.url)
+        setResultUrl(prize.url)
+        setResultLabel(prize.label)
       } else {
         setMiss(true)
       }
@@ -111,17 +109,17 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
           </div>
         </div>
 
-        {!result && !miss && (
-          <button type="button" disabled={spinning} onClick={() => void spin()} className="btn-primary w-full py-3">
+        {!resultUrl && !miss && (
+          <button type="button" disabled={spinning} onClick={spin} className="btn-primary w-full py-3">
             {spinning ? 'می‌چرخد…' : 'بچرخان'}
           </button>
         )}
 
-        {result && (
+        {resultUrl && (
           <div className="text-center space-y-2">
-            <p className="text-sm text-[var(--accent)]">پروفایل خاص گرفتی!</p>
+            <p className="text-sm text-[var(--accent)]">پروفایل خاص: {resultLabel}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={result} alt="prize" className="w-20 h-20 mx-auto rounded-full border-2 border-[var(--accent)]" />
+            <img src={resultUrl} alt={resultLabel} className="w-20 h-20 mx-auto rounded-full border-2 border-[var(--accent)] bg-[var(--card)]" />
             <button type="button" onClick={onClose} className="btn-primary w-full py-3">
               عالی
             </button>
