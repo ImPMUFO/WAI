@@ -7,6 +7,9 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
+  username text,
+  username_changed_on date,
+  username_change_count int not null default 0,
   avatar_url text,
   locale text not null default 'fa' check (locale in ('fa','en','ar')),
   theme text not null default 'main',
@@ -119,3 +122,9 @@ create policy "activity_all_own" on public.activity_log
 
 create policy "quiz_all_own" on public.quiz_runs
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+
+-- آیدی یکتا
+create unique index if not exists profiles_username_unique
+  on public.profiles (lower(username))
+  where username is not null;
