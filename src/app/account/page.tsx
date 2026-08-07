@@ -12,6 +12,7 @@ import {
 } from '@/lib/sync'
 import UsernameEditor from '@/components/UsernameEditor'
 import AvatarPicker from '@/components/AvatarPicker'
+import PasswordChange from '@/components/PasswordChange'
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -239,6 +240,8 @@ export default function AccountPage() {
         </div>
 
         <UsernameEditor />
+
+        <PasswordChange />
 
         <div className="space-y-2">
           <label className="text-xs text-[var(--muted)]">{dict.displayName}</label>
