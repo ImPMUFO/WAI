@@ -37,7 +37,7 @@ export const contactPageTitle = 'ارتباط با ما'
 export const contactBlocks: ContactBlock[] = [
   {
     type: 'heading',
-    text: ' سلام من سازنده سایت ، امیرمحمد هستم ',
+    text: ' سلام من سازنده سایت - امیرمحمد - هستم ',
     level: 1,
   },
   {
