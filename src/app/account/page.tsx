@@ -239,10 +239,6 @@ export default function AccountPage() {
         </div>
 
         <UsernameEditor />
-        <div className="hidden">
-        </div>
-
-        <UsernameEditor />
 
         <div className="space-y-2">
           <label className="text-xs text-[var(--muted)]">{dict.displayName}</label>
