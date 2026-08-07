@@ -37,7 +37,7 @@ export const contactPageTitle = 'ارتباط با ما'
 export const contactBlocks: ContactBlock[] = [
   {
     type: 'heading',
-    text: 'سلام، من سازنده WAIMA هستم',
+    text: ' سلام من سازنده سایت ، امیرمحمد هستم ',
     level: 1,
   },
   {
@@ -54,14 +54,13 @@ export const contactBlocks: ContactBlock[] = [
   {
     type: 'list',
     items: [
-      'تلگرام: لینک خودت را اینجا بگذار',
-      'ایمیل: your@email.com',
-      'اینستاگرام / ایکس / …',
+      'آیدی تلگرامم: @PMUFO',
+      'ایمیل پشتیبانی: pmufo@telegmail.com',
     ],
   },
   {
     type: 'link',
-    href: 'https://t.me/',
+    href: 'https://t.me/PMUFO',
     label: 'پیام در تلگرام',
     external: true,
   },
