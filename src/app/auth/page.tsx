@@ -95,7 +95,9 @@ export default function AuthPage() {
           void recoverEverything()
           void migrateLocalToServerIfNeeded()
           setMessage('ثبت‌نام موفق بود.', 'ok')
-          window.location.href = '/account'
+          // صبر کن session در storage بنشیند
+          await new Promise((r) => setTimeout(r, 200))
+          window.location.assign('/account')
           return
         }
 
@@ -105,7 +107,7 @@ export default function AuthPage() {
         )
         setMode('login')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const { data: loginData, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) {
           const m = (error.message || '').toLowerCase()
           if (m.includes('not confirmed')) {
@@ -121,10 +123,15 @@ export default function AuthPage() {
           }
           throw error
         }
+        if (!loginData.session) {
+          setMessage('ورود انجام شد ولی نشست ذخیره نشد. دوباره تلاش کن.', 'err')
+          return
+        }
         void recoverEverything()
         void migrateLocalToServerIfNeeded()
         setMessage('ورود موفق.', 'ok')
-        window.location.href = '/account'
+        await new Promise((r) => setTimeout(r, 200))
+        window.location.assign('/account')
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'خطا در احراز هویت'
