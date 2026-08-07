@@ -10,6 +10,7 @@ import {
   loadMindMapFromServer,
   upsertProfilePatch,
 } from '@/lib/sync'
+import UsernameEditor from '@/components/UsernameEditor'
 import AvatarPicker from '@/components/AvatarPicker'
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -236,6 +237,12 @@ export default function AccountPage() {
         <div className="card space-y-2">
           <AvatarPicker />
         </div>
+
+        <UsernameEditor />
+        <div className="hidden">
+        </div>
+
+        <UsernameEditor />
 
         <div className="space-y-2">
           <label className="text-xs text-[var(--muted)]">{dict.displayName}</label>
