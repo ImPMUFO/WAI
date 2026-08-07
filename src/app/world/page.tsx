@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Globe2, Send } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
-import { MAX_BODY } from '@/lib/chat-safety'
+import { createClient, isSupabaseConfigured, waitForSession } from '@/lib/supabase/client'
+import { MAX_BODY, MAX_PER_HOUR, MIN_INTERVAL_MS, sanitizeGlobalMessage } from '@/lib/chat-safety'
 
 type Msg = {
   id: string
@@ -32,45 +32,51 @@ export default function WorldChatPage() {
   const [error, setError] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const lastSentRef = useRef(0)
 
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/world', { cache: 'no-store' })
-      const data = await res.json()
-      if (res.ok) setMessages(data.messages || [])
+      if (res.ok) {
+        const data = await res.json()
+        setMessages(data.messages || [])
+        return
+      }
     } catch {
-      /* ignore */
-    } finally {
-      setLoading(false)
+      /* fallthrough */
     }
-  }, [])
-
-  const refreshAuth = useCallback(async () => {
-    if (!isSupabaseConfigured()) {
-      setLoggedIn(false)
-      return null as string | null
-    }
+    if (!isSupabaseConfigured()) return
     try {
       const supabase = createClient()
-      const { data, error } = await supabase.auth.getSession()
-      if (error || !data.session?.access_token) {
-        setLoggedIn(false)
-        return null
-      }
-      setLoggedIn(true)
-      return data.session.access_token
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const { data } = await supabase
+        .from('global_messages')
+        .select('id, username, body, created_at, user_id')
+        .gt('created_at', cutoff)
+        .order('created_at', { ascending: true })
+        .limit(200)
+      setMessages((data as Msg[]) || [])
     } catch {
-      setLoggedIn(false)
-      return null
+      /* ignore */
     }
   }, [])
 
   useEffect(() => {
-    void load()
-    void refreshAuth()
-    const t = window.setInterval(() => void load(), 8000)
-    return () => window.clearInterval(t)
-  }, [load, refreshAuth])
+    let alive = true
+    ;(async () => {
+      if (isSupabaseConfigured()) {
+        const session = await waitForSession(1500)
+        if (alive) setLoggedIn(Boolean(session?.user))
+      }
+      await load()
+      if (alive) setLoading(false)
+    })()
+    const t = window.setInterval(() => void load(), 12000)
+    return () => {
+      alive = false
+      window.clearInterval(t)
+    }
+  }, [load])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -79,38 +85,80 @@ export default function WorldChatPage() {
   const send = async () => {
     setError('')
     if (!text.trim()) return
+    if (!isSupabaseConfigured()) {
+      setError('اتصال در دسترس نیست.')
+      return
+    }
     setSending(true)
     try {
-      const token = await refreshAuth()
-      if (!token) {
-        setError('برای ارسال پیام باید وارد حساب شده باشی.')
+      const supabase = createClient()
+      let session = (await supabase.auth.getSession()).data.session
+      if (!session?.user) {
+        session = await waitForSession(1500)
+      }
+      const user = session?.user
+      if (!user) {
         setLoggedIn(false)
+        setError('برای ارسال پیام وارد حساب شو.')
+        return
+      }
+      setLoggedIn(true)
+
+      const now = Date.now()
+      if (now - lastSentRef.current < MIN_INTERVAL_MS) {
+        setError('کمی صبر کن؛ فاصله بین پیام‌ها کوتاه است.')
         return
       }
 
-      const res = await fetch('/api/world', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ text }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        if (data.error === 'login_required') {
-          setError('نشست ورود منقضی شده. دوباره وارد شو.')
-          setLoggedIn(false)
-        } else {
-          setError(data.error || 'ارسال نشد')
-        }
+      const safe = sanitizeGlobalMessage(text)
+      if (!safe.ok) {
+        setError(safe.error)
         return
       }
+
+      const hourAgo = new Date(now - 60 * 60 * 1000).toISOString()
+      const { count } = await supabase
+        .from('global_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gt('created_at', hourAgo)
+      if ((count || 0) >= MAX_PER_HOUR) {
+        setError('سقف پیام ساعتی پر شده.')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, display_name')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      const username = (
+        profile?.username ||
+        profile?.display_name ||
+        (user.user_metadata?.username as string) ||
+        'user'
+      )
+        .toString()
+        .slice(0, 24)
+
+      const { data, error: insErr } = await supabase
+        .from('global_messages')
+        .insert({ user_id: user.id, username, body: safe.text })
+        .select('id, username, body, created_at, user_id')
+        .single()
+
+      if (insErr) {
+        setError(insErr.message || 'ارسال نشد')
+        return
+      }
+
+      lastSentRef.current = now
       setText('')
-      if (data.message) setMessages((m) => [...m, data.message])
+      if (data) setMessages((m) => [...m, data as Msg])
       else await load()
-    } catch {
-      setError('خطای شبکه')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'خطا')
     } finally {
       setSending(false)
     }
@@ -161,7 +209,7 @@ export default function WorldChatPage() {
               <Link href="/auth" className="text-[var(--accent)] underline">
                 وارد شو
               </Link>
-              . همه می‌توانند پیام‌ها را بخوانند.
+              .
             </p>
           )}
           {error && <p className="text-xs text-rose-300">{error}</p>}
@@ -186,13 +234,12 @@ export default function WorldChatPage() {
               disabled={sending || !text.trim()}
               onClick={() => void send()}
               className="btn-primary px-3 py-2.5 shrink-0"
-              title="ارسال"
             >
               <Send className="w-4 h-4" />
             </button>
           </div>
           <p className="text-[10px] text-[var(--muted)]">
-            {text.length}/{MAX_BODY} · بدون لینک · بدون کد · حداقل فاصله بین پیام‌ها
+            {text.length}/{MAX_BODY} · بدون لینک · بدون کد
           </p>
         </div>
       </div>
