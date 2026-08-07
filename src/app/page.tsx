@@ -35,6 +35,9 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
             <ThemeSwitcher />
+            <Link href="/contact" className="text-xs sm:text-sm text-[var(--muted)] hover:text-[var(--accent)] px-2">
+              ارتباط با ما
+            </Link>
             <Link href="/auth" className="text-xs sm:text-sm text-[var(--muted)] hover:text-[var(--accent)] px-2">
               {dict.login}
             </Link>
@@ -115,6 +118,9 @@ export default function Home() {
         <p className="text-xs mt-1 opacity-70">
           {dict.brandTag} · {dict.brandSub}
         </p>
+        <Link href="/contact" className="text-xs text-[var(--accent)] mt-3 inline-block hover:underline">
+          ارتباط با ما
+        </Link>
       </footer>
     </main>
   )
