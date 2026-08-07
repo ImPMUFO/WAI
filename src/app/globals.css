@@ -39,20 +39,20 @@
 }
 
 [data-theme='day'] {
-  --bg0: #fffbeb;
-  --bg1: #fef3c7;
-  --bg2: #fff7ed;
-  --card: rgba(255, 255, 255, 0.7);
-  --card-solid: rgba(255, 255, 255, 0.95);
-  --border: rgba(202, 138, 4, 0.25);
-  --text: #1c1917;
-  --muted: #78716c;
-  --accent: #d97706;
-  --accent2: #ca8a04;
-  --accent-dim: rgba(217, 119, 6, 0.12);
-  --btn-from: #f59e0b;
-  --btn-to: #eab308;
-  --glow: rgba(245, 158, 11, 0.25);
+  --bg0: #e0f2fe;
+  --bg1: #bae6fd;
+  --bg2: #fef9c3;
+  --card: rgba(255, 255, 255, 0.72);
+  --card-solid: rgba(255, 255, 255, 0.94);
+  --border: rgba(14, 165, 233, 0.22);
+  --text: #0f172a;
+  --muted: #475569;
+  --accent: #0284c7;
+  --accent2: #d97706;
+  --accent-dim: rgba(2, 132, 199, 0.12);
+  --btn-from: #0ea5e9;
+  --btn-to: #f59e0b;
+  --glow: rgba(56, 189, 248, 0.28);
 }
 
 [data-theme='fire'] {
@@ -243,6 +243,373 @@
 
 /* خوانایی بیشتر متن در پوسته دریایی */
 [data-theme='ocean'] {
-  --text: #f0f9ff;
+  --text: #f8fafc;
   --muted: #e2e8f0;
+  --card-solid: rgba(8, 47, 73, 0.92);
+  --border: rgba(186, 230, 253, 0.28);
+}
+[data-theme='ocean'] .card,
+[data-theme='ocean'] .btn-secondary {
+  color: #f8fafc;
+}
+
+
+
+
+/* =========================================================
+   Theme Atmosphere — افکت‌های زنده و سبک
+   ========================================================= */
+
+.theme-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+}
+
+.theme-atmosphere .ta-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  will-change: opacity;
+}
+
+.theme-atmosphere[data-active='day'] .ta-day,
+.theme-atmosphere[data-active='ocean'] .ta-ocean,
+.theme-atmosphere[data-active='galaxy'] .ta-galaxy,
+.theme-atmosphere[data-active='fire'] .ta-fire,
+.theme-atmosphere[data-active='wood'] .ta-wood,
+.theme-atmosphere[data-active='main'] .ta-main {
+  opacity: 1;
+}
+
+/* محتوا بالای لایه جوی */
+body > div,
+#__next,
+main {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- DAY: خورشید + ابر ---- */
+.ta-sun {
+  position: absolute;
+  top: 8%;
+  left: 12%;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff7ed, #fbbf24 45%, #f59e0b 70%, transparent 75%);
+  box-shadow: 0 0 40px 12px rgba(251, 191, 36, 0.45), 0 0 80px 24px rgba(56, 189, 248, 0.15);
+  animation: ta-sun-drift 28s ease-in-out infinite;
+}
+.ta-cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 40px;
+  filter: blur(0.5px);
+  box-shadow: 18px 0 0 -4px rgba(255,255,255,0.8), 36px 6px 0 -8px rgba(255,255,255,0.7);
+}
+.ta-cloud-1 { width: 70px; height: 28px; top: 14%; left: -10%; animation: ta-cloud-move 48s linear infinite; }
+.ta-cloud-2 { width: 90px; height: 32px; top: 22%; left: -15%; opacity: 0.75; animation: ta-cloud-move 62s linear infinite 8s; }
+.ta-cloud-3 { width: 55px; height: 22px; top: 10%; left: -8%; opacity: 0.65; animation: ta-cloud-move 55s linear infinite 18s; }
+
+@keyframes ta-sun-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(40px, 18px); }
+}
+@keyframes ta-cloud-move {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(120vw); }
+}
+
+/* ---- OCEAN: موج + حباب + ماهی ---- */
+.ta-wave {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  height: 90px;
+  border-radius: 45% 45% 0 0;
+  opacity: 0.22;
+}
+.ta-wave-1 {
+  bottom: -10px;
+  background: linear-gradient(to top, rgba(14, 165, 233, 0.5), transparent);
+  animation: ta-wave 7s ease-in-out infinite;
+}
+.ta-wave-2 {
+  bottom: 18px;
+  background: linear-gradient(to top, rgba(56, 189, 248, 0.35), transparent);
+  animation: ta-wave 9s ease-in-out infinite 1s;
+  opacity: 0.18;
+}
+.ta-wave-3 {
+  bottom: 40px;
+  background: linear-gradient(to top, rgba(125, 211, 252, 0.25), transparent);
+  animation: ta-wave 11s ease-in-out infinite 2s;
+  opacity: 0.14;
+}
+.ta-bubble {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(186, 230, 253, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+  animation: ta-bubble-up 10s linear infinite;
+}
+.b1 { width: 10px; height: 10px; left: 15%; bottom: 5%; animation-duration: 9s; }
+.b2 { width: 7px; height: 7px; left: 40%; bottom: 0; animation-duration: 12s; animation-delay: 2s; }
+.b3 { width: 12px; height: 12px; left: 65%; bottom: 8%; animation-duration: 11s; animation-delay: 4s; }
+.b4 { width: 6px; height: 6px; left: 82%; bottom: 3%; animation-duration: 8s; animation-delay: 1s; }
+.ta-fish {
+  position: absolute;
+  width: 18px;
+  height: 10px;
+  background: rgba(125, 211, 252, 0.45);
+  border-radius: 50% 50% 50% 50%;
+  bottom: 12%;
+  animation: ta-fish-swim 22s linear infinite;
+}
+.ta-fish::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 2px;
+  border: 5px solid transparent;
+  border-left-color: rgba(125, 211, 252, 0.4);
+}
+.f1 { left: -5%; animation-duration: 26s; }
+.f2 { left: -5%; bottom: 22%; opacity: 0.6; animation-duration: 34s; animation-delay: 6s; }
+.ta-shell {
+  position: absolute;
+  bottom: 6%;
+  right: 12%;
+  width: 16px;
+  height: 12px;
+  background: radial-gradient(ellipse, rgba(253, 230, 138, 0.5), rgba(214, 211, 209, 0.35));
+  border-radius: 50% 50% 40% 40%;
+  opacity: 0.7;
+}
+
+@keyframes ta-wave {
+  0%, 100% { transform: translateX(0) scaleY(1); }
+  50% { transform: translateX(-3%) scaleY(1.08); }
+}
+@keyframes ta-bubble-up {
+  0% { transform: translateY(0) scale(1); opacity: 0.6; }
+  100% { transform: translateY(-70vh) scale(1.3); opacity: 0; }
+}
+@keyframes ta-fish-swim {
+  0% { transform: translateX(0) scaleX(1); }
+  49% { transform: translateX(95vw) scaleX(1); }
+  50% { transform: translateX(95vw) scaleX(-1); }
+  100% { transform: translateX(0) scaleX(-1); }
+}
+
+/* ---- GALAXY ---- */
+.ta-nebula {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 40% 30% at 70% 30%, rgba(168, 85, 247, 0.22), transparent),
+    radial-gradient(ellipse 35% 25% at 25% 60%, rgba(59, 130, 246, 0.18), transparent),
+    radial-gradient(ellipse 30% 20% at 50% 80%, rgba(236, 72, 153, 0.12), transparent);
+  animation: ta-nebula-drift 40s ease-in-out infinite;
+}
+.ta-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 10% 20%, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1px 1px at 30% 40%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1.5px 1.5px at 50% 15%, rgba(255,255,255,0.85), transparent),
+    radial-gradient(1px 1px at 70% 55%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1.5px 1.5px at 85% 25%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 20% 70%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 60% 80%, rgba(255,255,255,0.65), transparent),
+    radial-gradient(1.5px 1.5px at 90% 65%, rgba(255,255,255,0.75), transparent);
+  animation: ta-twinkle 5s ease-in-out infinite;
+}
+.ta-star-dot {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255,255,255,0.8);
+  animation: ta-twinkle 3s ease-in-out infinite;
+}
+.d1 { top: 18%; left: 22%; animation-delay: 0.3s; }
+.d2 { top: 35%; left: 78%; animation-delay: 1s; }
+.d3 { top: 55%; left: 40%; animation-delay: 1.6s; }
+.d4 { top: 12%; left: 60%; animation-delay: 0.7s; }
+.d5 { top: 72%; left: 15%; animation-delay: 2s; }
+.ta-meteor {
+  position: absolute;
+  width: 80px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.9), #fbbf24);
+  border-radius: 2px;
+  opacity: 0;
+  animation: ta-meteor 9s linear infinite;
+}
+.m1 { top: 20%; left: 60%; animation-delay: 2s; }
+.m2 { top: 40%; left: 40%; animation-delay: 6s; width: 60px; }
+.ta-blackhole {
+  position: absolute;
+  top: 55%;
+  right: 8%;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #000 30%, rgba(88, 28, 135, 0.5) 55%, transparent 70%);
+  box-shadow: 0 0 24px 8px rgba(168, 85, 247, 0.25);
+  animation: ta-bh-pulse 6s ease-in-out infinite;
+}
+
+@keyframes ta-nebula-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-2%, 2%) scale(1.05); }
+}
+@keyframes ta-twinkle {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes ta-meteor {
+  0% { transform: translate(0, 0) rotate(25deg); opacity: 0; }
+  5% { opacity: 1; }
+  20% { transform: translate(-30vw, 25vh) rotate(25deg); opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes ta-bh-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+/* ---- FIRE ---- */
+.ta-lava {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28%;
+  background:
+    radial-gradient(ellipse 50% 80% at 30% 100%, rgba(239, 68, 68, 0.35), transparent),
+    radial-gradient(ellipse 40% 70% at 70% 100%, rgba(249, 115, 22, 0.3), transparent),
+    linear-gradient(to top, rgba(127, 29, 29, 0.4), transparent);
+  animation: ta-lava-pulse 4s ease-in-out infinite;
+}
+.ta-ember {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 8px 2px rgba(249, 115, 22, 0.7);
+  bottom: 15%;
+  animation: ta-ember-rise 5s ease-out infinite;
+}
+.e1 { left: 20%; animation-duration: 4.5s; }
+.e2 { left: 35%; animation-duration: 5.5s; animation-delay: 0.8s; }
+.e3 { left: 50%; animation-duration: 4.2s; animation-delay: 1.4s; }
+.e4 { left: 65%; animation-duration: 6s; animation-delay: 0.4s; }
+.e5 { left: 80%; animation-duration: 5s; animation-delay: 2s; }
+.ta-smoke {
+  position: absolute;
+  bottom: 20%;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 113, 108, 0.25), transparent 70%);
+  filter: blur(8px);
+  animation: ta-smoke-up 8s ease-out infinite;
+}
+.s1 { left: 25%; }
+.s2 { left: 60%; animation-delay: 3s; }
+
+@keyframes ta-lava-pulse {
+  0%, 100% { opacity: 0.85; transform: scaleY(1); }
+  50% { opacity: 1; transform: scaleY(1.06); }
+}
+@keyframes ta-ember-rise {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-55vh) scale(0.3); opacity: 0; }
+}
+@keyframes ta-smoke-up {
+  0% { transform: translateY(0) scale(1); opacity: 0.4; }
+  100% { transform: translateY(-40vh) scale(2); opacity: 0; }
+}
+
+/* ---- WOOD ---- */
+.ta-branch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 140px;
+  height: 100px;
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(74, 222, 128, 0.12), transparent),
+    radial-gradient(ellipse 40% 30% at 90% 10%, rgba(34, 197, 94, 0.1), transparent);
+}
+.ta-leaf {
+  position: absolute;
+  width: 12px;
+  height: 18px;
+  background: linear-gradient(135deg, #4ade80, #166534);
+  border-radius: 2px 80% 2px 80%;
+  opacity: 0.75;
+  animation: ta-leaf-fall 14s linear infinite;
+}
+.l1 { top: -5%; left: 20%; animation-duration: 13s; }
+.l2 { top: -5%; left: 45%; animation-duration: 16s; animation-delay: 3s; }
+.l3 { top: -5%; left: 70%; animation-duration: 15s; animation-delay: 6s; }
+.l4 { top: -5%; left: 85%; animation-duration: 18s; animation-delay: 1s; }
+
+@keyframes ta-leaf-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+  100% { transform: translateY(105vh) rotate(360deg); opacity: 0.2; }
+}
+
+/* ---- MAIN: orbs ---- */
+.ta-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.35;
+  animation: ta-orb-float 18s ease-in-out infinite;
+}
+.o1 {
+  width: 220px; height: 220px; top: -40px; right: -40px;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.5), transparent 70%);
+}
+.o2 {
+  width: 180px; height: 180px; bottom: 10%; left: -30px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.4), transparent 70%);
+  animation-delay: 4s;
+}
+.o3 {
+  width: 140px; height: 140px; top: 40%; left: 40%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.25), transparent 70%);
+  animation-delay: 8s;
+}
+
+@keyframes ta-orb-float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(20px, -16px); }
+}
+
+/* day body sky */
+[data-theme='day'] body {
+  background:
+    linear-gradient(180deg, #7dd3fc 0%, #e0f2fe 42%, #fef9c3 100%);
+}
+
+/* کاهش حرکت برای کاربرانی که motion کم می‌خواهند */
+@media (prefers-reduced-motion: reduce) {
+  .theme-atmosphere * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
