@@ -55,7 +55,7 @@ export async function GET() {
   }
   const { data, error } = await db
     .from('global_messages')
-    .select('id, username, body, created_at, user_id')
+    .select('id, username, body, created_at, user_id, avatar_url')
     .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .order('created_at', { ascending: true })
     .limit(200)
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       username,
       body: safe.text,
     })
-    .select('id, username, body, created_at, user_id')
+    .select('id, username, body, created_at, user_id, avatar_url')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
