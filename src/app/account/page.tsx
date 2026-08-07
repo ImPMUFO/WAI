@@ -33,7 +33,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 export default function AccountPage() {
   const { dict, dir } = useLocale()
 
-  const [email, setEmail] = useState<string | null>(null)
+  const [username, setUsername] = useState('')
   const [name, setName] = useState('')
   const [status, setStatus] = useState('—')
   const [loading, setLoading] = useState(true)
@@ -83,11 +83,14 @@ export default function AccountPage() {
         if (cancelled) return
 
         // همین‌جا UI را باز کن — دیگر منتظر sync نباش
-        setEmail(user.email ?? null)
         setName(
           (user.user_metadata?.display_name as string) ||
-            user.email?.split('@')[0] ||
+            (user.user_metadata?.username as string) ||
             'کاربر'
+        )
+        setUsername(
+          (user.user_metadata?.username as string) ||
+            ''
         )
         setStatus('وارد شده‌ای')
         setLoading(false)
@@ -99,7 +102,7 @@ export default function AccountPage() {
               Promise.resolve(
                 supabase
                   .from('profiles')
-                  .select('display_name, xp, level, locale, theme')
+                  .select('display_name, username, xp, level, locale, theme')
                   .eq('id', user.id)
                   .maybeSingle()
               ),
@@ -112,11 +115,16 @@ export default function AccountPage() {
             if (profileErr) {
               setHint('خواندن پروفایل: ' + profileErr.message)
             }
+            if (profile?.username) {
+              setUsername(String(profile.username))
+            } else if (user.user_metadata?.username) {
+              setUsername(String(user.user_metadata.username))
+            }
 
             if (!profile) {
               const display =
                 (user.user_metadata?.display_name as string) ||
-                user.email?.split('@')[0] ||
+                (user.user_metadata?.username as string) ||
                 'کاربر'
               const { error: insErr } = await supabase.from('profiles').upsert({
                 id: user.id,
@@ -219,7 +227,10 @@ export default function AccountPage() {
 
         <div className="text-sm space-y-1">
           <p>
-            {dict.email}: <span className="text-[var(--accent)]">{email || '—'}</span>
+            آیدی:{' '}
+            <span className="text-[var(--accent)] font-mono" dir="ltr">
+              {username ? `@${username}` : '—'}
+            </span>
           </p>
           <p className="text-[var(--muted)]">{status}</p>
           {mapSummary && <p className="text-[var(--muted)]">{dict.lastMap}: {mapSummary}</p>}
