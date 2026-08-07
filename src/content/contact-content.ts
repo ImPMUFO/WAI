@@ -94,16 +94,4 @@ export const contactBlocks: ContactBlock[] = [
       '• بازی‌های جدید\n' +
       '• امکانات اجتماعی بیشتر',
   },
-  {
-    type: 'divider',
-  },
-  {
-    type: 'html',
-    html:
-      '<p style="opacity:.85;line-height:1.8">اینجا می‌توانی <b>هر HTML</b> بگذاری: ' +
-      'لینک، <a href="https://waima.vercel.app" target="_blank" rel="noreferrer">سایت</a>، ' +
-      'حتی iframe یا ویجت — بدون محدودیت از سمت کد.</p>',
-  },
-  // نمونه عکس (url را عوض کن)
-  // { type: 'image', url: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=waima-creator', caption: 'عکس یا لوگوی من', alt: 'سازنده' },
 ]
