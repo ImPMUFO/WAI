@@ -2,6 +2,7 @@
 
 export const GAME_KEY = 'wai_game_state_v1'
 export const ACTIVE_DOMAINS_KEY = 'wai_active_domains'
+export const PENDING_LEVEL_UP_KEY = 'waima_pending_level_up'
 
 export type AchievementId =
   | 'first_chat'
@@ -224,6 +225,12 @@ export function addXp(g: GameState, amount: number, reason: string): GameState {
       { ts: Date.now(), reason: `ارتقا به سطح ${after.level}`, xp: 0 },
       ...next.history,
     ].slice(0, 40)
+    try {
+      localStorage.setItem(PENDING_LEVEL_UP_KEY, String(after.level))
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('waima-level-up'))
+    } catch {
+      /* ignore */
+    }
   }
   return next
 }
@@ -360,8 +367,17 @@ export function onQuizQuestionAnswered(
   }
   g.missions = m
   // level از xp
+  const prevLevel = g.level || 1
   const lv = levelFromXp(g.xp)
   g.level = lv.level
+  if (g.level > prevLevel) {
+    try {
+      localStorage.setItem(PENDING_LEVEL_UP_KEY, String(g.level))
+      window.dispatchEvent(new Event('waima-level-up'))
+    } catch {
+      /* ignore */
+    }
+  }
   saveGame(g)
   return { state: g, alreadyAnswered: false, gainedXp: g.xp - before }
 }
