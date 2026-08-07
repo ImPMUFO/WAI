@@ -10,7 +10,10 @@ import {
   loadGame,
   onQuizQuestionAnswered,
   hasAnsweredQuestion,
+  PENDING_LEVEL_UP_KEY,
 } from '@/lib/gamification'
+import LevelUpWheel from '@/components/LevelUpWheel'
+import { getSavedAvatar } from '@/lib/avatars'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { fetchLeaderboard, type LeaderboardRow } from '@/lib/sync'
 
@@ -86,6 +89,9 @@ export default function PlayPage() {
   const [source, setSource] = useState('')
   const [board, setBoard] = useState<LeaderboardRow[]>([])
   const [boardLoading, setBoardLoading] = useState(true)
+  const [wheelOpen, setWheelOpen] = useState(false)
+  const [wheelLevel, setWheelLevel] = useState(1)
+  const [myAvatar, setMyAvatar] = useState('/profiles/level-1/a.svg')
 
 
   const remaining = useMemo(
@@ -98,6 +104,25 @@ export default function PlayPage() {
     setAnsweredSet(new Set(g.answeredQuestions || []))
     void loadDaily()
     void loadBoard()
+    try {
+      setMyAvatar(getSavedAvatar())
+      const pending = localStorage.getItem(PENDING_LEVEL_UP_KEY)
+      if (pending) {
+        setWheelLevel(Number(pending) || loadGame().level || 1)
+        setWheelOpen(true)
+      }
+    } catch {}
+    const onLvl = () => {
+      try {
+        const pending = localStorage.getItem(PENDING_LEVEL_UP_KEY)
+        if (pending) {
+          setWheelLevel(Number(pending) || 1)
+          setWheelOpen(true)
+        }
+      } catch {}
+    }
+    window.addEventListener('waima-level-up', onLvl)
+    return () => window.removeEventListener('waima-level-up', onLvl)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale])
 
@@ -210,7 +235,13 @@ export default function PlayPage() {
           </Link>
         </div>
 
-        <GamificationBar compact />
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={myAvatar} alt="" className="w-10 h-10 rounded-full border border-[var(--accent)] object-cover" />
+          <div className="flex-1 min-w-0">
+            <GamificationBar compact />
+          </div>
+        </div>
 
         <div className="card space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -387,6 +418,19 @@ export default function PlayPage() {
           )}
         </AnimatePresence>
       </div>
+
+      <LevelUpWheel
+        open={wheelOpen}
+        level={wheelLevel}
+        onClose={() => {
+          setWheelOpen(false)
+          try {
+            localStorage.removeItem(PENDING_LEVEL_UP_KEY)
+          } catch {
+            /* ignore */
+          }
+        }}
+      />
     </main>
   )
 }
