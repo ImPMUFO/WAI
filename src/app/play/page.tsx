@@ -13,8 +13,6 @@ import {
   PENDING_LEVEL_UP_KEY,
 } from '@/lib/gamification'
 import ExtraGames from '@/components/ExtraGames'
-// جایی مناسب در صفحه:
-<ExtraGames />
 import LevelUpWheel from '@/components/LevelUpWheel'
 import { getSavedAvatar } from '@/lib/avatars'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
@@ -308,6 +306,8 @@ export default function PlayPage() {
             {source === 'ai' ? ' · AI' : source ? ` · ${source}` : ''}
           </div>
         </div>
+
+        <ExtraGames />
 
         <AnimatePresence mode="wait">
           {phase === 'loading' && (
