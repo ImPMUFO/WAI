@@ -100,7 +100,7 @@ export default function AuthPage() {
         }
 
         setMessage(
-          'ثبت‌نام انجام شد. اگر ورود خودکار نشد، با همان آیدی و رمز وارد شو.\nدر Supabase گزینه Confirm email را خاموش کن.',
+          'ثبت‌نام انجام شد. اگر ورود خودکار نشد، با همان آیدی و رمز از بخش ورود وارد شو.',
           'ok'
         )
         setMode('login')
@@ -110,7 +110,7 @@ export default function AuthPage() {
           const m = (error.message || '').toLowerCase()
           if (m.includes('not confirmed')) {
             setMessage(
-              'Confirm email هنوز روشن است. در Supabase: Authentication → Providers → Email → Confirm email را خاموش کن.',
+              'فعلاً ورود ممکن نیست. کمی بعد دوباره تلاش کن یا با سازنده سایت هماهنگ کن.',
               'err'
             )
             return
