@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import ThemeProvider from '@/components/ThemeProvider'
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider'
+import GlobalWheelHost from '@/components/GlobalWheelHost'
 
 export const metadata: Metadata = {
   title: 'WAIMA | من کیستم؟ | ترسیم‌گر ذهنی',
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <LocaleProvider>
             <div className="min-h-screen flex flex-col">{children}</div>
+            <GlobalWheelHost />
           </LocaleProvider>
         </ThemeProvider>
       </body>
