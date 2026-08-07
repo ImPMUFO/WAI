@@ -1,4 +1,4 @@
-use client'
+'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -13,7 +13,7 @@ type Msg = {
   username: string
   body: string
   created_at: string
-  user_id?: string
+  user_id?: string | null
   avatar_url?: string | null
 }
 
@@ -34,6 +34,16 @@ function timeLabel(iso: string) {
   }
 }
 
+function isMine(m: Msg, myId: string | null, myUsername: string) {
+  if (myId && m.user_id && String(m.user_id).toLowerCase() === String(myId).toLowerCase()) {
+    return true
+  }
+  if (myUsername && m.username && String(m.username).toLowerCase() === myUsername.toLowerCase()) {
+    return true
+  }
+  return false
+}
+
 export default function WorldChatPage() {
   const { dict, dir } = useLocale()
   const [messages, setMessages] = useState<Msg[]>([])
@@ -43,12 +53,54 @@ export default function WorldChatPage() {
   const [error, setError] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
   const [myId, setMyId] = useState<string | null>(null)
-  const [myUsername, setMyUsername] = useState<string>('')
+  const [myUsername, setMyUsername] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastSentRef = useRef(0)
+
+  const refreshMe = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setLoggedIn(false)
+      setMyId(null)
+      setMyUsername('')
+      return null as string | null
+    }
+    try {
+      const supabase = createClient()
+      let session = (await supabase.auth.getSession()).data.session
+      if (!session?.user) {
+        session = await waitForSession(2500)
+      }
+      const user = session?.user
+      if (!user) {
+        setLoggedIn(false)
+        setMyId(null)
+        setMyUsername('')
+        return null
+      }
+      setLoggedIn(true)
+      setMyId(user.id)
+
+      let un = String(user.user_metadata?.username || '')
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (profile?.username) un = String(profile.username)
+      } catch {
+        /* ignore */
+      }
+      setMyUsername(un)
+      return user.id
+    } catch {
+      setLoggedIn(false)
+      return null
+    }
+  }, [])
 
   const loadFromSupabase = useCallback(async () => {
     if (!isSupabaseConfigured()) return [] as Msg[]
@@ -73,19 +125,7 @@ export default function WorldChatPage() {
       error = retry.error
     }
     if (error) throw new Error(error.message)
-
-    let list = (data as Msg[]) || []
-    const need = [...new Set(list.filter((m) => !m.avatar_url && m.user_id).map((m) => m.user_id!))]
-    if (need.length) {
-      const { data: profiles } = await supabase.from('profiles').select('id, avatar_url, username').in('id', need)
-      const map = new Map((profiles || []).map((p: any) => [p.id, p]))
-      list = list.map((m) => {
-        if (m.avatar_url || !m.user_id) return m
-        const p = map.get(m.user_id)
-        return { ...m, avatar_url: p?.avatar_url || null, username: m.username || p?.username || m.username }
-      })
-    }
-    return list
+    return (data as Msg[]) || []
   }, [])
 
   const load = useCallback(async () => {
@@ -105,40 +145,41 @@ export default function WorldChatPage() {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      if (isSupabaseConfigured()) {
-        const session = await waitForSession(2000)
-        if (alive) {
-          const u = session?.user
-          setLoggedIn(Boolean(u))
-          setMyId(u?.id || null)
-          if (u?.id) {
-            try {
-              const supabase = createClient()
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('username')
-                .eq('id', u.id)
-                .maybeSingle()
-              const un =
-                profile?.username ||
-                (u.user_metadata?.username as string) ||
-                ''
-              setMyUsername(String(un).toLowerCase())
-            } catch {
-              setMyUsername(String(u.user_metadata?.username || '').toLowerCase())
-            }
-          }
-        }
-      }
+      await refreshMe()
+      if (!alive) return
       await load()
       if (alive) setLoading(false)
     })()
-    const t = window.setInterval(() => void load(), 12000)
+
+    let unsub: { unsubscribe: () => void } | null = null
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createClient()
+        const { data } = supabase.auth.onAuthStateChange((_e, session) => {
+          if (!alive) return
+          if (session?.user) {
+            setLoggedIn(true)
+            setMyId(session.user.id)
+            void refreshMe()
+          } else {
+            setLoggedIn(false)
+            setMyId(null)
+            setMyUsername('')
+          }
+        })
+        unsub = data.subscription
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const t = window.setInterval(() => void load(), 15000)
     return () => {
       alive = false
       window.clearInterval(t)
+      unsub?.unsubscribe()
     }
-  }, [load])
+  }, [load, refreshMe])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -153,18 +194,17 @@ export default function WorldChatPage() {
     }
     setSending(true)
     try {
-      const supabase = createClient()
-      let session = (await supabase.auth.getSession()).data.session
-      if (!session?.user) session = await waitForSession(2000)
-      const user = session?.user
-      if (!user) {
-        setLoggedIn(false)
-        setMyId(null)
+      const uid = await refreshMe()
+      if (!uid) {
         setError('برای ارسال پیام وارد حساب شو.')
         return
       }
-      setLoggedIn(true)
-      setMyId(user.id)
+      const supabase = createClient()
+      const user = (await supabase.auth.getUser()).data.user
+      if (!user) {
+        setError('برای ارسال پیام وارد حساب شو.')
+        return
+      }
 
       const now = Date.now()
       if (now - lastSentRef.current < MIN_INTERVAL_MS) {
@@ -204,8 +244,7 @@ export default function WorldChatPage() {
         .toString()
         .slice(0, 24)
 
-      setMyUsername(username.toLowerCase())
-
+      setMyUsername(username)
       const avatar_url = getSavedAvatar() || profile?.avatar_url || fallbackAvatar(username)
 
       try {
@@ -235,9 +274,9 @@ export default function WorldChatPage() {
           .select('id, username, body, created_at, user_id')
           .single()
         if (without.error) insErr = without.error
-        else data = { ...(without.data as Msg), avatar_url }
+        else data = { ...(without.data as Msg), avatar_url, user_id: user.id }
       } else {
-        data = withAvatar.data as Msg
+        data = { ...(withAvatar.data as Msg), user_id: withAvatar.data?.user_id || user.id }
       }
 
       if (insErr || !data) {
@@ -273,7 +312,8 @@ export default function WorldChatPage() {
       setError(safe.error)
       return
     }
-    if (!isSupabaseConfigured() || !myId) {
+    const uid = myId || (await refreshMe())
+    if (!uid || !isSupabaseConfigured()) {
       setError('وارد حساب شو.')
       return
     }
@@ -284,9 +324,12 @@ export default function WorldChatPage() {
         .from('global_messages')
         .update({ body: safe.text })
         .eq('id', id)
-        .eq('user_id', myId)
+        .eq('user_id', uid)
       if (upErr) {
-        setError(upErr.message + '\nاگر تازه policy ویرایش را نزدی، SQL را در Supabase Run کن.')
+        setError(
+          upErr.message +
+            '\nدر Supabase این policy را Run کن:\ncreate policy global_messages_update_own on public.global_messages for update using (auth.uid() = user_id) with check (auth.uid() = user_id);'
+        )
         return
       }
       setMessages((list) => list.map((m) => (m.id === id ? { ...m, body: safe.text } : m)))
@@ -300,7 +343,8 @@ export default function WorldChatPage() {
   }
 
   const removeMsg = async (id: string) => {
-    if (!isSupabaseConfigured() || !myId) {
+    const uid = myId || (await refreshMe())
+    if (!uid || !isSupabaseConfigured()) {
       setError('وارد حساب شو.')
       return
     }
@@ -313,9 +357,12 @@ export default function WorldChatPage() {
         .from('global_messages')
         .delete()
         .eq('id', id)
-        .eq('user_id', myId)
+        .eq('user_id', uid)
       if (delErr) {
-        setError(delErr.message + '\nاگر policy حذف نیست، SQL را در Supabase Run کن.')
+        setError(
+          delErr.message +
+            '\nدر Supabase:\ncreate policy global_messages_delete_own on public.global_messages for delete using (auth.uid() = user_id);'
+        )
         return
       }
       setMessages((list) => list.filter((m) => m.id !== id))
@@ -335,7 +382,9 @@ export default function WorldChatPage() {
             <Globe2 className="w-4 h-4 text-[var(--accent)] shrink-0" />
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base font-semibold truncate">گفتگوی جهانی</h1>
-              <p className="text-[10px] text-[var(--muted)]">پیام‌ها هر ۲۴ ساعت پاک می‌شوند · فقط متن</p>
+              <p className="text-[10px] text-[var(--muted)]">
+                {loggedIn ? `وارد شده‌ای${myUsername ? ` · @${myUsername}` : ''}` : 'مهمان'} · پیام‌ها ۲۴ساعته
+              </p>
             </div>
           </div>
           <Link href="/" className="text-sm text-[var(--muted)] inline-flex items-center gap-1 shrink-0">
@@ -351,59 +400,24 @@ export default function WorldChatPage() {
           {!loading && messages.length === 0 && !error && (
             <p className="text-sm text-[var(--muted)] text-center py-10">هنوز پیامی نیست. اولین نفر باش.</p>
           )}
+
           {messages.map((m) => {
-            const mineById = Boolean(myId && m.user_id && String(m.user_id) === String(myId))
-            const mineByName = Boolean(
-              myUsername && m.username && String(m.username).toLowerCase() === myUsername
-            )
-            const mine = mineById || mineByName
+            const mine = isMine(m, myId, myUsername)
             const editing = editingId === m.id
             return (
-              <div key={m.id} className="card !py-2.5 !px-3 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
+              <div key={m.id} className="card !py-3 !px-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={avatarFor(m)}
                       alt=""
-                      className="w-8 h-8 rounded-full object-cover border border-[var(--accent)]/40 bg-[var(--card)] shrink-0"
+                      className="w-9 h-9 rounded-full object-cover border border-[var(--border)] bg-[var(--card)] shrink-0"
                     />
-                    <span className="text-xs font-mono text-[var(--accent)] truncate">{m.username}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {mine && !editing && (
-                      <>
-                        <button
-                          type="button"
-                          title="ویرایش"
-                          disabled={busyId === m.id}
-                          onClick={() => startEdit(m)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border"
-                          style={{
-                            color: 'var(--text)',
-                            background: 'var(--card-solid)',
-                            borderColor: 'var(--border)',
-                          }}
-                        >
-                          <Pencil className="w-4 h-4" strokeWidth={2.25} />
-                        </button>
-                        <button
-                          type="button"
-                          title="حذف"
-                          disabled={busyId === m.id}
-                          onClick={() => void removeMsg(m.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border"
-                          style={{
-                            color: 'var(--text)',
-                            background: 'var(--card-solid)',
-                            borderColor: 'var(--border)',
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" strokeWidth={2.25} />
-                        </button>
-                      </>
-                    )}
-                    <span className="text-[10px] text-[var(--muted)] ms-1">{timeLabel(m.created_at)}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-mono text-[var(--accent)] truncate">{m.username}</p>
+                      <p className="text-[10px] text-[var(--muted)]">{timeLabel(m.created_at)}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -412,7 +426,7 @@ export default function WorldChatPage() {
                     <textarea
                       value={editText}
                       onChange={(e) => setEditText(e.target.value.slice(0, MAX_BODY))}
-                      rows={2}
+                      rows={3}
                       maxLength={MAX_BODY}
                       className="w-full rounded-xl px-3 py-2 border border-[var(--border)] bg-[var(--card)] text-sm resize-none"
                       style={{ color: 'var(--text)' }}
@@ -422,7 +436,7 @@ export default function WorldChatPage() {
                         type="button"
                         disabled={busyId === m.id}
                         onClick={() => void saveEdit(m.id)}
-                        className="btn-primary px-3 py-1.5 text-xs inline-flex items-center gap-1"
+                        className="btn-primary px-3 py-2 text-xs inline-flex items-center gap-1.5"
                       >
                         <Check className="w-3.5 h-3.5" />
                         ذخیره
@@ -430,7 +444,7 @@ export default function WorldChatPage() {
                       <button
                         type="button"
                         onClick={cancelEdit}
-                        className="btn-secondary px-3 py-1.5 text-xs inline-flex items-center gap-1"
+                        className="btn-secondary px-3 py-2 text-xs inline-flex items-center gap-1.5"
                       >
                         <X className="w-3.5 h-3.5" />
                         انصراف
@@ -438,7 +452,45 @@ export default function WorldChatPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
+                  <>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
+
+                    {/* دکمه‌های واضح زیر متن — فقط پیام خودت */}
+                    {mine && (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          title="ویرایش"
+                          disabled={busyId === m.id}
+                          onClick={() => startEdit(m)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border"
+                          style={{
+                            color: 'var(--text)',
+                            background: 'var(--card-solid)',
+                            borderColor: 'var(--border)',
+                          }}
+                        >
+                          <Pencil className="w-3.5 h-3.5" strokeWidth={2.25} />
+                          ویرایش
+                        </button>
+                        <button
+                          type="button"
+                          title="حذف"
+                          disabled={busyId === m.id}
+                          onClick={() => void removeMsg(m.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border"
+                          style={{
+                            color: 'var(--text)',
+                            background: 'var(--card-solid)',
+                            borderColor: 'var(--border)',
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" strokeWidth={2.25} />
+                          حذف
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )
@@ -484,9 +536,6 @@ export default function WorldChatPage() {
               <Send className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-[10px] text-[var(--muted)]">
-            {text.length}/{MAX_BODY} · فقط پیام‌های خودت را می‌توانی ویرایش یا حذف کنی
-          </p>
         </div>
       </div>
     </main>
