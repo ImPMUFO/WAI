@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { THEME_KEY, isThemeId } from '@/lib/themes'
+import ThemeAtmosphere from '@/components/ThemeAtmosphere'
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -10,5 +11,10 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     document.documentElement.setAttribute('data-theme', theme)
   }, [])
 
-  return <>{children}</>
+  return (
+    <>
+      <ThemeAtmosphere />
+      {children}
+    </>
+  )
 }
