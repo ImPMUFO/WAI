@@ -43,6 +43,7 @@ export default function WorldChatPage() {
   const [error, setError] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
   const [myId, setMyId] = useState<string | null>(null)
+  const [myUsername, setMyUsername] = useState<string>('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -105,10 +106,28 @@ export default function WorldChatPage() {
     let alive = true
     ;(async () => {
       if (isSupabaseConfigured()) {
-        const session = await waitForSession(1500)
+        const session = await waitForSession(2000)
         if (alive) {
-          setLoggedIn(Boolean(session?.user))
-          setMyId(session?.user?.id || null)
+          const u = session?.user
+          setLoggedIn(Boolean(u))
+          setMyId(u?.id || null)
+          if (u?.id) {
+            try {
+              const supabase = createClient()
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', u.id)
+                .maybeSingle()
+              const un =
+                profile?.username ||
+                (u.user_metadata?.username as string) ||
+                ''
+              setMyUsername(String(un).toLowerCase())
+            } catch {
+              setMyUsername(String(u.user_metadata?.username || '').toLowerCase())
+            }
+          }
         }
       }
       await load()
@@ -184,6 +203,8 @@ export default function WorldChatPage() {
       )
         .toString()
         .slice(0, 24)
+
+      setMyUsername(username.toLowerCase())
 
       const avatar_url = getSavedAvatar() || profile?.avatar_url || fallbackAvatar(username)
 
@@ -331,7 +352,11 @@ export default function WorldChatPage() {
             <p className="text-sm text-[var(--muted)] text-center py-10">هنوز پیامی نیست. اولین نفر باش.</p>
           )}
           {messages.map((m) => {
-            const mine = Boolean(myId && m.user_id === myId)
+            const mineById = Boolean(myId && m.user_id && String(m.user_id) === String(myId))
+            const mineByName = Boolean(
+              myUsername && m.username && String(m.username).toLowerCase() === myUsername
+            )
+            const mine = mineById || mineByName
             const editing = editingId === m.id
             return (
               <div key={m.id} className="card !py-2.5 !px-3 space-y-1.5">
@@ -345,7 +370,7 @@ export default function WorldChatPage() {
                     />
                     <span className="text-xs font-mono text-[var(--accent)] truncate">{m.username}</span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {mine && !editing && (
                       <>
                         <button
@@ -353,18 +378,28 @@ export default function WorldChatPage() {
                           title="ویرایش"
                           disabled={busyId === m.id}
                           onClick={() => startEdit(m)}
-                          className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-dim)]"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border"
+                          style={{
+                            color: 'var(--text)',
+                            background: 'var(--card-solid)',
+                            borderColor: 'var(--border)',
+                          }}
                         >
-                          <Pencil className="w-3.5 h-3.5" />
+                          <Pencil className="w-4 h-4" strokeWidth={2.25} />
                         </button>
                         <button
                           type="button"
                           title="حذف"
                           disabled={busyId === m.id}
                           onClick={() => void removeMsg(m.id)}
-                          className="p-1.5 rounded-lg text-[var(--muted)] hover:text-rose-400 hover:bg-rose-500/10"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border"
+                          style={{
+                            color: 'var(--text)',
+                            background: 'var(--card-solid)',
+                            borderColor: 'var(--border)',
+                          }}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" strokeWidth={2.25} />
                         </button>
                       </>
                     )}
