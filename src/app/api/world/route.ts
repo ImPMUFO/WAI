@@ -29,7 +29,7 @@ function userClient(req: NextRequest) {
   })
 }
 
-async function purge(db: ReturnType<typeof createClient>) {
+async function purge(db: { from: (t: string) => any }) {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   await db.from('global_messages').delete().lt('created_at', cutoff)
 }
