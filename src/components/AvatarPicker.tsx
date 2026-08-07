@@ -8,6 +8,7 @@ import {
   setSavedAvatar,
 } from '@/lib/avatars'
 import { loadGame } from '@/lib/gamification'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 
 export default function AvatarPicker() {
   const [selected, setSelected] = useState('')
@@ -23,6 +24,24 @@ export default function AvatarPicker() {
       setLevel(1)
     }
   }, [])
+
+  const pick = async (url: string) => {
+    setSelected(url)
+    setSavedAvatar(url)
+    if (!isSupabaseConfigured()) return
+    try {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) return
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        avatar_url: url,
+        updated_at: new Date().toISOString(),
+      })
+    } catch {
+      /* ignore */
+    }
+  }
 
   const options = availableForLevel(level, unlocked)
 
@@ -45,10 +64,7 @@ export default function AvatarPicker() {
           <button
             key={o.id}
             type="button"
-            onClick={() => {
-              setSelected(o.url)
-              setSavedAvatar(o.url)
-            }}
+            onClick={() => void pick(o.url)}
             className={`rounded-xl border p-1 transition ${
               selected === o.url ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/40' : 'border-[var(--border)]'
             }`}
