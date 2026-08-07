@@ -10,6 +10,7 @@ import {
   loadMindMapFromServer,
   upsertProfilePatch,
 } from '@/lib/sync'
+import AvatarPicker from '@/components/AvatarPicker'
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -230,6 +231,10 @@ export default function AccountPage() {
               {hint}
             </p>
           )}
+        </div>
+
+        <div className="card space-y-2">
+          <AvatarPicker />
         </div>
 
         <div className="space-y-2">
