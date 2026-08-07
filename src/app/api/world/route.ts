@@ -9,37 +9,47 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function adminOrAnon() {
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
-  const key =
-    (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim() ||
-    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
-  if (!url || !key) return null
-  return createClient(url, key, { auth: { persistSession: false } })
+function env() {
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/\/+$/, '')
+  const anon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
+  const service = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+  return { url, anon, service }
 }
 
-function userClient(req: NextRequest) {
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
-  const key = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
-  if (!url || !key) return null
-  const auth = req.headers.get('authorization') || ''
-  return createClient(url, key, {
-    global: { headers: auth ? { Authorization: auth } : {} },
+function clientWithToken(token?: string) {
+  const { url, anon } = env()
+  if (!url || !anon) return null
+  return createClient(url, anon, {
+    global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
     auth: { persistSession: false, autoRefreshToken: false },
   })
 }
 
-async function purge(db: { from: (t: string) => any }) {
+function adminClient() {
+  const { url, anon, service } = env()
+  const key = service || anon
+  if (!url || !key) return null
+  return createClient(url, key, { auth: { persistSession: false } })
+}
+
+function extractToken(req: NextRequest) {
+  const h = req.headers.get('authorization') || req.headers.get('Authorization') || ''
+  const m = h.match(/^Bearer\s+(.+)$/i)
+  return m?.[1]?.trim() || ''
+}
+
+async function purge() {
+  const db = adminClient()
+  if (!db) return
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   await db.from('global_messages').delete().lt('created_at', cutoff)
 }
 
-/** لیست پیام‌های ۲۴ ساعت اخیر */
 export async function GET() {
-  const db = adminOrAnon()
+  const db = adminClient()
   if (!db) return NextResponse.json({ error: 'no supabase' }, { status: 500 })
   try {
-    await purge(db)
+    await purge()
   } catch {
     /* ignore */
   }
@@ -54,29 +64,34 @@ export async function GET() {
   return NextResponse.json({ messages: data || [] })
 }
 
-/** ارسال پیام */
 export async function POST(req: NextRequest) {
-  const dbUser = userClient(req)
-  if (!dbUser) return NextResponse.json({ error: 'no supabase' }, { status: 500 })
+  const token = extractToken(req)
+  if (!token) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
 
-  const {
-    data: { user },
-  } = await dbUser.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  const supabase = clientWithToken(token)
+  if (!supabase) return NextResponse.json({ error: 'no supabase' }, { status: 500 })
+
+  // مهم: JWT را صریح بده تا user شناخته شود
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token)
+  const user = userData?.user
+  if (userErr || !user) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
 
   const body = await req.json().catch(() => ({}))
   const safe = sanitizeGlobalMessage(String(body?.text || ''))
   if (!safe.ok) return NextResponse.json({ error: safe.error }, { status: 400 })
 
-  // محدودیت نرخ
-  const { data: recent } = await dbUser
+  const { data: recent } = await supabase
     .from('global_messages')
     .select('created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(MAX_PER_HOUR)
 
-  if (recent && recent.length) {
+  if (recent?.length) {
     const last = new Date(recent[0].created_at).getTime()
     if (Date.now() - last < MIN_INTERVAL_MS) {
       return NextResponse.json(
@@ -91,19 +106,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // نام نمایشی
   let username = 'user'
-  const { data: profile } = await dbUser
+  const { data: profile } = await supabase
     .from('profiles')
     .select('username, display_name')
     .eq('id', user.id)
     .maybeSingle()
-  username =
-    (profile?.username || profile?.display_name || user.email?.split('@')[0] || 'user')
-      .toString()
-      .slice(0, 24)
+  username = (
+    profile?.username ||
+    profile?.display_name ||
+    (user.user_metadata?.username as string) ||
+    'user'
+  )
+    .toString()
+    .slice(0, 24)
 
-  const { data, error } = await dbUser
+  const { data, error } = await supabase
     .from('global_messages')
     .insert({
       user_id: user.id,
@@ -115,14 +133,10 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // پاکسازی فرصت‌طلبانه
-  const admin = adminOrAnon()
-  if (admin) {
-    try {
-      await purge(admin)
-    } catch {
-      /* ignore */
-    }
+  try {
+    await purge()
+  } catch {
+    /* ignore */
   }
 
   return NextResponse.json({ message: data })
