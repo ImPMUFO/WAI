@@ -1,10 +1,9 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Brain, Map as MapIcon, Gamepad2, ArrowRight, Sparkles } from 'lucide-react'
+import { Brain, Map as MapIcon, Gamepad2, Globe2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import ThemeSwitcher from '@/components/ThemeSwitcher'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
+import SiteMenu from '@/components/SiteMenu'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 
 const fadeInUp = {
@@ -13,11 +12,38 @@ const fadeInUp = {
 }
 
 const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.1, delayChildren: 0.15 } },
+  animate: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
 }
 
 export default function Home() {
   const { locale, dict, dir } = useLocale()
+
+  const primary = [
+    {
+      href: '/start',
+      icon: Brain,
+      title: 'گفتگو با هوش مصنوعی',
+      desc: 'با همراه دانا حرف بزن و دانش خودت را بسنج',
+    },
+    {
+      href: '/map',
+      icon: MapIcon,
+      title: 'نقشه ذهنی',
+      desc: 'جایگاه دانش و مسیر رشدت را ببین',
+    },
+    {
+      href: '/play',
+      icon: Gamepad2,
+      title: 'بازی‌ها',
+      desc: 'کوئیز و چالش روزانه برای XP و سطح',
+    },
+    {
+      href: '/world',
+      icon: Globe2,
+      title: 'گفتگوی جهانی',
+      desc: 'با بقیه کاربران گپ بزن (پیام‌ها ۲۴ساعته)',
+    },
+  ]
 
   return (
     <main key={locale} className="min-h-screen" dir={dir} style={{ color: 'var(--text)' }}>
@@ -32,16 +58,7 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <LanguageSwitcher />
-            <ThemeSwitcher />
-            <Link href="/world" className="text-xs sm:text-sm text-[var(--muted)] hover:text-[var(--accent)] px-2">
-              گفتگوی جهانی
-            </Link>
-            <Link href="/auth" className="text-xs sm:text-sm text-[var(--muted)] hover:text-[var(--accent)] px-2">
-              {dict.login}
-            </Link>
-          </div>
+          <SiteMenu />
         </div>
       </nav>
 
@@ -51,65 +68,48 @@ export default function Home() {
           <div className="absolute -bottom-32 -left-32 w-64 h-64 sm:w-80 sm:h-80 rounded-full blur-3xl bg-[var(--accent2)]/10" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 lg:py-28">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
           <motion.div
-            className="text-center space-y-6 sm:space-y-8"
+            className="text-center space-y-4 sm:space-y-5 mb-10 sm:mb-12"
             initial="initial"
             animate="animate"
             variants={staggerContainer}
           >
-            <motion.div variants={fadeInUp} className="space-y-3 sm:space-y-5">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-[var(--border)] bg-[var(--accent-dim)]">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent)]" />
-                <span className="text-xs sm:text-sm text-[var(--accent)]">{dict.beta}</span>
-              </div>
-
-              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                {dict.brandTag}
-                <br />
-                <span className="text-[var(--accent)]">{dict.brandSub}</span>
-              </h2>
-
-              <p className="text-base sm:text-lg md:text-xl text-[var(--muted)] max-w-2xl mx-auto leading-relaxed px-1">
-                {dict.ctaBody}
-              </p>
-            </motion.div>
-
-            <motion.div variants={fadeInUp} className="flex flex-wrap justify-center gap-3 pt-2">
-              <Link
-                href="/start"
-                className="btn-primary flex items-center justify-center gap-2 px-6 py-3 sm:px-8 sm:py-3.5 text-base sm:text-lg"
-              >
-                {dict.start}
-                <ArrowRight className={`w-5 h-5 ${dir === 'rtl' ? '' : 'rotate-180'}`} />
-              </Link>
-              <Link href="/map" className="btn-secondary px-5 py-3 text-sm sm:text-base">
-                {dict.mindMap}
-              </Link>
-              <Link href="/play" className="btn-secondary px-5 py-3 text-sm sm:text-base">
-                {dict.games}
-              </Link>
-            </motion.div>
+            <motion.p variants={fadeInUp} className="text-sm text-[var(--accent)]">
+              {dict.brandTag}
+            </motion.p>
+            <motion.h2 variants={fadeInUp} className="text-2xl sm:text-4xl font-bold leading-tight">
+              {dict.brandName}
+            </motion.h2>
+            <motion.p variants={fadeInUp} className="text-sm sm:text-base text-[var(--muted)] max-w-xl mx-auto leading-relaxed">
+              گفتگو کن، نقشه ذهنی‌ات را ببین، بازی کن و با دیگران در گفتگوی جهانی همراه شو.
+            </motion.p>
           </motion.div>
-        </div>
-      </section>
 
-      <section className="py-14 sm:py-16 border-t border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-xl sm:text-2xl font-bold mb-8">{dict.featuresTitle}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { icon: Brain, title: dict.feature1Title, desc: dict.feature1Desc },
-              { icon: MapIcon, title: dict.feature2Title, desc: dict.feature2Desc },
-              { icon: Gamepad2, title: dict.feature3Title, desc: dict.feature3Desc },
-            ].map((item, idx) => (
-              <div key={idx} className="card text-center py-6">
-                <item.icon className="w-8 h-8 mx-auto mb-3 text-[var(--accent)]" />
-                <h3 className="font-semibold mb-1">{item.title}</h3>
-                <p className="text-sm text-[var(--muted)] leading-relaxed">{item.desc}</p>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-3xl mx-auto">
+            {primary.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="card !p-4 sm:!p-5 flex items-start gap-3 hover:border-[var(--accent)]/40 transition group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center shrink-0">
+                  <item.icon className="w-5 h-5 text-[var(--accent)]" />
+                </div>
+                <div className="min-w-0 flex-1 text-right">
+                  <p className="font-semibold text-sm sm:text-base group-hover:text-[var(--accent)] transition">
+                    {item.title}
+                  </p>
+                  <p className="text-xs sm:text-sm text-[var(--muted)] mt-1 leading-relaxed">{item.desc}</p>
+                </div>
+                <ArrowLeft className={`w-4 h-4 text-[var(--muted)] shrink-0 mt-1 ${dir === 'ltr' ? 'rotate-180' : ''}`} />
+              </Link>
             ))}
           </div>
+
+          <p className="text-center text-[11px] text-[var(--muted)] mt-8 leading-relaxed">
+            حساب کاربری، ارتباط با ما، پوسته و زبان را از منوی سه‌خطی بالا باز کن.
+          </p>
         </div>
       </section>
 
