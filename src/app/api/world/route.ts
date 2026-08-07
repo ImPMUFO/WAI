@@ -16,6 +16,13 @@ function env() {
   return { url, anon, service }
 }
 
+function adminClient() {
+  const { url, anon, service } = env()
+  const key = service || anon
+  if (!url || !key) return null
+  return createClient(url, key, { auth: { persistSession: false } })
+}
+
 function clientWithToken(token?: string) {
   const { url, anon } = env()
   if (!url || !anon) return null
@@ -25,15 +32,8 @@ function clientWithToken(token?: string) {
   })
 }
 
-function adminClient() {
-  const { url, anon, service } = env()
-  const key = service || anon
-  if (!url || !key) return null
-  return createClient(url, key, { auth: { persistSession: false } })
-}
-
 function extractToken(req: NextRequest) {
-  const h = req.headers.get('authorization') || req.headers.get('Authorization') || ''
+  const h = req.headers.get('authorization') || ''
   const m = h.match(/^Bearer\s+(.+)$/i)
   return m?.[1]?.trim() || ''
 }
@@ -53,12 +53,25 @@ export async function GET() {
   } catch {
     /* ignore */
   }
-  const { data, error } = await db
+
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  let { data, error } = await db
     .from('global_messages')
     .select('id, username, body, created_at, user_id, avatar_url')
-    .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .gt('created_at', cutoff)
     .order('created_at', { ascending: true })
     .limit(200)
+
+  if (error) {
+    const retry = await db
+      .from('global_messages')
+      .select('id, username, body, created_at, user_id')
+      .gt('created_at', cutoff)
+      .order('created_at', { ascending: true })
+      .limit(200)
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ messages: data || [] })
@@ -66,19 +79,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const token = extractToken(req)
-  if (!token) {
-    return NextResponse.json({ error: 'login_required' }, { status: 401 })
-  }
+  if (!token) return NextResponse.json({ error: 'login_required' }, { status: 401 })
 
   const supabase = clientWithToken(token)
   if (!supabase) return NextResponse.json({ error: 'no supabase' }, { status: 500 })
 
-  // مهم: JWT را صریح بده تا user شناخته شود
   const { data: userData, error: userErr } = await supabase.auth.getUser(token)
   const user = userData?.user
-  if (userErr || !user) {
-    return NextResponse.json({ error: 'login_required' }, { status: 401 })
-  }
+  if (userErr || !user) return NextResponse.json({ error: 'login_required' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
   const safe = sanitizeGlobalMessage(String(body?.text || ''))
@@ -94,10 +102,7 @@ export async function POST(req: NextRequest) {
   if (recent?.length) {
     const last = new Date(recent[0].created_at).getTime()
     if (Date.now() - last < MIN_INTERVAL_MS) {
-      return NextResponse.json(
-        { error: 'کمی صبر کن؛ فاصله بین پیام‌ها کوتاه است.' },
-        { status: 429 }
-      )
+      return NextResponse.json({ error: 'کمی صبر کن؛ فاصله بین پیام‌ها کوتاه است.' }, { status: 429 })
     }
     const hourAgo = Date.now() - 60 * 60 * 1000
     const inHour = recent.filter((r) => new Date(r.created_at).getTime() > hourAgo).length
@@ -106,13 +111,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let username = 'user'
   const { data: profile } = await supabase
     .from('profiles')
-    .select('username, display_name')
+    .select('username, display_name, avatar_url')
     .eq('id', user.id)
     .maybeSingle()
-  username = (
+
+  const username = (
     profile?.username ||
     profile?.display_name ||
     (user.user_metadata?.username as string) ||
@@ -121,17 +126,28 @@ export async function POST(req: NextRequest) {
     .toString()
     .slice(0, 24)
 
-  const { data, error } = await supabase
+  const avatar_url =
+    profile?.avatar_url ||
+    `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(username)}`
+
+  let row: any = null
+  let ins = await supabase
     .from('global_messages')
-    .insert({
-      user_id: user.id,
-      username,
-      body: safe.text,
-    })
+    .insert({ user_id: user.id, username, body: safe.text, avatar_url })
     .select('id, username, body, created_at, user_id, avatar_url')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (ins.error) {
+    ins = await supabase
+      .from('global_messages')
+      .insert({ user_id: user.id, username, body: safe.text })
+      .select('id, username, body, created_at, user_id')
+      .single()
+    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 })
+    row = { ...ins.data, avatar_url }
+  } else {
+    row = ins.data
+  }
 
   try {
     await purge()
@@ -139,5 +155,5 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  return NextResponse.json({ message: data })
+  return NextResponse.json({ message: row })
 }
