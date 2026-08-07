@@ -17,8 +17,7 @@ type Msg = {
 
 function timeLabel(iso: string) {
   try {
-    const d = new Date(iso)
-    return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+    return new Date(iso).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
   } catch {
     return ''
   }
@@ -33,15 +32,6 @@ export default function WorldChatPage() {
   const [error, setError] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
-
-  const authHeader = useCallback(async (): Promise<{ Authorization?: string }> => {
-    if (!isSupabaseConfigured()) return {}
-    const supabase = createClient()
-    const { data } = await supabase.auth.getSession()
-    const token = data.session?.access_token
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -55,19 +45,32 @@ export default function WorldChatPage() {
     }
   }, [])
 
-  useEffect(() => {
-    void load()
-    const t = window.setInterval(() => void load(), 8000)
-    return () => window.clearInterval(t)
-  }, [load])
+  const refreshAuth = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setLoggedIn(false)
+      return null as string | null
+    }
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.getSession()
+      if (error || !data.session?.access_token) {
+        setLoggedIn(false)
+        return null
+      }
+      setLoggedIn(true)
+      return data.session.access_token
+    } catch {
+      setLoggedIn(false)
+      return null
+    }
+  }, [])
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    const supabase = createClient()
-    void supabase.auth.getSession().then(({ data }) => {
-      setLoggedIn(Boolean(data.session))
-    })
-  }, [])
+    void load()
+    void refreshAuth()
+    const t = window.setInterval(() => void load(), 8000)
+    return () => window.clearInterval(t)
+  }, [load, refreshAuth])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -75,34 +78,37 @@ export default function WorldChatPage() {
 
   const send = async () => {
     setError('')
-    if (!loggedIn) {
-      setError('برای ارسال پیام وارد حساب شو.')
-      return
-    }
     if (!text.trim()) return
     setSending(true)
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
+      const token = await refreshAuth()
+      if (!token) {
+        setError('برای ارسال پیام باید وارد حساب شده باشی.')
+        setLoggedIn(false)
+        return
       }
-      const auth = await authHeader()
-      if (auth.Authorization) headers.Authorization = auth.Authorization
+
       const res = await fetch('/api/world', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ text }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || 'ارسال نشد')
+        if (data.error === 'login_required') {
+          setError('نشست ورود منقضی شده. دوباره وارد شو.')
+          setLoggedIn(false)
+        } else {
+          setError(data.error || 'ارسال نشد')
+        }
         return
       }
       setText('')
-      if (data.message) {
-        setMessages((m) => [...m, data.message])
-      } else {
-        await load()
-      }
+      if (data.message) setMessages((m) => [...m, data.message])
+      else await load()
     } catch {
       setError('خطای شبکه')
     } finally {
@@ -128,7 +134,7 @@ export default function WorldChatPage() {
         </div>
       </header>
 
-      <div ref={listRef} className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 min-h-[50vh]">
           {loading && <p className="text-sm text-[var(--muted)] text-center">…</p>}
           {!loading && messages.length === 0 && (
