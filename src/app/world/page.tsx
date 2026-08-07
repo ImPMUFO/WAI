@@ -35,7 +35,7 @@ export default function WorldChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const authHeader = useCallback(async () => {
+  const authHeader = useCallback(async (): Promise<{ Authorization?: string }> => {
     if (!isSupabaseConfigured()) return {}
     const supabase = createClient()
     const { data } = await supabase.auth.getSession()
@@ -84,8 +84,9 @@ export default function WorldChatPage() {
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...(await authHeader()),
       }
+      const auth = await authHeader()
+      if (auth.Authorization) headers.Authorization = auth.Authorization
       const res = await fetch('/api/world', {
         method: 'POST',
         headers,
