@@ -6,7 +6,7 @@ import { ArrowRight, Globe2, Send } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { createClient, isSupabaseConfigured, waitForSession } from '@/lib/supabase/client'
 import { MAX_BODY, MAX_PER_HOUR, MIN_INTERVAL_MS, sanitizeGlobalMessage } from '@/lib/chat-safety'
-import { getSavedAvatar, defaultAvatarUrl } from '@/lib/avatars'
+import { getSavedAvatar } from '@/lib/avatars'
 
 type Msg = {
   id: string
@@ -17,10 +17,13 @@ type Msg = {
   avatar_url?: string | null
 }
 
+function fallbackAvatar(seed: string) {
+  return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed || 'user')}`
+}
+
 function avatarFor(m: Msg) {
   if (m.avatar_url) return m.avatar_url
-  const seed = encodeURIComponent(m.username || m.user_id || 'user')
-  return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${seed}`
+  return fallbackAvatar(m.username || m.user_id || 'user')
 }
 
 function timeLabel(iso: string) {
@@ -42,32 +45,73 @@ export default function WorldChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastSentRef = useRef(0)
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch('/api/world', { cache: 'no-store' })
-      if (res.ok) {
-        const data = await res.json()
-        setMessages(data.messages || [])
-        return
-      }
-    } catch {
-      /* fallthrough */
-    }
-    if (!isSupabaseConfigured()) return
-    try {
-      const supabase = createClient()
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      const { data } = await supabase
+  /** بارگذاری پیام‌ها — بدون وابستگی اجباری به ستون avatar_url */
+  const loadFromSupabase = useCallback(async () => {
+    if (!isSupabaseConfigured()) return [] as Msg[]
+    const supabase = createClient()
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+    // اول با avatar_url
+    let { data, error } = await supabase
+      .from('global_messages')
+      .select('id, username, body, created_at, user_id, avatar_url')
+      .gt('created_at', cutoff)
+      .order('created_at', { ascending: true })
+      .limit(200)
+
+    // اگر ستون نبود، بدون avatar_url
+    if (error) {
+      const retry = await supabase
         .from('global_messages')
-        .select('id, username, body, created_at, user_id, avatar_url')
+        .select('id, username, body, created_at, user_id')
         .gt('created_at', cutoff)
         .order('created_at', { ascending: true })
         .limit(200)
-      setMessages((data as Msg[]) || [])
-    } catch {
-      /* ignore */
+      data = retry.data as any
+      error = retry.error
     }
+
+    if (error) throw new Error(error.message)
+
+    let list = (data as Msg[]) || []
+
+    // پر کردن عکس از profiles اگر خالی بود
+    const need = [...new Set(list.filter((m) => !m.avatar_url && m.user_id).map((m) => m.user_id!))]
+    if (need.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, avatar_url, username')
+        .in('id', need)
+      const map = new Map((profiles || []).map((p: any) => [p.id, p]))
+      list = list.map((m) => {
+        if (m.avatar_url || !m.user_id) return m
+        const p = map.get(m.user_id)
+        return {
+          ...m,
+          avatar_url: p?.avatar_url || null,
+          username: m.username || p?.username || m.username,
+        }
+      })
+    }
+
+    return list
   }, [])
+
+  const load = useCallback(async () => {
+    try {
+      // API فقط برای purge؛ اگر شکست خورد مستقیم Supabase
+      try {
+        await fetch('/api/world', { cache: 'no-store' })
+      } catch {
+        /* ignore */
+      }
+      const list = await loadFromSupabase()
+      setMessages(list)
+      setError('')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'بارگذاری پیام‌ها ممکن نشد')
+    }
+  }, [loadFromSupabase])
 
   useEffect(() => {
     let alive = true
@@ -101,9 +145,7 @@ export default function WorldChatPage() {
     try {
       const supabase = createClient()
       let session = (await supabase.auth.getSession()).data.session
-      if (!session?.user) {
-        session = await waitForSession(1500)
-      }
+      if (!session?.user) session = await waitForSession(2000)
       const user = session?.user
       if (!user) {
         setLoggedIn(false)
@@ -150,42 +192,55 @@ export default function WorldChatPage() {
         .toString()
         .slice(0, 24)
 
-      const avatar_url =
-        getSavedAvatar() ||
-        profile?.avatar_url ||
-        defaultAvatarUrl()
+      const avatar_url = getSavedAvatar() || profile?.avatar_url || fallbackAvatar(username)
 
-      // همگام با پروفایل
+      // ذخیره روی پروفایل (اختیاری)
       try {
-        await supabase
-          .from('profiles')
-          .upsert({
-            id: user.id,
-            avatar_url,
-            username: profile?.username || username,
-            updated_at: new Date().toISOString(),
-          })
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          avatar_url,
+          username: profile?.username || username,
+          updated_at: new Date().toISOString(),
+        })
       } catch {
         /* ignore */
       }
 
-      const { data, error: insErr } = await supabase
+      // درج پیام: اول با avatar_url، اگر ستون نبود بدون آن
+      let data: Msg | null = null
+      let insErr: { message: string } | null = null
+
+      const withAvatar = await supabase
         .from('global_messages')
         .insert({ user_id: user.id, username, body: safe.text, avatar_url })
         .select('id, username, body, created_at, user_id, avatar_url')
         .single()
 
-      if (insErr) {
-        setError(insErr.message || 'ارسال نشد')
+      if (withAvatar.error) {
+        const without = await supabase
+          .from('global_messages')
+          .insert({ user_id: user.id, username, body: safe.text })
+          .select('id, username, body, created_at, user_id')
+          .single()
+        if (without.error) {
+          insErr = without.error
+        } else {
+          data = { ...(without.data as Msg), avatar_url }
+        }
+      } else {
+        data = withAvatar.data as Msg
+      }
+
+      if (insErr || !data) {
+        setError(insErr?.message || 'ارسال نشد. اگر تازه ستون avatar را زدی، یک‌بار صفحه را رفرش کن.')
         return
       }
 
       lastSentRef.current = now
       setText('')
-      if (data) setMessages((m) => [...m, data as Msg])
-      else await load()
+      setMessages((m) => [...m, data as Msg])
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'خطا')
+      setError(e instanceof Error ? e.message : 'خطای ناشناخته')
     } finally {
       setSending(false)
     }
@@ -212,7 +267,7 @@ export default function WorldChatPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 min-h-[50vh]">
           {loading && <p className="text-sm text-[var(--muted)] text-center">…</p>}
-          {!loading && messages.length === 0 && (
+          {!loading && messages.length === 0 && !error && (
             <p className="text-sm text-[var(--muted)] text-center py-10">هنوز پیامی نیست. اولین نفر باش.</p>
           )}
           {messages.map((m) => (
@@ -229,7 +284,7 @@ export default function WorldChatPage() {
                 </div>
                 <span className="text-[10px] text-[var(--muted)] shrink-0">{timeLabel(m.created_at)}</span>
               </div>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words pr-10">{m.body}</p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
             </div>
           ))}
           <div ref={bottomRef} />
@@ -247,7 +302,7 @@ export default function WorldChatPage() {
               .
             </p>
           )}
-          {error && <p className="text-xs text-rose-300">{error}</p>}
+          {error && <p className="text-xs text-rose-300 whitespace-pre-wrap">{error}</p>}
           <div className="flex gap-2 items-end">
             <textarea
               value={text}
