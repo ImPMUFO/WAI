@@ -1,8 +1,8 @@
-'use client'
+use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Globe2, Send } from 'lucide-react'
+import { ArrowRight, Globe2, Send, Pencil, Trash2, Check, X } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { createClient, isSupabaseConfigured, waitForSession } from '@/lib/supabase/client'
 import { MAX_BODY, MAX_PER_HOUR, MIN_INTERVAL_MS, sanitizeGlobalMessage } from '@/lib/chat-safety'
@@ -42,16 +42,18 @@ export default function WorldChatPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
+  const [myId, setMyId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastSentRef = useRef(0)
 
-  /** بارگذاری پیام‌ها — بدون وابستگی اجباری به ستون avatar_url */
   const loadFromSupabase = useCallback(async () => {
     if (!isSupabaseConfigured()) return [] as Msg[]
     const supabase = createClient()
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-    // اول با avatar_url
     let { data, error } = await supabase
       .from('global_messages')
       .select('id, username, body, created_at, user_id, avatar_url')
@@ -59,7 +61,6 @@ export default function WorldChatPage() {
       .order('created_at', { ascending: true })
       .limit(200)
 
-    // اگر ستون نبود، بدون avatar_url
     if (error) {
       const retry = await supabase
         .from('global_messages')
@@ -70,36 +71,24 @@ export default function WorldChatPage() {
       data = retry.data as any
       error = retry.error
     }
-
     if (error) throw new Error(error.message)
 
     let list = (data as Msg[]) || []
-
-    // پر کردن عکس از profiles اگر خالی بود
     const need = [...new Set(list.filter((m) => !m.avatar_url && m.user_id).map((m) => m.user_id!))]
     if (need.length) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, avatar_url, username')
-        .in('id', need)
+      const { data: profiles } = await supabase.from('profiles').select('id, avatar_url, username').in('id', need)
       const map = new Map((profiles || []).map((p: any) => [p.id, p]))
       list = list.map((m) => {
         if (m.avatar_url || !m.user_id) return m
         const p = map.get(m.user_id)
-        return {
-          ...m,
-          avatar_url: p?.avatar_url || null,
-          username: m.username || p?.username || m.username,
-        }
+        return { ...m, avatar_url: p?.avatar_url || null, username: m.username || p?.username || m.username }
       })
     }
-
     return list
   }, [])
 
   const load = useCallback(async () => {
     try {
-      // API فقط برای purge؛ اگر شکست خورد مستقیم Supabase
       try {
         await fetch('/api/world', { cache: 'no-store' })
       } catch {
@@ -107,9 +96,8 @@ export default function WorldChatPage() {
       }
       const list = await loadFromSupabase()
       setMessages(list)
-      setError('')
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'بارگذاری پیام‌ها ممکن نشد')
+      setError(e instanceof Error ? e.message : 'بارگذاری ممکن نشد')
     }
   }, [loadFromSupabase])
 
@@ -118,7 +106,10 @@ export default function WorldChatPage() {
     ;(async () => {
       if (isSupabaseConfigured()) {
         const session = await waitForSession(1500)
-        if (alive) setLoggedIn(Boolean(session?.user))
+        if (alive) {
+          setLoggedIn(Boolean(session?.user))
+          setMyId(session?.user?.id || null)
+        }
       }
       await load()
       if (alive) setLoading(false)
@@ -149,10 +140,12 @@ export default function WorldChatPage() {
       const user = session?.user
       if (!user) {
         setLoggedIn(false)
+        setMyId(null)
         setError('برای ارسال پیام وارد حساب شو.')
         return
       }
       setLoggedIn(true)
+      setMyId(user.id)
 
       const now = Date.now()
       if (now - lastSentRef.current < MIN_INTERVAL_MS) {
@@ -194,7 +187,6 @@ export default function WorldChatPage() {
 
       const avatar_url = getSavedAvatar() || profile?.avatar_url || fallbackAvatar(username)
 
-      // ذخیره روی پروفایل (اختیاری)
       try {
         await supabase.from('profiles').upsert({
           id: user.id,
@@ -206,7 +198,6 @@ export default function WorldChatPage() {
         /* ignore */
       }
 
-      // درج پیام: اول با avatar_url، اگر ستون نبود بدون آن
       let data: Msg | null = null
       let insErr: { message: string } | null = null
 
@@ -222,17 +213,14 @@ export default function WorldChatPage() {
           .insert({ user_id: user.id, username, body: safe.text })
           .select('id, username, body, created_at, user_id')
           .single()
-        if (without.error) {
-          insErr = without.error
-        } else {
-          data = { ...(without.data as Msg), avatar_url }
-        }
+        if (without.error) insErr = without.error
+        else data = { ...(without.data as Msg), avatar_url }
       } else {
         data = withAvatar.data as Msg
       }
 
       if (insErr || !data) {
-        setError(insErr?.message || 'ارسال نشد. اگر تازه ستون avatar را زدی، یک‌بار صفحه را رفرش کن.')
+        setError(insErr?.message || 'ارسال نشد')
         return
       }
 
@@ -240,9 +228,81 @@ export default function WorldChatPage() {
       setText('')
       setMessages((m) => [...m, data as Msg])
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'خطای ناشناخته')
+      setError(e instanceof Error ? e.message : 'خطا')
     } finally {
       setSending(false)
+    }
+  }
+
+  const startEdit = (m: Msg) => {
+    setEditingId(m.id)
+    setEditText(m.body)
+    setError('')
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditText('')
+  }
+
+  const saveEdit = async (id: string) => {
+    setError('')
+    const safe = sanitizeGlobalMessage(editText)
+    if (!safe.ok) {
+      setError(safe.error)
+      return
+    }
+    if (!isSupabaseConfigured() || !myId) {
+      setError('وارد حساب شو.')
+      return
+    }
+    setBusyId(id)
+    try {
+      const supabase = createClient()
+      const { error: upErr } = await supabase
+        .from('global_messages')
+        .update({ body: safe.text })
+        .eq('id', id)
+        .eq('user_id', myId)
+      if (upErr) {
+        setError(upErr.message + '\nاگر تازه policy ویرایش را نزدی، SQL را در Supabase Run کن.')
+        return
+      }
+      setMessages((list) => list.map((m) => (m.id === id ? { ...m, body: safe.text } : m)))
+      setEditingId(null)
+      setEditText('')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'ویرایش نشد')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const removeMsg = async (id: string) => {
+    if (!isSupabaseConfigured() || !myId) {
+      setError('وارد حساب شو.')
+      return
+    }
+    if (!window.confirm('این پیام حذف شود؟')) return
+    setBusyId(id)
+    setError('')
+    try {
+      const supabase = createClient()
+      const { error: delErr } = await supabase
+        .from('global_messages')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', myId)
+      if (delErr) {
+        setError(delErr.message + '\nاگر policy حذف نیست، SQL را در Supabase Run کن.')
+        return
+      }
+      setMessages((list) => list.filter((m) => m.id !== id))
+      if (editingId === id) cancelEdit()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'حذف نشد')
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -270,23 +330,84 @@ export default function WorldChatPage() {
           {!loading && messages.length === 0 && !error && (
             <p className="text-sm text-[var(--muted)] text-center py-10">هنوز پیامی نیست. اولین نفر باش.</p>
           )}
-          {messages.map((m) => (
-            <div key={m.id} className="card !py-2.5 !px-3 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={avatarFor(m)}
-                    alt=""
-                    className="w-8 h-8 rounded-full object-cover border border-[var(--accent)]/40 bg-[var(--card)] shrink-0"
-                  />
-                  <span className="text-xs font-mono text-[var(--accent)] truncate">{m.username}</span>
+          {messages.map((m) => {
+            const mine = Boolean(myId && m.user_id === myId)
+            const editing = editingId === m.id
+            return (
+              <div key={m.id} className="card !py-2.5 !px-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={avatarFor(m)}
+                      alt=""
+                      className="w-8 h-8 rounded-full object-cover border border-[var(--accent)]/40 bg-[var(--card)] shrink-0"
+                    />
+                    <span className="text-xs font-mono text-[var(--accent)] truncate">{m.username}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {mine && !editing && (
+                      <>
+                        <button
+                          type="button"
+                          title="ویرایش"
+                          disabled={busyId === m.id}
+                          onClick={() => startEdit(m)}
+                          className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-dim)]"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title="حذف"
+                          disabled={busyId === m.id}
+                          onClick={() => void removeMsg(m.id)}
+                          className="p-1.5 rounded-lg text-[var(--muted)] hover:text-rose-400 hover:bg-rose-500/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                    <span className="text-[10px] text-[var(--muted)] ms-1">{timeLabel(m.created_at)}</span>
+                  </div>
                 </div>
-                <span className="text-[10px] text-[var(--muted)] shrink-0">{timeLabel(m.created_at)}</span>
+
+                {editing ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value.slice(0, MAX_BODY))}
+                      rows={2}
+                      maxLength={MAX_BODY}
+                      className="w-full rounded-xl px-3 py-2 border border-[var(--border)] bg-[var(--card)] text-sm resize-none"
+                      style={{ color: 'var(--text)' }}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busyId === m.id}
+                        onClick={() => void saveEdit(m.id)}
+                        className="btn-primary px-3 py-1.5 text-xs inline-flex items-center gap-1"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        ذخیره
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="btn-secondary px-3 py-1.5 text-xs inline-flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        انصراف
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
+                )}
               </div>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
-            </div>
-          ))}
+            )
+          })}
           <div ref={bottomRef} />
         </div>
       </div>
@@ -295,7 +416,7 @@ export default function WorldChatPage() {
         <div className="max-w-2xl mx-auto px-4 py-3 space-y-2">
           {!loggedIn && (
             <p className="text-xs text-amber-200/90">
-              برای ارسال پیام{' '}
+              برای ارسال / ویرایش / حذف{' '}
               <Link href="/auth" className="text-[var(--accent)] underline">
                 وارد شو
               </Link>
@@ -329,7 +450,7 @@ export default function WorldChatPage() {
             </button>
           </div>
           <p className="text-[10px] text-[var(--muted)]">
-            {text.length}/{MAX_BODY} · بدون لینک · بدون کد
+            {text.length}/{MAX_BODY} · فقط پیام‌های خودت را می‌توانی ویرایش یا حذف کنی
           </p>
         </div>
       </div>
