@@ -5,26 +5,30 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { recoverEverything, migrateLocalToServerIfNeeded } from '@/lib/sync'
+import {
+  PASSWORD_WARN,
+  USERNAME_HELP,
+  usernameToEmail,
+  validateUsername,
+} from '@/lib/username'
 
-type Mode = 'login' | 'signup' | 'forgot'
+type Mode = 'login' | 'signup'
 
 export default function AuthPage() {
   const { dict, dir } = useLocale()
-
   const [mode, setMode] = useState<Mode>('login')
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'info' | 'ok' | 'err'>('info')
-  const [loading, setLoading] = useState(false)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null)
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) window.location.href = '/account'
     })
   }, [])
 
@@ -39,209 +43,188 @@ export default function AuthPage() {
       setMessage('Supabase هنوز تنظیم نشده است.', 'err')
       return
     }
+    const v = validateUsername(username)
+    if (!v.ok) {
+      setMessage(v.error, 'err')
+      return
+    }
+    if (password.length < 6) {
+      setMessage('رمز حداقل ۶ کاراکتر باشد.', 'err')
+      return
+    }
+
     setLoading(true)
     try {
       const supabase = createClient()
-
-      if (mode === 'forgot') {
-        if (!email.trim()) {
-          setMessage('ایمیل را وارد کن.', 'err')
-          return
-        }
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth` : undefined,
-        })
-        if (error) throw error
-        setMessage(
-          'اگر این ایمیل ثبت شده باشد، لینک بازیابی رمز برایت ارسال شد. صندوق ورودی و پوشه Spam را چک کن.',
-          'ok'
-        )
-        return
-      }
-
-      if (!email.trim() || password.length < 6) {
-        setMessage('ایمیل و رمز (حداقل ۶ کاراکتر) لازم است.', 'err')
-        return
-      }
+      const email = usernameToEmail(v.value)
 
       if (mode === 'signup') {
+        const { data: taken } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', v.value)
+          .maybeSingle()
+        if (taken?.id) {
+          setMessage('این آیدی قبلاً گرفته شده. یکی دیگر انتخاب کن.', 'err')
+          return
+        }
+
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email,
           password,
-          options: { data: { display_name: name.trim() || undefined } },
+          options: {
+            data: {
+              username: v.value,
+              display_name: displayName.trim() || v.value,
+            },
+          },
         })
         if (error) throw error
 
-        // اگر سشن بلافاصله آمد یعنی Confirm email خاموش است
+        const uid = data.user?.id
+        if (uid) {
+          await supabase.from('profiles').upsert({
+            id: uid,
+            username: v.value,
+            display_name: displayName.trim() || v.value,
+            updated_at: new Date().toISOString(),
+          })
+        }
+
         if (data.session) {
-          await migrateLocalToServerIfNeeded()
-          setMessage('ثبت‌نام و ورود انجام شد.', 'ok')
+          void recoverEverything()
+          void migrateLocalToServerIfNeeded()
+          setMessage('ثبت‌نام موفق بود.', 'ok')
           window.location.href = '/account'
           return
         }
 
         setMessage(
-          'ثبت‌نام اولیه انجام شد.\n\n' +
-            '۱) به صندوق ایمیل خودت برو (گاهی در Spam است).\n' +
-            '۲) ایمیل تأیید WAIMA / Supabase را باز کن.\n' +
-            '۳) روی لینک تأیید کلیک کن تا ایمیلت تأیید شود.\n' +
-            '۴) بعد به همین صفحه برگرد و از بخش «ورود» وارد حساب شو.\n\n' +
-            'تا وقتی روی لینک نزنید، ورود کامل نمی‌شود و حساب فعال نمی‌گردد.',
+          'ثبت‌نام انجام شد. اگر ورود خودکار نشد، با همان آیدی و رمز وارد شو.\nدر Supabase گزینه Confirm email را خاموش کن.',
           'ok'
         )
         setMode('login')
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        })
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) {
           const m = (error.message || '').toLowerCase()
-          if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+          if (m.includes('not confirmed')) {
             setMessage(
-              'ایمیلت هنوز تأیید نشده است.\n\n' +
-                'لطفاً صندوق ورودی (و Spam) را باز کن، روی لینک تأیید داخل ایمیل بزن، ' +
-                'بعد دوباره از اینجا وارد شو.\n\n' +
-                'تا قبل از تأیید لینک، حسابت کامل فعال نمی‌شود.',
+              'Confirm email هنوز روشن است. در Supabase: Authentication → Providers → Email → Confirm email را خاموش کن.',
               'err'
             )
             return
           }
-          if (m.includes('invalid login') || m.includes('invalid credentials')) {
-            setMessage('ایمیل یا رمز اشتباه است. اگر تازه ثبت‌نام کردی، اول ایمیلت را از طریق لینک تأیید کن.', 'err')
+          if (m.includes('invalid')) {
+            setMessage('آیدی یا رمز اشتباه است.', 'err')
             return
           }
           throw error
         }
-        if (!data.session) {
-          setMessage('ورود کامل نشد. اگر ایمیلت را تأیید کرده‌ای، دوباره تلاش کن.', 'err')
-          return
-        }
-        await migrateLocalToServerIfNeeded()
-        setMessage('ورود موفق بود. در حال رفتن به حساب...', 'ok')
         void recoverEverything()
         void migrateLocalToServerIfNeeded()
+        setMessage('ورود موفق.', 'ok')
         window.location.href = '/account'
       }
     } catch (e: unknown) {
-      setMessage(e instanceof Error ? e.message : 'خطا در احراز هویت', 'err')
+      const message = e instanceof Error ? e.message : 'خطا در احراز هویت'
+      setMessage(message, 'err')
     } finally {
       setLoading(false)
     }
   }
 
-  const logout = async () => {
-    if (!isSupabaseConfigured()) return
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    setUserEmail(null)
-    setMessage('خارج شدی.', 'info')
-  }
-
-  const msgClass =
-    msgType === 'ok'
-      ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
-      : msgType === 'err'
-        ? 'text-rose-300 border-rose-500/30 bg-rose-500/10'
-        : 'text-[var(--muted)] border-[var(--border)] bg-[var(--card)]'
-
   return (
-    <main dir={dir} className="min-h-screen flex items-center justify-center px-4" style={{ color: 'var(--text)' }}>
-      <div className="w-full max-w-md card space-y-4">
-        <div>
-          <h1 className="text-xl font-bold">WAIMA</h1>
-          <p className="text-sm text-[var(--muted)]">من کیستم؟ · ترسیم‌گر ذهنی</p>
+    <main dir={dir} className="min-h-screen px-4 py-10" style={{ color: 'var(--text)' }}>
+      <div className="max-w-md mx-auto space-y-5">
+        <div className="text-center space-y-1">
+          <h1 className="text-xl font-bold">{mode === 'login' ? dict.login : dict.signup}</h1>
+          <p className="text-sm text-[var(--muted)]">{dict.brandName}</p>
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-xs sm:text-sm text-[var(--muted)] leading-relaxed">
-          {dict.authHint}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={`flex-1 py-2 rounded-xl border ${mode === 'login' ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'}`}
+            onClick={() => setMode('login')}
+          >
+            {dict.login}
+          </button>
+          <button
+            type="button"
+            className={`flex-1 py-2 rounded-xl border ${mode === 'signup' ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'}`}
+            onClick={() => setMode('signup')}
+          >
+            {dict.signup}
+          </button>
         </div>
 
-        {userEmail && (
-          <div className="rounded-xl border border-[var(--border)] p-3 text-sm space-y-2">
-            <p>
-              {dict.loggedInAs}: <span className="text-[var(--accent)]">{userEmail}</span>
-            </p>
-            <div className="flex gap-2">
-              <Link href="/account" className="btn-primary px-3 py-2 text-xs">
-                {dict.account}
-              </Link>
-              <button onClick={logout} className="btn-secondary px-3 py-2 text-xs">
-                {dict.logout}
-              </button>
+        <div className="card space-y-3">
+          {mode === 'signup' && (
+            <div className="space-y-1">
+              <label className="text-xs text-[var(--muted)]">نام نمایشی (اختیاری)</label>
+              <input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
+                style={{ color: 'var(--text)' }}
+                placeholder="مثلاً علی"
+              />
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="flex gap-2 text-sm">
-          {(
-            [
-              ['login', dict.login],
-              ['signup', dict.signup],
-              ['forgot', dict.forgotPassword],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => {
-                setMode(id)
-                setMsg('')
-              }}
-              className={`flex-1 py-2 rounded-lg border text-xs sm:text-sm ${
-                mode === id ? 'border-[var(--accent)] bg-[var(--accent)]/15' : 'border-[var(--border)]'
+          <div className="space-y-1">
+            <label className="text-xs text-[var(--muted)]">آیدی (Username)</label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)] font-mono"
+              style={{ color: 'var(--text)' }}
+              placeholder="ali_reza2"
+              maxLength={20}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+            <p className="text-[11px] text-[var(--muted)] leading-relaxed">{USERNAME_HELP}</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-[var(--muted)]">رمز عبور</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
+              style={{ color: 'var(--text)' }}
+              placeholder="حداقل ۶ کاراکتر"
+            />
+          </div>
+
+          <p className="text-[11px] text-amber-200/90 leading-relaxed border border-amber-500/30 rounded-xl p-3">
+            {PASSWORD_WARN}
+          </p>
+
+          {msg && (
+            <p
+              className={`text-sm leading-relaxed whitespace-pre-wrap rounded-xl p-3 border ${
+                msgType === 'err'
+                  ? 'border-rose-500/40 text-rose-300'
+                  : msgType === 'ok'
+                    ? 'border-emerald-500/40 text-emerald-300'
+                    : 'border-[var(--border)] text-[var(--muted)]'
               }`}
             >
-              {label}
-            </button>
-          ))}
+              {msg}
+            </p>
+          )}
+
+          <button type="button" disabled={loading} onClick={() => void submit()} className="btn-primary w-full py-3">
+            {loading ? '…' : mode === 'login' ? dict.login : dict.signup}
+          </button>
         </div>
 
-        {mode === 'signup' && (
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={dict.displayName}
-            className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
-            style={{ color: 'var(--text)' }}
-          />
-        )}
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={dict.email}
-          className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
-          style={{ color: 'var(--text)' }}
-        />
-        {mode !== 'forgot' && (
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={dict.password}
-            className="w-full rounded-xl px-4 py-3 border border-[var(--border)] bg-[var(--card)]"
-            style={{ color: 'var(--text)' }}
-          />
-        )}
-
-        <button onClick={submit} disabled={loading} className="btn-primary w-full py-3 disabled:opacity-50">
-          {loading
-            ? '...'
-            : mode === 'login'
-              ? dict.login
-              : mode === 'signup'
-                ? dict.signup
-                : dict.sendResetLink}
-        </button>
-
-        {msg && (
-          <div className={`rounded-xl border p-3 text-sm leading-relaxed whitespace-pre-wrap ${msgClass}`}>
-            {msg}
-          </div>
-        )}
-
         <Link href="/" className="block text-center text-sm text-[var(--muted)]">
-          {dict.back}
+          {dict.home}
         </Link>
       </div>
     </main>
