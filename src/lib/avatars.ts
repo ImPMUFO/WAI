@@ -1,73 +1,93 @@
-export type AvatarManifest = {
-  levels: Record<string, string[]>
-  special: string[]
+/**
+ * آواتارهای WAIMA — فقط لینک داخل کد (بدون پوشه)
+ * سازنده: URL را اینجا عوض کن.
+ * هر سطح ۲ آواتار | خاص ۵ آواتار
+ */
+
+export type AvatarItem = {
+  id: string
+  url: string
+  label: string
 }
 
-export const AVATAR_KEY = 'waima_avatar_path'
-export const SPECIAL_UNLOCKED_KEY = 'waima_special_avatars'
-
-let cachedManifest: AvatarManifest | null = null
-
-export async function loadAvatarManifest(): Promise<AvatarManifest> {
-  if (cachedManifest) return cachedManifest
-  try {
-    const res = await fetch('/profiles/manifest.json', { cache: 'no-store' })
-    if (res.ok) {
-      cachedManifest = (await res.json()) as AvatarManifest
-      return cachedManifest
-    }
-  } catch {
-    /* fallthrough */
-  }
-  // پیش‌فرض اگر manifest نبود
-  const levels: Record<string, string[]> = {}
-  for (let i = 1; i <= 20; i++) levels[String(i)] = ['a.svg', 'b.svg', 'c.svg']
-  cachedManifest = {
-    levels,
-    special: ['phoenix.svg', 'galaxy.svg', 'crown.svg', 'dragon.svg', 'crystal.svg', 'legend.svg'],
-  }
-  return cachedManifest
+function pair(n: number): AvatarItem[] {
+  return [
+    {
+      id: `l${n}-a`,
+      url: `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=waima-l${n}a`,
+      label: `سطح ${n} · الف`,
+    },
+    {
+      id: `l${n}-b`,
+      url: `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=waima-l${n}b`,
+      label: `سطح ${n} · ب`,
+    },
+  ]
 }
 
-export function levelAvatarUrl(level: number, file: string) {
-  return `/profiles/level-${level}/${file}`
+export const LEVEL_AVATARS: Record<number, AvatarItem[]> = {
+  1: pair(1),
+  2: pair(2),
+  3: pair(3),
+  4: pair(4),
+  5: pair(5),
+  6: pair(6),
+  7: pair(7),
+  8: pair(8),
+  9: pair(9),
+  10: pair(10),
+  11: pair(11),
+  12: pair(12),
+  13: pair(13),
+  14: pair(14),
+  15: pair(15),
+  16: pair(16),
+  17: pair(17),
+  18: pair(18),
+  19: pair(19),
+  20: pair(20),
 }
 
-export function specialAvatarUrl(file: string) {
-  return `/profiles/special/${file}`
+/** پروفایل خاص — لینک دلخواه بگذار */
+export const SPECIAL_AVATARS: AvatarItem[] = [
+  { id: 'sp-phoenix', url: 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=waima-phoenix', label: 'ققنوس' },
+  { id: 'sp-galaxy', url: 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=waima-galaxy', label: 'کهکشان' },
+  { id: 'sp-crown', url: 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=waima-crown', label: 'تاج' },
+  { id: 'sp-dragon', url: 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=waima-dragon', label: 'اژدها' },
+  { id: 'sp-legend', url: 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=waima-legend', label: 'افسانه' },
+]
+
+export const AVATAR_KEY = 'waima_avatar_url'
+export const SPECIAL_UNLOCKED_KEY = 'waima_special_avatar_ids'
+
+export function defaultAvatarUrl() {
+  return LEVEL_AVATARS[1][0].url
 }
 
-/** همه آواتارهای قابل انتخاب برای سطح فعلی */
-export function availableForLevel(
-  manifest: AvatarManifest,
-  level: number,
-  unlockedSpecial: string[]
-): { path: string; label: string; special?: boolean }[] {
-  const out: { path: string; label: string; special?: boolean }[] = []
+export function availableForLevel(level: number, unlockedSpecialIds: string[]) {
   const maxL = Math.max(1, Math.min(20, level || 1))
+  const out: (AvatarItem & { special?: boolean })[] = []
   for (let L = 1; L <= maxL; L++) {
-    const files = manifest.levels[String(L)] || []
-    for (const f of files) {
-      out.push({ path: levelAvatarUrl(L, f), label: `سطح ${L}` })
-    }
+    for (const a of LEVEL_AVATARS[L] || []) out.push({ ...a })
   }
-  for (const f of unlockedSpecial || []) {
-    out.push({ path: specialAvatarUrl(f), label: 'خاص', special: true })
+  for (const id of unlockedSpecialIds || []) {
+    const sp = SPECIAL_AVATARS.find((s) => s.id === id)
+    if (sp) out.push({ ...sp, special: true })
   }
   return out
 }
 
 export function getSavedAvatar(): string {
   try {
-    return localStorage.getItem(AVATAR_KEY) || '/profiles/level-1/a.svg'
+    return localStorage.getItem(AVATAR_KEY) || defaultAvatarUrl()
   } catch {
-    return '/profiles/level-1/a.svg'
+    return defaultAvatarUrl()
   }
 }
 
-export function setSavedAvatar(path: string) {
+export function setSavedAvatar(url: string) {
   try {
-    localStorage.setItem(AVATAR_KEY, path)
+    localStorage.setItem(AVATAR_KEY, url)
     window.dispatchEvent(new Event('waima-avatar-updated'))
   } catch {
     /* ignore */
@@ -83,10 +103,10 @@ export function getUnlockedSpecial(): string[] {
   }
 }
 
-export function unlockSpecial(file: string) {
+export function unlockSpecial(id: string) {
   const list = getUnlockedSpecial()
-  if (!list.includes(file)) {
-    list.push(file)
+  if (!list.includes(id)) {
+    list.push(id)
     try {
       localStorage.setItem(SPECIAL_UNLOCKED_KEY, JSON.stringify(list))
     } catch {
@@ -96,10 +116,9 @@ export function unlockSpecial(file: string) {
   return list
 }
 
-/** شانس جایزه خاص هنگام لول‌آپ (~35٪) */
-export function rollSpecialReward(manifest: AvatarManifest, already: string[]): string | null {
+export function rollSpecialReward(already: string[]): AvatarItem | null {
   if (Math.random() > 0.35) return null
-  const pool = (manifest.special || []).filter((s) => !already.includes(s))
+  const pool = SPECIAL_AVATARS.filter((s) => !already.includes(s.id))
   if (!pool.length) return null
   return pool[Math.floor(Math.random() * pool.length)]
 }
