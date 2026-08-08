@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { THEME_KEY, isThemeId, type ThemeId } from '@/lib/themes'
 
-/** لایه جوی سبک — فقط CSS · بدون سنگینی */
+/** لایه جوی سبک — فقط CSS */
 export default function ThemeAtmosphere() {
   const [theme, setTheme] = useState<ThemeId>('main')
 
@@ -45,8 +45,15 @@ export default function ThemeAtmosphere() {
         <div className="ta-bubble b2" />
         <div className="ta-bubble b3" />
         <div className="ta-bubble b4" />
-        <div className="ta-fish f1" />
-        <div className="ta-fish f2" />
+        <div className="ta-fish f1">
+          <span className="ta-fish-eye" />
+        </div>
+        <div className="ta-fish f2">
+          <span className="ta-fish-eye" />
+        </div>
+        <div className="ta-fish f3">
+          <span className="ta-fish-eye" />
+        </div>
         <div className="ta-shell" />
       </div>
 
