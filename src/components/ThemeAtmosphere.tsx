@@ -12,19 +12,16 @@ import {
 import { THEME_KEY, isThemeId, type ThemeId } from '@/lib/themes'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 
-/** کشیدن با CSS translate — انیمیشن transform جدا می‌ماند */
 function Draggable({
   className,
   children,
   style,
   label,
-  onDragChange,
 }: {
   className?: string
   children?: ReactNode
   style?: CSSProperties
   label?: string
-  onDragChange?: (dragging: boolean) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -39,9 +36,8 @@ function Draggable({
       ref.current?.setPointerCapture(e.pointerId)
       origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
       setDragging(true)
-      onDragChange?.(true)
     },
-    [pos.x, pos.y, onDragChange]
+    [pos.x, pos.y]
   )
 
   const onPointerMove = useCallback(
@@ -65,10 +61,9 @@ function Draggable({
         /* ignore */
       }
       setDragging(false)
-      onDragChange?.(false)
-      setPos((p) => ({ x: p.x * 0.88, y: p.y * 0.88 }))
+      setPos((p) => ({ x: p.x * 0.9, y: p.y * 0.9 }))
     },
-    [dragging, onDragChange]
+    [dragging]
   )
 
   return (
@@ -81,10 +76,10 @@ function Draggable({
       style={{
         ...style,
         translate: `${pos.x}px ${pos.y}px`,
-        scale: dragging ? '1.08' : undefined,
+        scale: dragging ? '1.06' : undefined,
         transition: dragging
           ? 'none'
-          : 'translate 0.4s cubic-bezier(0.22, 1, 0.36, 1), scale 0.2s ease',
+          : 'translate 0.35s cubic-bezier(0.22, 1, 0.36, 1), scale 0.2s ease',
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -106,7 +101,6 @@ function WaterBucket() {
       localStorage.setItem(THEME_KEY, 'main')
       document.documentElement.setAttribute('data-theme', 'main')
       window.dispatchEvent(new Event('storage'))
-      // برای ThemeSwitcher و Atmosphere
       window.dispatchEvent(new CustomEvent('waima-theme', { detail: 'main' }))
     } catch {
       /* ignore */
@@ -117,13 +111,7 @@ function WaterBucket() {
     locale === 'en' ? 'Put out fire' : locale === 'ar' ? 'أطفئ النار' : 'خاموش کردن آتش'
 
   return (
-    <button
-      type="button"
-      className="ta-water-bucket"
-      data-side={side}
-      onClick={extinguish}
-      title={label}
-    >
+    <button type="button" className="ta-water-bucket" data-side={side} onClick={extinguish} title={label}>
       <span className="ta-bucket-icon" aria-hidden>
         🪣
       </span>
@@ -132,98 +120,148 @@ function WaterBucket() {
   )
 }
 
+const ORBIT_RATIOS = [0.12, 0.18, 0.26, 0.34, 0.42, 0.5]
 
-function OrbitPlanet({
-  orbitClass,
-  planetClass,
-  name,
-}: {
-  orbitClass: string
-  planetClass: string
+type PlanetBody = {
+  id: string
   name: string
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [paused, setPaused] = useState(false)
-  /** موقعیت fixed موقع کشیدن — مختصات صفحه، مستقل از چرخش مدار */
-  const [fly, setFly] = useState<{ x: number; y: number } | null>(null)
-  const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
+  className: string
+  orbit: number
+  angle: number
+  speed: number
+  size: number
+}
 
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+const INITIAL_PLANETS: PlanetBody[] = [
+  { id: 'mercury', name: 'Mercury', className: 'p-mercury', orbit: 0, angle: 0.2, speed: 0.9, size: 14 },
+  { id: 'venus', name: 'Venus', className: 'p-venus', orbit: 1, angle: 1.1, speed: 0.7, size: 18 },
+  { id: 'earth', name: 'Earth', className: 'p-earth', orbit: 2, angle: 2.4, speed: 0.55, size: 19 },
+  { id: 'mars', name: 'Mars', className: 'p-mars', orbit: 3, angle: 3.5, speed: 0.45, size: 17 },
+  { id: 'jupiter', name: 'Jupiter', className: 'p-jupiter', orbit: 4, angle: 4.8, speed: 0.28, size: 30 },
+  { id: 'saturn', name: 'Saturn', className: 'p-saturn', orbit: 5, angle: 5.6, speed: 0.2, size: 26 },
+]
+
+function GalaxySystem() {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [planets, setPlanets] = useState<PlanetBody[]>(INITIAL_PLANETS)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
+  const dragOffset = useRef({ ox: 0, oy: 0 })
+
+  useEffect(() => {
+    let raf = 0
+    let last = performance.now()
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      setPlanets((prev) =>
+        prev.map((p) => (p.id === dragId ? p : { ...p, angle: p.angle + p.speed * dt }))
+      )
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [dragId])
+
+  const centerAndRadii = useCallback(() => {
+    const el = wrapRef.current
+    if (!el) return { cx: 0, cy: 0, radii: ORBIT_RATIOS.map(() => 80) }
+    const r = el.getBoundingClientRect()
+    const cx = r.left + r.width / 2
+    const cy = r.top + r.height / 2
+    const base = Math.min(r.width, r.height) / 2
+    return { cx, cy, radii: ORBIT_RATIOS.map((ratio) => base * ratio) }
+  }, [])
+
+  const worldPos = (p: PlanetBody) => {
+    const { cx, cy, radii } = centerAndRadii()
+    const rad = radii[p.orbit] ?? radii[0]
+    return { x: cx + Math.cos(p.angle) * rad, y: cy + Math.sin(p.angle) * rad }
+  }
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>, id: string) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return
     e.preventDefault()
     e.stopPropagation()
-    const el = ref.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    el.setPointerCapture(e.pointerId)
-    const x = r.left + r.width / 2
-    const y = r.top + r.height / 2
-    origin.current = { px: e.clientX, py: e.clientY, x, y }
-    setFly({ x, y })
-    setPaused(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const rect = e.currentTarget.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    // آفست انگشت تا مرکز — سیاره زیر انگشت می‌ماند
+    dragOffset.current = { ox: e.clientX - cx, oy: e.clientY - cy }
+    setDragId(id)
+    setDragPos({ x: cx, y: cy })
   }
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!fly) return
+    if (!dragId) return
     e.preventDefault()
-    setFly({
-      x: origin.current.x + (e.clientX - origin.current.px),
-      y: origin.current.y + (e.clientY - origin.current.py),
+    setDragPos({
+      x: e.clientX - dragOffset.current.ox,
+      y: e.clientY - dragOffset.current.oy,
     })
   }
 
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!fly) return
+    if (!dragId || !dragPos) return
     try {
-      ref.current?.releasePointerCapture(e.pointerId)
+      e.currentTarget.releasePointerCapture(e.pointerId)
     } catch {
       /* ignore */
     }
-    setFly(null)
-    setPaused(false)
+    const { cx, cy, radii } = centerAndRadii()
+    const dx = dragPos.x - cx
+    const dy = dragPos.y - cy
+    const dist = Math.hypot(dx, dy)
+    let best = 0
+    let bestDiff = Infinity
+    radii.forEach((rad, i) => {
+      const d = Math.abs(rad - dist)
+      if (d < bestDiff) {
+        bestDiff = d
+        best = i
+      }
+    })
+    const angle = Math.atan2(dy, dx)
+    setPlanets((prev) => prev.map((p) => (p.id === dragId ? { ...p, orbit: best, angle } : p)))
+    setDragId(null)
+    setDragPos(null)
   }
 
   return (
-    <div className={`ta-orbit ${orbitClass}`}>
-      <div
-        className="ta-orbit-inner"
-        style={{ animationPlayState: paused ? 'paused' : 'running' }}
-      >
-        <div
-          ref={ref}
-          className={`ta-interactive ta-planet ${planetClass}${fly ? ' is-dragging' : ''}`}
-          role="presentation"
-          title={name}
-          style={
-            fly
-              ? {
-                  position: 'fixed',
-                  left: fly.x,
-                  top: fly.y,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 100,
-                  margin: 0,
-                }
-              : undefined
-          }
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
-      </div>
+    <div ref={wrapRef} className="ta-galaxy-system">
+      {ORBIT_RATIOS.map((ratio, i) => (
+        <div key={i} className="ta-orbit-ring" style={{ width: `${ratio * 100}%`, height: `${ratio * 100}%` }} />
+      ))}
+      {planets.map((p) => {
+        const dragging = dragId === p.id
+        const pos = dragging && dragPos ? dragPos : worldPos(p)
+        return (
+          <div
+            key={p.id}
+            className={`ta-interactive ta-planet ${p.className}${dragging ? ' is-dragging' : ''}`}
+            title={p.name}
+            role="presentation"
+            style={{
+              position: 'fixed',
+              left: pos.x,
+              top: pos.y,
+              width: Math.max(p.size, 28),
+              height: Math.max(p.size, 28),
+              transform: 'translate(-50%, -50%)',
+              zIndex: dragging ? 50 : 5,
+              touchAction: 'none',
+            }}
+            onPointerDown={(e) => onPointerDown(e, p.id)}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          />
+        )
+      })}
     </div>
   )
 }
-
-const PLANETS: { orbit: string; planet: string; name: string }[] = [
-  { orbit: 'orb-1', planet: 'p-mercury', name: 'Mercury' },
-  { orbit: 'orb-2', planet: 'p-venus', name: 'Venus' },
-  { orbit: 'orb-3', planet: 'p-earth', name: 'Earth' },
-  { orbit: 'orb-4', planet: 'p-mars', name: 'Mars' },
-  { orbit: 'orb-5', planet: 'p-jupiter', name: 'Jupiter' },
-  { orbit: 'orb-6', planet: 'p-saturn', name: 'Saturn' },
-]
 
 export default function ThemeAtmosphere() {
   const [theme, setTheme] = useState<ThemeId>('main')
@@ -256,7 +294,6 @@ export default function ThemeAtmosphere() {
 
   return (
     <div className="theme-atmosphere" data-active={theme}>
-      {/* روز — روستا */}
       <div className="ta-layer ta-day">
         <Draggable className="ta-sun" label="خورشید" />
         <Draggable className="ta-cloud ta-cloud-1" label="ابر" />
@@ -266,7 +303,6 @@ export default function ThemeAtmosphere() {
         <div className="ta-cottage" />
       </div>
 
-      {/* دریا */}
       <div className="ta-layer ta-ocean">
         <div className="ta-wave ta-wave-1" />
         <div className="ta-wave ta-wave-2" />
@@ -290,7 +326,6 @@ export default function ThemeAtmosphere() {
         <Draggable className="ta-shell" label="صدف" />
       </div>
 
-      {/* کهکشان */}
       <div className="ta-layer ta-galaxy">
         <div className="ta-nebula" />
         <div className="ta-star-dot d1" />
@@ -301,17 +336,9 @@ export default function ThemeAtmosphere() {
         <div className="ta-star-dot d6" />
         <div className="ta-star-dot d7" />
         <div className="ta-star-dot d8" />
-        {PLANETS.map((p) => (
-          <OrbitPlanet
-            key={p.planet}
-            orbitClass={p.orbit}
-            planetClass={p.planet}
-            name={p.name}
-          />
-        ))}
+        {theme === 'galaxy' && <GalaxySystem />}
       </div>
 
-      {/* آتش — بدون کشیدن شعله؛ سطل آب */}
       <div className="ta-layer ta-fire">
         <div className="ta-ember e1" />
         <div className="ta-ember e2" />
@@ -324,7 +351,6 @@ export default function ThemeAtmosphere() {
         {theme === 'fire' && <WaterBucket />}
       </div>
 
-      {/* چوب */}
       <div className="ta-layer ta-wood">
         <Draggable className="ta-leaf l1" label="برگ" />
         <Draggable className="ta-leaf l2" label="برگ" />
@@ -333,7 +359,6 @@ export default function ThemeAtmosphere() {
         <div className="ta-branch" />
       </div>
 
-      {/* اصلی — رسمی، بدون کشیدن */}
       <div className="ta-layer ta-main">
         <div className="ta-main-ring" />
         <div className="ta-main-ring ta-main-ring-2" />
