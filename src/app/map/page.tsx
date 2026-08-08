@@ -402,44 +402,150 @@ export default function KnowledgeMapPage() {
     }
   }
 
+  /** رسم مستقیم روی Canvas — متن واضح، بدون وابستگی به var() در SVG */
   const renderToCanvas = useCallback(async (): Promise<HTMLCanvasElement | null> => {
-    const svg = svgRef.current
-    if (!svg) return null
-    const clone = svg.cloneNode(true) as SVGSVGElement
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-    // پس‌زمینه در export
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg0').trim() || '#0f172a'
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-    rect.setAttribute('width', '100%')
-    rect.setAttribute('height', '100%')
-    rect.setAttribute('fill', bg)
-    clone.insertBefore(rect, clone.firstChild)
+    const css = getComputedStyle(document.documentElement)
+    const bg = (css.getPropertyValue('--bg0').trim() || '#0f172a')
+    const text = (css.getPropertyValue('--text').trim() || '#f8fafc')
+    const muted = (css.getPropertyValue('--muted').trim() || '#94a3b8')
+    const border = (css.getPropertyValue('--border').trim() || 'rgba(148,163,184,0.35)')
+    const card = (css.getPropertyValue('--card-solid').trim() || '#0f172a')
+    const acc = (css.getPropertyValue('--accent').trim() || '#2dd4bf')
 
-    const xml = new XMLSerializer().serializeToString(clone)
-    const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    try {
-      const img = new Image()
-      img.decoding = 'async'
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = () => reject(new Error('img'))
-        img.src = url
-      })
-      const size = 1600
-      const canvas = document.createElement('canvas')
-      canvas.width = size
-      canvas.height = size
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return null
-      ctx.fillStyle = bg
-      ctx.fillRect(0, 0, size, size)
-      ctx.drawImage(img, 0, 0, size, size)
-      return canvas
-    } finally {
-      URL.revokeObjectURL(url)
+    const size = 2000
+    const scale = size / VB
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    // پس‌زمینه
+    ctx.fillStyle = bg
+    ctx.fillRect(0, 0, size, size)
+
+    const S = (n: number) => n * scale
+
+    // حلقه‌های راهنما
+    for (const [r, op] of [
+      [160, 0.5],
+      [280, 0.35],
+      [400, 0.25],
+    ] as const) {
+      ctx.beginPath()
+      ctx.arc(S(CX), S(CY), S(r), 0, Math.PI * 2)
+      ctx.strokeStyle = border
+      ctx.globalAlpha = op
+      ctx.lineWidth = Math.max(1, 1.5 * scale)
+      ctx.stroke()
+      ctx.globalAlpha = 1
     }
-  }, [])
+
+    // هاله مرکز
+    const glow = ctx.createRadialGradient(S(CX), S(CY), 0, S(CX), S(CY), S(70))
+    glow.addColorStop(0, acc + '59') // ~0.35 alpha if 8-digit not supported, fallback below
+    glow.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = glow
+    ctx.beginPath()
+    ctx.arc(S(CX), S(CY), S(70), 0, Math.PI * 2)
+    ctx.fill()
+    // fallback glow
+    ctx.fillStyle = acc
+    ctx.globalAlpha = 0.12
+    ctx.beginPath()
+    ctx.arc(S(CX), S(CY), S(70), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.globalAlpha = 1
+
+    // خطوط
+    for (const l of links) {
+      const col =
+        l.status === 'known' ? acc : l.status === 'near' ? '#fbbf24' : '#64748b'
+      ctx.beginPath()
+      ctx.moveTo(S(l.x1), S(l.y1))
+      ctx.lineTo(S(l.x2), S(l.y2))
+      ctx.strokeStyle = col
+      ctx.globalAlpha = l.status === 'far' ? 0.25 : 0.55
+      ctx.lineWidth = (l.status === 'known' ? 2.5 : 1.5) * scale
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+
+    // فونت خوانا برای فارسی/عربی/انگلیسی
+    const fontFamily =
+      '"Segoe UI", Tahoma, "Arabic Typesetting", "Noto Naskh Arabic", Arial, sans-serif'
+
+    // گره‌ها
+    for (const n of laid) {
+      const col =
+        n.status === 'known' ? acc : n.status === 'near' ? '#fbbf24' : '#64748b'
+      const isRoot = n.id === 'mind'
+      const x = S(n.x)
+      const y = S(n.y)
+      const r = S(n.r)
+
+      // هاله
+      ctx.beginPath()
+      ctx.arc(x, y, r + S(isRoot ? 8 : 4), 0, Math.PI * 2)
+      ctx.fillStyle = col
+      ctx.globalAlpha = n.status === 'far' ? 0.15 : 0.12
+      ctx.fill()
+      ctx.globalAlpha = 1
+
+      // دایره اصلی
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fillStyle = isRoot ? col : card
+      ctx.globalAlpha = n.status === 'far' ? 0.55 : 1
+      ctx.fill()
+      ctx.globalAlpha = 1
+      ctx.strokeStyle = col
+      ctx.lineWidth = (isRoot ? 3.5 : 2.5) * scale
+      ctx.stroke()
+
+      // قوس mastery
+      if (n.status !== 'far' && !isRoot && n.mastery > 0) {
+        const rr = r - S(4)
+        ctx.beginPath()
+        ctx.arc(x, y, rr, -Math.PI / 2, -Math.PI / 2 + (n.mastery / 100) * Math.PI * 2)
+        ctx.strokeStyle = col
+        ctx.lineWidth = 2.5 * scale
+        ctx.lineCap = 'round'
+        ctx.stroke()
+      }
+
+      // متن — کامل و واضح
+      const label = n.title
+      const fontPx = Math.round((isRoot ? 22 : 16) * scale)
+      ctx.font = `${isRoot ? '700' : '600'} ${fontPx}px ${fontFamily}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.globalAlpha = n.status === 'far' ? 0.7 : 1
+
+      // سایه ملایم برای خوانایی
+      ctx.fillStyle = bg
+      const ty = isRoot ? y : y + r + S(16)
+      ctx.fillText(label, x + 1, ty + 1)
+
+      ctx.fillStyle = isRoot ? '#0f172a' : text
+      if (isRoot) {
+        // متن روی دایره رنگی مرکز
+        ctx.fillStyle = '#0f172a'
+      }
+      ctx.fillText(label, x, ty)
+      ctx.globalAlpha = 1
+    }
+
+    // عنوان پایین
+    const title = map?.domainTitle || dict.mapTitle || 'نقشه ذهنی'
+    ctx.font = `600 ${Math.round(18 * scale)}px ${fontFamily}`
+    ctx.fillStyle = muted
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(title, size / 2, size - 24 * scale)
+
+    return canvas
+  }, [laid, links, map?.domainTitle, dict.mapTitle])
 
   const confirmExport = (format: 'jpg' | 'pdf') => {
     const fp = mapFingerprint(map)
@@ -655,7 +761,7 @@ export default function KnowledgeMapPage() {
               height={VB}
               viewBox={`0 0 ${VB} ${VB}`}
               className="max-w-none"
-              style={{ width: VB, height: VB }}
+              style={{ width: VB, height: VB, color: 'var(--text)' }}
             >
               <defs>
                 <radialGradient id="mindGlow" cx="50%" cy="50%" r="50%">
@@ -707,7 +813,7 @@ export default function KnowledgeMapPage() {
                     />
                     <circle
                       r={n.r}
-                      fill={isRoot ? color : 'var(--card-solid)'}
+                      fill={isRoot ? color : 'var(--card-solid, #0f172a)'}
                       stroke={color}
                       strokeWidth={isRoot ? 3 : 2}
                       opacity={n.status === 'far' ? 0.55 : 1}
@@ -725,14 +831,18 @@ export default function KnowledgeMapPage() {
                     )}
                     <text
                       textAnchor="middle"
-                      y={isRoot ? 5 : n.r + 14}
-                      fill="var(--text)"
-                      fontSize={isRoot ? 13 : 11}
-                      fontWeight={isRoot ? 700 : 500}
-                      opacity={n.status === 'far' ? 0.55 : 0.95}
-                      style={{ pointerEvents: 'none' }}
+                      y={isRoot ? 5 : n.r + 16}
+                      fill="currentColor"
+                      fontSize={isRoot ? 14 : 12}
+                      fontWeight={isRoot ? 700 : 600}
+                      opacity={n.status === 'far' ? 0.65 : 1}
+                      style={{
+                        pointerEvents: 'none',
+                        fontFamily:
+                          'Segoe UI, Tahoma, Arabic Typesetting, Noto Naskh Arabic, Arial, sans-serif',
+                      }}
                     >
-                      {n.title.length > 14 ? n.title.slice(0, 13) + '…' : n.title}
+                      {n.title}
                     </text>
                   </g>
                 )
