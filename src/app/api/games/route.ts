@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 type MatchPair = { id: string; left: string; right: string }
 type TfItem = { id: string; statement: string; truth: boolean; explain: string }
 
@@ -24,17 +27,13 @@ const TF_POOL: TfItem[] = [
   { id: 't3', statement: 'XP فقط از بازی به‌دست می‌آید و گفتگو هیچ تأثیری ندارد.', truth: false, explain: 'گفتگو هم می‌تواند XP بدهد.' },
   { id: 't4', statement: 'منطق به استدلال درست کمک می‌کند.', truth: true, explain: 'منطق قواعد استدلال است.' },
   { id: 't5', statement: 'کمیابی یعنی منابع نامحدودند.', truth: false, explain: 'کمیابی یعنی محدودیت منابع.' },
-  { id: 't6', statement: 'ژن واحد پایه وراثت است.', truth: true, explain: 'ژن اطلاعات وراثتی را حمل می‌کند.' },
-  { id: 't7', statement: 'آب از هیدروژن و اکسیژن ساخته شده.', truth: true, explain: 'H₂O' },
-  { id: 't8', statement: 'سوگیری شناختی همیشه تصمیم را بهتر می‌کند.', truth: false, explain: 'سوگیری می‌تواند منحرف کند.' },
-  { id: 't9', statement: 'در WAIMA می‌توان چند حوزه دانش را روی یک نقشه دید.', truth: true, explain: 'نقشه یکپارچه است.' },
-  { id: 't10', statement: 'نیرو هیچ ربطی به تغییر حرکت ندارد.', truth: false, explain: 'نیرو با شتاب/حرکت مرتبط است.' },
-  { id: 't11', statement: 'اخلاق درباره «چه چیزی درست است» حرف می‌زند.', truth: true, explain: 'سؤال محوری اخلاق.' },
-  { id: 't12', statement: 'دیکشنری در برنامه‌نویسی برای جفت کلید-مقدار رایج است.', truth: true, explain: 'map/object/dict' },
+  { id: 't6', statement: 'اخلاق درباره «چه باید کرد» است.', truth: true, explain: 'اخلاق هنجاری است.' },
+  { id: 't7', statement: 'گفتگوی جهانی پیام‌های قدیمی‌تر از ۲۴ ساعت را نگه می‌دارد.', truth: false, explain: 'پیام‌های قدیمی‌تر از ۲۴ ساعت پاک می‌شوند.' },
+  { id: 't8', statement: 'هر روز می‌توان مجموعه جدیدی از سؤالات بازی داشت.', truth: true, explain: 'بازی‌ها روزانه تازه‌سازی می‌شوند.' },
 ]
 
-function dayKey() {
-  return new Date().toISOString().slice(0, 10)
+function dayKey(d = new Date()) {
+  return d.toISOString().slice(0, 10)
 }
 
 function hash(s: string) {
@@ -64,20 +63,118 @@ function shuffle<T>(arr: T[], rand: () => number) {
   return a
 }
 
+async function aiGames(kind: string, date: string, locale: string) {
+  const apiKey = process.env.OPENAI_API_KEY
+  const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '')
+  if (!apiKey) return null
+
+  const lang = locale === 'en' ? 'English' : locale === 'ar' ? 'Arabic' : 'Persian (Farsi)'
+
+  const prompt =
+    kind === 'truefalse'
+      ? `Generate 8 true/false educational statements for WAIMA learning app.
+Date seed: ${date}. Language: ${lang}.
+Return ONLY JSON array: [{"id":"t1","statement":"...","truth":true,"explain":"..."}]
+Topics: philosophy, science, history, logic, knowledge maps, learning.
+No markdown.`
+      : `Generate 6 concept-matching pairs for WAIMA learning app.
+Date seed: ${date}. Language: ${lang}.
+Return ONLY JSON array: [{"id":"m1","left":"concept","right":"short definition"}]
+Topics: philosophy, science, history, logic, mind maps.
+No markdown.`
+
+  try {
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        temperature: 0.8,
+        messages: [
+          { role: 'system', content: 'You output only valid JSON arrays for educational games.' },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    })
+    if (!resp.ok) return null
+    const data = await resp.json()
+    const content = data?.choices?.[0]?.message?.content || ''
+    const m = content.match(/\[[\s\S]*\]/)
+    if (!m) return null
+    const parsed = JSON.parse(m[0])
+    if (!Array.isArray(parsed) || parsed.length < 3) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const kind = String(body?.kind || 'match')
   const date = String(body?.date || dayKey())
+  const locale = String(body?.locale || 'fa')
   const seed = hash(`${date}|${kind}|waima`)
   const rand = mulberry32(seed)
 
+  const ai = await aiGames(kind, date, locale)
+
   if (kind === 'truefalse') {
-    const items = shuffle(TF_POOL, rand).slice(0, 8)
-    return NextResponse.json({ success: true, date, kind, items })
+    let items: TfItem[] = []
+    if (ai) {
+      items = ai
+        .map((x: any, i: number) => ({
+          id: String(x.id || `t-${date}-${i}`),
+          statement: String(x.statement || ''),
+          truth: Boolean(x.truth),
+          explain: String(x.explain || ''),
+        }))
+        .filter((x: TfItem) => x.statement)
+        .slice(0, 8)
+    }
+    if (items.length < 4) {
+      items = shuffle(TF_POOL, rand).slice(0, 8)
+      return NextResponse.json({ success: true, date, kind, items, source: 'fallback' })
+    }
+    return NextResponse.json({ success: true, date, kind, items, source: 'ai' })
   }
 
   // match
-  const pairs = shuffle(MATCH_POOL, rand).slice(0, 6)
+  let pairs: MatchPair[] = []
+  if (ai) {
+    pairs = ai
+      .map((x: any, i: number) => ({
+        id: String(x.id || `m-${date}-${i}`),
+        left: String(x.left || ''),
+        right: String(x.right || ''),
+      }))
+      .filter((p: MatchPair) => p.left && p.right)
+      .slice(0, 6)
+  }
+  if (pairs.length < 4) {
+    pairs = shuffle(MATCH_POOL, rand).slice(0, 6)
+    const lefts = shuffle(
+      pairs.map((p) => ({ id: p.id, text: p.left })),
+      rand
+    )
+    const rights = shuffle(
+      pairs.map((p) => ({ id: p.id, text: p.right })),
+      rand
+    )
+    return NextResponse.json({
+      success: true,
+      date,
+      kind: 'match',
+      pairs,
+      lefts,
+      rights,
+      source: 'fallback',
+    })
+  }
+
   const lefts = shuffle(
     pairs.map((p) => ({ id: p.id, text: p.left })),
     rand
@@ -86,9 +183,17 @@ export async function POST(req: NextRequest) {
     pairs.map((p) => ({ id: p.id, text: p.right })),
     rand
   )
-  return NextResponse.json({ success: true, date, kind: 'match', pairs, lefts, rights })
+  return NextResponse.json({
+    success: true,
+    date,
+    kind: 'match',
+    pairs,
+    lefts,
+    rights,
+    source: 'ai',
+  })
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', games: ['match', 'truefalse'] })
+  return NextResponse.json({ status: 'ok', games: ['match', 'truefalse'], daily: true })
 }
