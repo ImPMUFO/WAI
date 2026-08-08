@@ -55,6 +55,7 @@ export async function GET() {
   }
 
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
   const first = await db
     .from('global_messages')
     .select('id, username, body, created_at, user_id, avatar_url')
