@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { onQuizQuestionAnswered } from '@/lib/gamification'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 
 type MatchSide = { id: string; text: string }
 type TfItem = { id: string; statement: string; truth: boolean; explain: string }
 
 export default function ExtraGames() {
+  const { locale } = useLocale()
   const [tab, setTab] = useState<'match' | 'tf'>('match')
   const [date, setDate] = useState('')
   const [lefts, setLefts] = useState<MatchSide[]>([])
@@ -17,6 +19,7 @@ export default function ExtraGames() {
   const [tfIndex, setTfIndex] = useState(0)
   const [tfDone, setTfDone] = useState<Record<string, boolean>>({})
   const [feedback, setFeedback] = useState('')
+  const [source, setSource] = useState('')
 
   useEffect(() => {
     void load('match')
@@ -24,13 +27,15 @@ export default function ExtraGames() {
   }, [])
 
   const load = async (kind: string) => {
+    const date = new Date().toISOString().slice(0, 10)
     const res = await fetch('/api/games', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind }),
+      body: JSON.stringify({ kind, date, locale }),
     })
     const data = await res.json()
     setDate(data.date || '')
+    setSource(data.source || '')
     if (kind === 'match') {
       setLefts(data.lefts || [])
       setRights(data.rights || [])
