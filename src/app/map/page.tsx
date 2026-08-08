@@ -33,6 +33,16 @@ type MapData = {
 type Laid = KnowledgeNode & { x: number; y: number; r: number }
 
 const MAP_KEY = 'wai_map_unified'
+const EXPORT_META_KEY = 'wai_map_last_export'
+
+function mapFingerprint(map: MapData | null): string {
+  if (!map?.nodes?.length) return 'empty'
+  const parts = map.nodes
+    .map((n) => n.id + ':' + n.status + ':' + Math.round(n.mastery) + ':' + n.title)
+    .sort()
+  return parts.join('|') + '|' + (map.updatedAt || '')
+}
+
 const VB = 1000
 const CX = 500
 const CY = 500
@@ -431,7 +441,60 @@ export default function KnowledgeMapPage() {
     }
   }, [])
 
+  const confirmExport = (format: 'jpg' | 'pdf') => {
+    const fp = mapFingerprint(map)
+    let lastFp = ''
+    let lastFmt = ''
+    try {
+      const raw = localStorage.getItem(EXPORT_META_KEY)
+      if (raw) {
+        const j = JSON.parse(raw) as { fp?: string; format?: string }
+        lastFp = j.fp || ''
+        lastFmt = j.format || ''
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const isDup = lastFp === fp && lastFmt === format
+    if (isDup) {
+      const msg =
+        dir === 'ltr'
+          ? 'This mind map has not changed since the last download. Download again?'
+          : dir === 'rtl' && (locale === 'ar')
+            ? 'هذه الخريطة لم تتغير منذ آخر تنزيل. هل تريد تنزيلها مرة أخرى؟'
+            : 'این نقشه ذهنی از آخرین دانلود تغییر خاصی نکرده. باز هم دانلود شود؟'
+      return window.confirm(msg)
+    }
+
+    const msg =
+      format === 'jpg'
+        ? dir === 'ltr'
+          ? 'Download the mind map as a JPG image?'
+          : locale === 'ar'
+            ? 'تنزيل الخريطة الذهنية كصورة JPG؟'
+            : 'نقشه ذهنی به صورت تصویر (JPG) دانلود شود؟'
+        : dir === 'ltr'
+          ? 'Download the mind map as a PDF document?'
+          : locale === 'ar'
+            ? 'تنزيل الخريطة الذهنية كملف PDF؟'
+            : 'نقشه ذهنی به صورت سند (PDF) دانلود شود؟'
+    return window.confirm(msg)
+  }
+
+  const markExported = (format: 'jpg' | 'pdf') => {
+    try {
+      localStorage.setItem(
+        EXPORT_META_KEY,
+        JSON.stringify({ fp: mapFingerprint(map), format, at: Date.now() })
+      )
+    } catch {
+      /* ignore */
+    }
+  }
+
   const downloadJpg = async () => {
+    if (!confirmExport('jpg')) return
     setExporting(true)
     try {
       const canvas = await renderToCanvas()
@@ -440,6 +503,7 @@ export default function KnowledgeMapPage() {
       a.download = `waima-mindmap-${Date.now()}.jpg`
       a.href = canvas.toDataURL('image/jpeg', 0.92)
       a.click()
+      markExported('jpg')
     } catch {
       /* ignore */
     } finally {
@@ -448,6 +512,7 @@ export default function KnowledgeMapPage() {
   }
 
   const downloadPdf = async () => {
+    if (!confirmExport('pdf')) return
     setExporting(true)
     try {
       const canvas = await renderToCanvas()
@@ -460,9 +525,9 @@ export default function KnowledgeMapPage() {
       a.href = URL.createObjectURL(blob)
       a.click()
       setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+      markExported('pdf')
     } catch {
-      /* fallback: jpg */
-      await downloadJpg()
+      window.alert(dir === 'ltr' ? 'PDF failed. Try JPG.' : 'خروجی PDF انجام نشد. JPG را امتحان کن.')
     } finally {
       setExporting(false)
     }
