@@ -48,7 +48,7 @@ export default function Home() {
   return (
     <main key={locale} className="min-h-screen" dir={dir} style={{ color: 'var(--text)' }}>
       <nav className="sticky top-0 z-50 backdrop-blur-lg border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--bg0)_70%,transparent)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 flex items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="text-2xl sm:text-3xl shrink-0">🧠</div>
             <div className="min-w-0">
@@ -91,7 +91,7 @@ export default function Home() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="card !p-4 sm:!p-5 flex items-start gap-3 hover:border-[var(--accent)]/40 transition group"
+                className="card !p-3.5 sm:!p-5 flex items-start gap-2.5 sm:gap-3 hover:border-[var(--accent)]/40 transition group active:scale-[0.99]"
               >
                 <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center shrink-0">
                   <item.icon className="w-5 h-5 text-[var(--accent)]" />
