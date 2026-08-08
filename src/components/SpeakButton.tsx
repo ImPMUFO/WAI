@@ -6,15 +6,16 @@ import { useLocale } from '@/lib/i18n/LocaleProvider'
 
 function detectLang(text: string, fallback: string): 'fa' | 'ar' | 'en' {
   const t = text || ''
-  if (/[پچژگ]/.test(t) || /[\u0600-\u06FF]/.test(t)) {
-    if (fallback === 'ar' && !/[پچژگ]/.test(t)) return 'ar'
+  if (/[\u0600-\u06FF]/.test(t)) {
+    // عربی خالص‌تر اگر بدون حروف فارسی خاص
+    if (!/[پچژگ]/.test(t) && (fallback === 'ar' || /[إأآءةى]/.test(t))) return 'ar'
     return 'fa'
   }
   if (/[A-Za-z]/.test(t)) return 'en'
   return fallback === 'en' || fallback === 'ar' ? (fallback as 'en' | 'ar') : 'fa'
 }
 
-function chunkText(text: string, max = 140): string[] {
+function chunkText(text: string, max = 100): string[] {
   const clean = text.replace(/\s+/g, ' ').trim()
   if (!clean) return []
   if (clean.length <= max) return [clean]
@@ -22,12 +23,51 @@ function chunkText(text: string, max = 140): string[] {
   let rest = clean
   while (rest.length > max) {
     let cut = rest.lastIndexOf(' ', max)
-    if (cut < 30) cut = max
+    if (cut < 20) cut = max
     parts.push(rest.slice(0, cut).trim())
     rest = rest.slice(cut).trim()
   }
   if (rest) parts.push(rest)
   return parts
+}
+
+function waitVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      resolve([])
+      return
+    }
+    const cur = window.speechSynthesis.getVoices()
+    if (cur.length) {
+      resolve(cur)
+      return
+    }
+    const done = () => {
+      resolve(window.speechSynthesis.getVoices())
+      window.speechSynthesis.onvoiceschanged = null
+    }
+    window.speechSynthesis.onvoiceschanged = done
+    setTimeout(done, 400)
+  })
+}
+
+function pickVoice(voices: SpeechSynthesisVoice[], lang: 'fa' | 'ar' | 'en') {
+  const pref =
+    lang === 'fa'
+      ? ['fa-IR', 'fa']
+      : lang === 'ar'
+        ? ['ar-SA', 'ar-EG', 'ar']
+        : ['en-US', 'en-GB', 'en']
+  for (const p of pref) {
+    const v = voices.find((x) => x.lang?.toLowerCase().startsWith(p.toLowerCase()))
+    if (v) return v
+  }
+  // فارسی اغلب روی دستگاه‌ها نیست — صدای عربی نزدیک‌تر است
+  if (lang === 'fa') {
+    const ar = voices.find((x) => x.lang?.toLowerCase().startsWith('ar'))
+    if (ar) return ar
+  }
+  return voices.find((x) => x.lang?.toLowerCase().startsWith('en')) || voices[0] || null
 }
 
 export default function SpeakButton({ text }: { text: string }) {
@@ -89,30 +129,26 @@ export default function SpeakButton({ text }: { text: string }) {
         resolve()
       }
       audio.onerror = () => reject(new Error('play'))
-      audio.play().catch(reject)
+      void audio.play().catch(reject)
     })
   }
 
-  const playWebSpeech = async (chunks: string[], lang: string) => {
+  const playWebSpeech = async (chunks: string[], lang: 'fa' | 'ar' | 'en') => {
     if (!('speechSynthesis' in window)) throw new Error('no-speech')
-    // voices load async
-    await new Promise((r) => setTimeout(r, 150))
-    const voices = window.speechSynthesis.getVoices()
-    const pick =
-      voices.find((v) => v.lang?.toLowerCase().startsWith(lang)) ||
-      voices.find((v) => (lang === 'fa' || lang === 'ar') && v.lang?.toLowerCase().startsWith('ar')) ||
-      voices.find((v) => v.lang?.toLowerCase().startsWith('en')) ||
-      null
+    const voices = await waitVoices()
+    const pick = pickVoice(voices, lang)
+    const utterLang = lang === 'fa' ? 'fa-IR' : lang === 'ar' ? 'ar-SA' : 'en-US'
 
     for (const chunk of chunks) {
       if (stopRef.current) break
       await new Promise<void>((resolve, reject) => {
         const u = new SpeechSynthesisUtterance(chunk)
-        u.lang = lang === 'fa' ? 'fa-IR' : lang === 'ar' ? 'ar-SA' : 'en-US'
-        u.rate = rate
+        u.lang = utterLang
+        u.rate = Math.min(1.4, Math.max(0.7, rate))
         if (pick) u.voice = pick
         u.onend = () => resolve()
         u.onerror = () => reject(new Error('utter'))
+        window.speechSynthesis.cancel()
         window.speechSynthesis.speak(u)
       })
     }
@@ -124,17 +160,26 @@ export default function SpeakButton({ text }: { text: string }) {
     setErr('')
     setSpeaking(true)
     const lang = detectLang(text, locale)
-    const chunks = chunkText(text, 140)
+    const chunks = chunkText(text, 100)
+
+    // اول Web Speech (سریع و رایگان روی دستگاه)
+    // بعد API سرور (Google TTS غیررسمی — گاهی در Vercel قطع می‌شود)
     try {
-      for (const chunk of chunks) {
-        if (stopRef.current) break
-        await playChunkApi(chunk, lang)
-      }
+      await playWebSpeech(chunks, lang)
     } catch {
       try {
-        await playWebSpeech(chunks, lang)
+        for (const chunk of chunks) {
+          if (stopRef.current) break
+          await playChunkApi(chunk, lang)
+        }
       } catch {
-        setErr(locale === 'en' ? 'Voice unavailable' : 'صدا در دسترس نیست')
+        setErr(
+          locale === 'en'
+            ? 'Voice unavailable on this device/network'
+            : locale === 'ar'
+              ? 'الصوت غير متاح'
+              : 'صدا روی این دستگاه/شبکه در دسترس نیست'
+        )
       }
     } finally {
       setSpeaking(false)
@@ -154,13 +199,14 @@ export default function SpeakButton({ text }: { text: string }) {
       <select
         value={rate}
         onChange={(e) => setRate(Number(e.target.value))}
-        className="text-[10px] bg-transparent border border-[var(--border)] rounded px-1 text-[var(--muted)]"
+        className="text-[10px] rounded border border-[var(--border)] bg-transparent text-[var(--muted)] px-1 py-0.5"
+        title="speed"
       >
-        <option value={0.85}>0.85×</option>
+        <option value={0.8}>0.8×</option>
         <option value={1}>1×</option>
-        <option value={1.15}>1.15×</option>
+        <option value={1.2}>1.2×</option>
       </select>
-      {err && <span className="text-[10px] text-rose-400">{err}</span>}
+      {err && <span className="text-[10px] text-rose-300">{err}</span>}
     </div>
   )
 }
