@@ -174,62 +174,50 @@ function jpegToPdf(jpegBase64: string, imgW: number, imgH: number): Blob {
     pos += u.length
   }
 
-  put('%PDF-1.4
-')
+  put('%PDF-1.4\n')
   offs.push(pos)
-  put('1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-')
+  put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n')
   offs.push(pos)
-  put('2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-')
+  put('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n')
   offs.push(pos)
   put(
-    `3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>
-endobj
-`
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' +
+      pageW +
+      ' ' +
+      pageH +
+      '] /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n'
   )
-  const stream = `q
-${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm
-/Im0 Do
-Q
-`
+  const stream =
+    'q\n' +
+    w.toFixed(2) +
+    ' 0 0 ' +
+    h.toFixed(2) +
+    ' ' +
+    x.toFixed(2) +
+    ' ' +
+    y.toFixed(2) +
+    ' cm\n/Im0 Do\nQ\n'
   offs.push(pos)
-  put(`4 0 obj
-<< /Length ${stream.length} >>
-stream
-${stream}endstream
-endobj
-`)
+  put('4 0 obj\n<< /Length ' + stream.length + ' >>\nstream\n' + stream + 'endstream\nendobj\n')
   offs.push(pos)
   put(
-    `5 0 obj
-<< /Type /XObject /Subtype /Image /Width ${imgW} /Height ${imgH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>
-stream
-`
+    '5 0 obj\n<< /Type /XObject /Subtype /Image /Width ' +
+      imgW +
+      ' /Height ' +
+      imgH +
+      ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' +
+      imgBytes.length +
+      ' >>\nstream\n'
   )
   putBin(imgBytes)
-  put('
-endstream
-endobj
-')
+  put('\nendstream\nendobj\n')
   const xrefAt = pos
-  let xref = `xref
-0 6
-0000000000 65535 f 
-`
-  for (const o of offs) xref += `${String(o).padStart(10, '0')} 00000 n 
-`
+  let xref = 'xref\n0 6\n0000000000 65535 f \n'
+  for (const o of offs) {
+    xref += String(o).padStart(10, '0') + ' 00000 n \n'
+  }
   put(xref)
-  put(`trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-${xrefAt}
-%%EOF`)
+  put('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xrefAt + '\n%%EOF')
 
   const total = chunks.reduce((a, c) => a + c.length, 0)
   const out = new Uint8Array(total)
