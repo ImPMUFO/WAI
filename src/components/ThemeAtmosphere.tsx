@@ -10,11 +10,9 @@ import {
   type ReactNode,
 } from 'react'
 import { THEME_KEY, isThemeId, type ThemeId } from '@/lib/themes'
+import { useLocale } from '@/lib/i18n/LocaleProvider'
 
-/**
- * لایه جوی تم‌ها — حرکت خودکار CSS حفظ می‌شود.
- * با CSS `translate` جدا از `transform` انیمیشن، می‌توان کشید بدون قطع انیمیشن.
- */
+/** کشیدن با CSS translate — انیمیشن transform جدا می‌ماند */
 function Draggable({
   className,
   children,
@@ -31,42 +29,43 @@ function Draggable({
   const [dragging, setDragging] = useState(false)
   const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
 
-  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    // فقط دکمه اصلی / لمس
-    if (e.button !== 0 && e.pointerType === 'mouse') return
-    e.preventDefault()
-    e.stopPropagation()
-    const el = ref.current
-    if (!el) return
-    el.setPointerCapture(e.pointerId)
-    origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
-    setDragging(true)
-  }, [pos.x, pos.y])
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return
+      e.preventDefault()
+      e.stopPropagation()
+      ref.current?.setPointerCapture(e.pointerId)
+      origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
+      setDragging(true)
+    },
+    [pos.x, pos.y]
+  )
 
-  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragging) return
-    e.preventDefault()
-    const dx = e.clientX - origin.current.px
-    const dy = e.clientY - origin.current.py
-    setPos({ x: origin.current.x + dx, y: origin.current.y + dy })
-  }, [dragging])
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!dragging) return
+      e.preventDefault()
+      setPos({
+        x: origin.current.x + (e.clientX - origin.current.px),
+        y: origin.current.y + (e.clientY - origin.current.py),
+      })
+    },
+    [dragging]
+  )
 
-  const endDrag = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragging) return
-    try {
-      ref.current?.releasePointerCapture(e.pointerId)
-    } catch {
-      /* ignore */
-    }
-    setDragging(false)
-    // کمی برگردد تا حس فنری بدهد، ولی نه کامل صفر
-    setPos((p) => ({ x: p.x * 0.85, y: p.y * 0.85 }))
-  }, [dragging])
-
-  // دابل‌کلیک / دابل‌تپ = ریست موقعیت
-  const onDoubleClick = useCallback(() => {
-    setPos({ x: 0, y: 0 })
-  }, [])
+  const endDrag = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!dragging) return
+      try {
+        ref.current?.releasePointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
+      setDragging(false)
+      setPos((p) => ({ x: p.x * 0.88, y: p.y * 0.88 }))
+    },
+    [dragging]
+  )
 
   return (
     <div
@@ -77,21 +76,66 @@ function Draggable({
       title={label}
       style={{
         ...style,
-        // جدا از transform انیمیشن CSS
         translate: `${pos.x}px ${pos.y}px`,
-        scale: dragging ? '1.06' : undefined,
-        transition: dragging ? 'none' : 'translate 0.45s cubic-bezier(0.22, 1, 0.36, 1), scale 0.2s ease',
+        scale: dragging ? '1.08' : undefined,
+        transition: dragging
+          ? 'none'
+          : 'translate 0.4s cubic-bezier(0.22, 1, 0.36, 1), scale 0.2s ease',
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onDoubleClick={onDoubleClick}
+      onDoubleClick={() => setPos({ x: 0, y: 0 })}
     >
       {children}
     </div>
   )
 }
+
+function WaterBucket() {
+  const { dir, locale } = useLocale()
+  const side = dir === 'ltr' ? 'right' : 'left'
+
+  const extinguish = () => {
+    try {
+      localStorage.setItem(THEME_KEY, 'main')
+      document.documentElement.setAttribute('data-theme', 'main')
+      window.dispatchEvent(new Event('storage'))
+      // برای ThemeSwitcher و Atmosphere
+      window.dispatchEvent(new CustomEvent('waima-theme', { detail: 'main' }))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const label =
+    locale === 'en' ? 'Put out fire' : locale === 'ar' ? 'أطفئ النار' : 'خاموش کردن آتش'
+
+  return (
+    <button
+      type="button"
+      className="ta-water-bucket"
+      data-side={side}
+      onClick={extinguish}
+      title={label}
+    >
+      <span className="ta-bucket-icon" aria-hidden>
+        🪣
+      </span>
+      <span className="ta-bucket-label">{label}</span>
+    </button>
+  )
+}
+
+const PLANETS: { orbit: string; planet: string; name: string }[] = [
+  { orbit: 'orb-1', planet: 'p-mercury', name: 'Mercury' },
+  { orbit: 'orb-2', planet: 'p-venus', name: 'Venus' },
+  { orbit: 'orb-3', planet: 'p-earth', name: 'Earth' },
+  { orbit: 'orb-4', planet: 'p-mars', name: 'Mars' },
+  { orbit: 'orb-5', planet: 'p-jupiter', name: 'Jupiter' },
+  { orbit: 'orb-6', planet: 'p-saturn', name: 'Saturn' },
+]
 
 export default function ThemeAtmosphere() {
   const [theme, setTheme] = useState<ThemeId>('main')
@@ -102,10 +146,14 @@ export default function ThemeAtmosphere() {
       setTheme(isThemeId(saved) ? saved : 'main')
     }
     read()
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === THEME_KEY) read()
+    const onStorage = () => read()
+    const onCustom = (e: Event) => {
+      const d = (e as CustomEvent).detail
+      if (typeof d === 'string' && isThemeId(d)) setTheme(d)
+      else read()
     }
     window.addEventListener('storage', onStorage)
+    window.addEventListener('waima-theme', onCustom as EventListener)
     const obs = new MutationObserver(() => {
       const t = document.documentElement.getAttribute('data-theme') || 'main'
       if (isThemeId(t)) setTheme(t)
@@ -113,21 +161,24 @@ export default function ThemeAtmosphere() {
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => {
       window.removeEventListener('storage', onStorage)
+      window.removeEventListener('waima-theme', onCustom as EventListener)
       obs.disconnect()
     }
   }, [])
 
   return (
     <div className="theme-atmosphere" data-active={theme}>
-      {/* ---- روز ---- */}
+      {/* روز — روستا */}
       <div className="ta-layer ta-day">
-        <Draggable className="ta-sun" label="خورشید را بکش" />
+        <Draggable className="ta-sun" label="خورشید" />
         <Draggable className="ta-cloud ta-cloud-1" label="ابر" />
         <Draggable className="ta-cloud ta-cloud-2" label="ابر" />
         <Draggable className="ta-cloud ta-cloud-3" label="ابر" />
+        <div className="ta-grass" />
+        <div className="ta-cottage" />
       </div>
 
-      {/* ---- دریا ---- */}
+      {/* دریا */}
       <div className="ta-layer ta-ocean">
         <div className="ta-wave ta-wave-1" />
         <div className="ta-wave ta-wave-2" />
@@ -137,45 +188,54 @@ export default function ThemeAtmosphere() {
         <div className="ta-bubble b3" />
         <div className="ta-bubble b4" />
         <Draggable className="ta-fish f1" label="ماهی">
+          <span className="ta-fish-fin" />
           <span className="ta-fish-eye" />
         </Draggable>
         <Draggable className="ta-fish f2" label="ماهی">
+          <span className="ta-fish-fin" />
           <span className="ta-fish-eye" />
         </Draggable>
         <Draggable className="ta-fish f3" label="ماهی">
+          <span className="ta-fish-fin" />
           <span className="ta-fish-eye" />
         </Draggable>
         <Draggable className="ta-shell" label="صدف" />
       </div>
 
-      {/* ---- کهکشان ---- */}
+      {/* کهکشان */}
       <div className="ta-layer ta-galaxy">
         <div className="ta-nebula" />
-        <div className="ta-stars" />
-        <Draggable className="ta-star-dot d1" label="ستاره" />
-        <Draggable className="ta-star-dot d2" label="ستاره" />
-        <Draggable className="ta-star-dot d3" label="ستاره" />
-        <Draggable className="ta-star-dot d4" label="ستاره" />
-        <Draggable className="ta-star-dot d5" label="ستاره" />
-        {/* شهاب برای کلیک سخت است؛ سیاه‌چاله قابل کشیدن */}
-        <div className="ta-meteor m1" />
-        <div className="ta-meteor m2" />
-        <Draggable className="ta-blackhole" label="سیاه‌چاله" />
+        <div className="ta-star-dot d1" />
+        <div className="ta-star-dot d2" />
+        <div className="ta-star-dot d3" />
+        <div className="ta-star-dot d4" />
+        <div className="ta-star-dot d5" />
+        <div className="ta-star-dot d6" />
+        <div className="ta-star-dot d7" />
+        <div className="ta-star-dot d8" />
+        {PLANETS.map((p) => (
+          <div key={p.planet} className={`ta-orbit ${p.orbit}`}>
+            <div className="ta-orbit-inner">
+              <Draggable className={`ta-planet ${p.planet}`} label={p.name} />
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* ---- آتش ---- */}
+      {/* آتش — بدون کشیدن شعله؛ سطل آب */}
       <div className="ta-layer ta-fire">
-        <Draggable className="ta-ember e1" label="جرقه" />
-        <Draggable className="ta-ember e2" label="جرقه" />
-        <Draggable className="ta-ember e3" label="جرقه" />
-        <Draggable className="ta-ember e4" label="جرقه" />
-        <Draggable className="ta-ember e5" label="جرقه" />
+        <div className="ta-ember e1" />
+        <div className="ta-ember e2" />
+        <div className="ta-ember e3" />
+        <div className="ta-ember e4" />
+        <div className="ta-ember e5" />
         <div className="ta-lava" />
         <div className="ta-smoke s1" />
         <div className="ta-smoke s2" />
+        {theme === 'fire' && <WaterBucket />}
       </div>
 
-      {/* ---- چوب / طبیعت ---- */}
+      {/* چوب */}
       <div className="ta-layer ta-wood">
         <Draggable className="ta-leaf l1" label="برگ" />
         <Draggable className="ta-leaf l2" label="برگ" />
@@ -184,11 +244,13 @@ export default function ThemeAtmosphere() {
         <div className="ta-branch" />
       </div>
 
-      {/* ---- اصلی ---- */}
+      {/* اصلی — رسمی، بدون کشیدن */}
       <div className="ta-layer ta-main">
-        <Draggable className="ta-orb o1" label="گوی" />
-        <Draggable className="ta-orb o2" label="گوی" />
-        <Draggable className="ta-orb o3" label="گوی" />
+        <div className="ta-main-ring" />
+        <div className="ta-main-ring ta-main-ring-2" />
+        <div className="ta-main-glow g1" />
+        <div className="ta-main-glow g2" />
+        <div className="ta-main-glow g3" />
       </div>
     </div>
   )
