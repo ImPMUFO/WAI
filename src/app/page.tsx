@@ -22,26 +22,26 @@ export default function Home() {
     {
       href: '/start',
       icon: Brain,
-      title: 'گفتگو با هوش مصنوعی',
-      desc: 'با همراه دانا حرف بزن و دانش خودت را بسنج',
+      title: dict.aiChatTitle || dict.chat,
+      desc: dict.aiChatDesc || '',
     },
     {
       href: '/map',
       icon: MapIcon,
-      title: 'نقشه ذهنی',
-      desc: 'جایگاه دانش و مسیر رشدت را ببین',
+      title: dict.mindMap,
+      desc: dict.mapCardDesc || '',
     },
     {
       href: '/play',
       icon: Gamepad2,
-      title: 'بازی‌ها',
-      desc: 'کوئیز و چالش روزانه برای XP و سطح',
+      title: dict.games,
+      desc: dict.gamesCardDesc || '',
     },
     {
       href: '/world',
       icon: Globe2,
-      title: 'گفتگوی جهانی',
-      desc: 'با بقیه کاربران گپ بزن (پیام‌ها ۲۴ساعته)',
+      title: dict.worldChatTitle || 'World',
+      desc: dict.worldChatDesc || '',
     },
   ]
 
@@ -82,7 +82,7 @@ export default function Home() {
               {dict.brandName}
             </motion.h2>
             <motion.p variants={fadeInUp} className="text-sm sm:text-base text-[var(--muted)] max-w-xl mx-auto leading-relaxed">
-              گفتگو کن، نقشه ذهنی‌ات را ببین، بازی کن و با دیگران در گفتگوی جهانی همراه شو.
+              {dict.homeLead}
             </motion.p>
           </motion.div>
 
@@ -108,7 +108,7 @@ export default function Home() {
           </div>
 
           <p className="text-center text-[11px] text-[var(--muted)] mt-8 leading-relaxed">
-            حساب کاربری، ارتباط با ما، پوسته و زبان را از منوی سه‌خطی بالا باز کن.
+            {dict.homeHint}
           </p>
         </div>
       </section>
