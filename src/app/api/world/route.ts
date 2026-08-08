@@ -9,6 +9,8 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+const WINDOW_MS = 24 * 60 * 60 * 1000
+
 function env() {
   const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/\/+$/, '')
   const anon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
@@ -16,11 +18,15 @@ function env() {
   return { url, anon, service }
 }
 
+/** فقط service role می‌تواند همه پیام‌های قدیمی را پاک کند */
 function adminClient() {
-  const { url, anon, service } = env()
+  const { url, service, anon } = env()
+  if (!url) return null
   const key = service || anon
-  if (!url || !key) return null
-  return createClient(url, key, { auth: { persistSession: false } })
+  if (!key) return null
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
 }
 
 function clientWithToken(token?: string) {
@@ -38,23 +44,70 @@ function extractToken(req: NextRequest) {
   return m?.[1]?.trim() || ''
 }
 
-async function purge() {
-  const db = adminClient()
-  if (!db) return
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  await db.from('global_messages').delete().lt('created_at', cutoff)
+function cutoffIso() {
+  return new Date(Date.now() - WINDOW_MS).toISOString()
+}
+
+/**
+ * حذف فیزیکی پیام‌های قدیمی‌تر از ۲۴ ساعت.
+ * اگر SERVICE_ROLE_KEY نباشد، حذف ممکن است به‌خاطر RLS شکست بخورد.
+ */
+async function purgeOld(): Promise<{ ok: boolean; deleted: number; error?: string; usedService: boolean }> {
+  const { url, service, anon } = env()
+  if (!url) return { ok: false, deleted: 0, error: 'no url', usedService: false }
+
+  const usedService = Boolean(service)
+  const key = service || anon
+  if (!key) return { ok: false, deleted: 0, error: 'no key', usedService: false }
+
+  const db = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const cutoff = cutoffIso()
+
+  // ابتدا شمارش
+  const { count } = await db
+    .from('global_messages')
+    .select('id', { count: 'exact', head: true })
+    .lt('created_at', cutoff)
+
+  const { error, data } = await db
+    .from('global_messages')
+    .delete()
+    .lt('created_at', cutoff)
+    .select('id')
+
+  if (error) {
+    return { ok: false, deleted: 0, error: error.message, usedService }
+  }
+  return {
+    ok: true,
+    deleted: Array.isArray(data) ? data.length : count || 0,
+    usedService,
+  }
+}
+
+function filterFresh<T extends { created_at?: string }>(rows: T[] | null | undefined): T[] {
+  const cut = Date.now() - WINDOW_MS
+  return (rows || []).filter((m) => {
+    const t = m.created_at ? new Date(m.created_at).getTime() : 0
+    return Number.isFinite(t) && t > cut
+  })
 }
 
 export async function GET() {
+  const purge = await purgeOld()
+
   const db = adminClient()
-  if (!db) return NextResponse.json({ error: 'no supabase' }, { status: 500 })
-  try {
-    await purge()
-  } catch {
-    /* ignore */
+  if (!db) {
+    return NextResponse.json(
+      { error: 'no supabase', purge },
+      { status: 500 }
+    )
   }
 
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const cutoff = cutoffIso()
+  let rows: any[] = []
 
   const first = await db
     .from('global_messages')
@@ -64,21 +117,25 @@ export async function GET() {
     .limit(200)
 
   if (!first.error) {
-    return NextResponse.json({ messages: first.data || [] })
+    rows = first.data || []
+  } else {
+    const retry = await db
+      .from('global_messages')
+      .select('id, username, body, created_at, user_id')
+      .gt('created_at', cutoff)
+      .order('created_at', { ascending: true })
+      .limit(200)
+    if (retry.error) {
+      return NextResponse.json({ error: retry.error.message, purge }, { status: 500 })
+    }
+    rows = retry.data || []
   }
 
-  const retry = await db
-    .from('global_messages')
-    .select('id, username, body, created_at, user_id')
-    .gt('created_at', cutoff)
-    .order('created_at', { ascending: true })
-    .limit(200)
-
-  if (retry.error) {
-    return NextResponse.json({ error: retry.error.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ messages: retry.data || [] })
+  return NextResponse.json({
+    messages: filterFresh(rows),
+    purge,
+    cutoff,
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -140,13 +197,10 @@ export async function POST(req: NextRequest) {
     .select('id, username, body, created_at, user_id, avatar_url')
     .single()
 
+  const purge = await purgeOld()
+
   if (!withAvatar.error && withAvatar.data) {
-    try {
-      await purge()
-    } catch {
-      /* ignore */
-    }
-    return NextResponse.json({ message: withAvatar.data })
+    return NextResponse.json({ message: withAvatar.data, purge })
   }
 
   const without = await supabase
@@ -156,16 +210,11 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (without.error) {
-    return NextResponse.json({ error: without.error.message }, { status: 500 })
-  }
-
-  try {
-    await purge()
-  } catch {
-    /* ignore */
+    return NextResponse.json({ error: without.error.message, purge }, { status: 500 })
   }
 
   return NextResponse.json({
     message: { ...without.data, avatar_url },
+    purge,
   })
 }
