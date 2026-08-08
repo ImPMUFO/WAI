@@ -250,13 +250,40 @@
 .theme-atmosphere {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 4;
   pointer-events: none;
   overflow: hidden;
-  contain: strict;
+}
+/* فقط المان‌های تعاملی کلیک/لمس می‌گیرند — بقیه صفحه آزاد است */
+.theme-atmosphere .ta-interactive {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.theme-atmosphere .ta-interactive:active {
+  cursor: grabbing;
 }
 
+/* ناحیه لمس بزرگ‌تر برای المان‌های کوچک */
+.theme-atmosphere .ta-star-dot.ta-interactive,
+.theme-atmosphere .ta-ember.ta-interactive {
+  min-width: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-atmosphere .ta-interactive.is-dragging {
+  filter: brightness(1.08) drop-shadow(0 4px 12px rgba(0,0,0,0.25));
+  z-index: 6;
+}
+
+
 .theme-atmosphere .ta-layer {
+  pointer-events: none;
   position: absolute;
   inset: 0;
   opacity: 0;
