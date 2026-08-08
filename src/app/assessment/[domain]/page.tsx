@@ -14,6 +14,10 @@ import {
   Lightbulb,
   Sparkles,
   User,
+  Pencil,
+  Trash2,
+  Check,
+  X,
 } from 'lucide-react'
 import SpeakButton from '@/components/SpeakButton'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
@@ -214,6 +218,8 @@ export default function AssessmentPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
   const [ready, setReady] = useState(false)
   const [mapUpdating, setMapUpdating] = useState(false)
   const [insight, setInsight] = useState<SessionInsight | null>(null)
@@ -406,6 +412,111 @@ export default function AssessmentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, needsName, userName, messages.length])
 
+
+  /** آخرین پیام کاربر (فقط همان قابل ویرایش است) */
+  const lastUserMessageId = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') return messages[i].id
+    }
+    return null as number | null
+  })()
+
+  const persistMessages = (list: Message[]) => {
+    setMessages(list)
+    try {
+      localStorage.setItem(chatKey(domain), JSON.stringify(list))
+    } catch {
+      /* ignore */
+    }
+    try {
+      void saveConversationToServer(domain, list)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** ویرایش آخرین پیام کاربر → مثل پیام جدید؛ AI دوباره جواب می‌دهد */
+  const saveEditUserMessage = async () => {
+    if (editingId == null || isTyping || needsName) return
+    const text = editText.trim()
+    if (!text) return
+    if (editingId !== lastUserMessageId) {
+      setEditingId(null)
+      setEditText('')
+      return
+    }
+    const idx = messages.findIndex((m) => m.id === editingId && m.role === 'user')
+    if (idx < 0) return
+
+    // همه پیام‌های بعد از این پیام کاربر حذف (از جمله جواب AI)
+    const base = messages.slice(0, idx)
+    const edited: Message = { id: Date.now(), role: 'user', content: text }
+    const next = [...base, edited]
+    setEditingId(null)
+    setEditText('')
+    persistMessages(next)
+    setIsTyping(true)
+    try {
+      const userCount = next.filter((m) => m.role === 'user').length
+      const suggestBook = userCount > 0 && userCount % 5 === 0
+      const reply = await callAI(next, suggestBook)
+      const withReply: Message[] = [...next, { id: Date.now() + 1, role: 'assistant', content: reply }]
+      persistMessages(withReply)
+      try {
+        onChatMessage(domain)
+      } catch {
+        /* ignore */
+      }
+      computeInsight(withReply)
+    } catch {
+      persistMessages([
+        ...next,
+        {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: 'خطا در پاسخ. دوباره تلاش کن.',
+        },
+      ])
+    } finally {
+      setIsTyping(false)
+    }
+  }
+
+  /** حذف پیام؛ اگر پیام کاربر بود، جواب AI بلافاصله بعدش هم حذف می‌شود */
+  const deleteMessage = (id: number) => {
+    if (isTyping) return
+    const idx = messages.findIndex((m) => m.id === id)
+    if (idx < 0) return
+    const msg = messages[idx]
+    if (!window.confirm(msg.role === 'user' ? 'این پیام و پاسخ هوش مصنوعی مربوط حذف شود؟' : 'این پیام حذف شود؟')) {
+      return
+    }
+    const next = [...messages]
+    if (msg.role === 'user') {
+      // حذف پیام کاربر
+      next.splice(idx, 1)
+      // اگر پیام بعدی assistant بود، آن را هم حذف کن
+      if (next[idx] && next[idx].role === 'assistant') {
+        next.splice(idx, 1)
+      }
+    } else {
+      next.splice(idx, 1)
+    }
+    // حداقل پیام خوش‌آمد بماند
+    if (next.length === 0) {
+      next.push({
+        id: Date.now(),
+        role: 'assistant',
+        content: welcomeByLocale(locale, userName || nameInput || 'کاربر', domainLabel || info.title),
+      })
+    }
+    persistMessages(next)
+    if (editingId === id) {
+      setEditingId(null)
+      setEditText('')
+    }
+  }
+
   const sendMessage = async () => {
     if (!input.trim() || isTyping || needsName) return
     const userMessage: Message = { id: Date.now(), role: 'user', content: input.trim() }
@@ -555,7 +666,10 @@ export default function AssessmentPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
           <AnimatePresence initial={false}>
-            {messages.map((msg) => (
+            {messages.map((msg) => {
+              const isLastUser = msg.role === 'user' && msg.id === lastUserMessageId
+              const isEditing = editingId === msg.id
+              return (
               <motion.div
                 key={msg.id}
                 initial={{ opacity: 0, y: 12 }}
@@ -563,7 +677,7 @@ export default function AssessmentPage() {
                 className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}
               >
                 <div
-                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm sm:text-base leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm sm:text-base leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-[var(--btn-from)] text-white rounded-br-md'
                       : 'bg-[var(--card)] border border-[var(--border)] rounded-bl-md'
@@ -578,10 +692,81 @@ export default function AssessmentPage() {
                       <SpeakButton text={msg.content} />
                     </div>
                   )}
-                  {msg.content}
+
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        rows={3}
+                        className="w-full rounded-xl px-3 py-2 text-sm border border-white/30 bg-black/20 resize-none"
+                        style={{ color: 'inherit' }}
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={isTyping || !editText.trim()}
+                          onClick={() => void saveEditUserMessage()}
+                          className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-white/20"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          ذخیره و ارسال دوباره
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(null)
+                            setEditText('')
+                          }}
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-white/10"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          انصراف
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  )}
+
+                  {!isEditing && !isTyping && (
+                    <div
+                      className={`flex gap-2 mt-2 pt-1.5 border-t ${
+                        msg.role === 'user' ? 'border-white/25' : 'border-[var(--border)]'
+                      }`}
+                    >
+                      {isLastUser && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(msg.id)
+                            setEditText(msg.content)
+                          }}
+                          className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                            msg.role === 'user' ? 'text-white/95' : 'text-[var(--text)]'
+                          }`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" strokeWidth={2.5} />
+                          ویرایش
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => deleteMessage(msg.id)}
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                          msg.role === 'user' ? 'text-white/95' : 'text-[var(--text)]'
+                        }`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} />
+                        حذف
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
-            ))}
+              )
+            })}
           </AnimatePresence>
 
           {insight && (
