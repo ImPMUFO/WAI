@@ -55,26 +55,29 @@ export async function GET() {
   }
 
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  let { data, error } = await db
+  const first = await db
     .from('global_messages')
     .select('id, username, body, created_at, user_id, avatar_url')
     .gt('created_at', cutoff)
     .order('created_at', { ascending: true })
     .limit(200)
 
-  if (error) {
-    const retry = await db
-      .from('global_messages')
-      .select('id, username, body, created_at, user_id')
-      .gt('created_at', cutoff)
-      .order('created_at', { ascending: true })
-      .limit(200)
-    data = retry.data
-    error = retry.error
+  if (!first.error) {
+    return NextResponse.json({ messages: first.data || [] })
   }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ messages: data || [] })
+  const retry = await db
+    .from('global_messages')
+    .select('id, username, body, created_at, user_id')
+    .gt('created_at', cutoff)
+    .order('created_at', { ascending: true })
+    .limit(200)
+
+  if (retry.error) {
+    return NextResponse.json({ error: retry.error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ messages: retry.data || [] })
 }
 
 export async function POST(req: NextRequest) {
@@ -130,23 +133,29 @@ export async function POST(req: NextRequest) {
     profile?.avatar_url ||
     `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(username)}`
 
-  let row: any = null
-  let ins = await supabase
+  const withAvatar = await supabase
     .from('global_messages')
     .insert({ user_id: user.id, username, body: safe.text, avatar_url })
     .select('id, username, body, created_at, user_id, avatar_url')
     .single()
 
-  if (ins.error) {
-    ins = await supabase
-      .from('global_messages')
-      .insert({ user_id: user.id, username, body: safe.text })
-      .select('id, username, body, created_at, user_id')
-      .single()
-    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 })
-    row = { ...ins.data, avatar_url }
-  } else {
-    row = ins.data
+  if (!withAvatar.error && withAvatar.data) {
+    try {
+      await purge()
+    } catch {
+      /* ignore */
+    }
+    return NextResponse.json({ message: withAvatar.data })
+  }
+
+  const without = await supabase
+    .from('global_messages')
+    .insert({ user_id: user.id, username, body: safe.text })
+    .select('id, username, body, created_at, user_id')
+    .single()
+
+  if (without.error) {
+    return NextResponse.json({ error: without.error.message }, { status: 500 })
   }
 
   try {
@@ -155,5 +164,7 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  return NextResponse.json({ message: row })
+  return NextResponse.json({
+    message: { ...without.data, avatar_url },
+  })
 }
