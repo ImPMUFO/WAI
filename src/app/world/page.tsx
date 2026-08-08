@@ -106,10 +106,32 @@ export default function WorldChatPage() {
       setLoading(false)
       return
     }
+    const cutMs = Date.now() - 24 * 60 * 60 * 1000
+    const onlyFresh = (list: Msg[]) =>
+      (list || []).filter((m) => {
+        const t = m.created_at ? new Date(m.created_at).getTime() : 0
+        return Number.isFinite(t) && t > cutMs
+      })
+
     try {
+      // ۱) API → پاکسازی سمت سرور + لیست تازه
+      try {
+        const apiRes = await fetch('/api/world', { cache: 'no-store' })
+        if (apiRes.ok) {
+          const data = await apiRes.json()
+          if (Array.isArray(data.messages)) {
+            setMessages(onlyFresh(data.messages as Msg[]))
+            setError('')
+            return
+          }
+        }
+      } catch {
+        /* fallback below */
+      }
+
+      // ۲) کلاینت با فیلتر ۲۴ ساعته
       const supabase = createClient()
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      // مستقیم از کلاینت — بدون API کند
+      const cutoff = new Date(cutMs).toISOString()
       let res = await supabase
         .from('global_messages')
         .select('id, username, body, created_at, user_id, avatar_url')
@@ -118,15 +140,15 @@ export default function WorldChatPage() {
         .limit(150)
 
       if (res.error) {
-        res = await supabase
+        res = (await supabase
           .from('global_messages')
           .select('id, username, body, created_at, user_id')
           .gt('created_at', cutoff)
           .order('created_at', { ascending: true })
-          .limit(150) as any
+          .limit(150)) as any
       }
       if (res.error) throw new Error(res.error.message)
-      setMessages((res.data as Msg[]) || [])
+      setMessages(onlyFresh((res.data as Msg[]) || []))
       setError('')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'بارگذاری نشد')
@@ -140,6 +162,10 @@ export default function WorldChatPage() {
     ;(async () => {
       await Promise.all([refreshMe(), load()])
     })()
+    // هر ۵ دقیقه دوباره پاکسازی/بارگذاری (پیام‌های قدیمی‌تر از ۲۴س حذف شوند)
+    const timer = window.setInterval(() => {
+      if (alive) void load()
+    }, 5 * 60 * 1000)
 
     let unsub: { unsubscribe: () => void } | null = null
     if (isSupabaseConfigured()) {
@@ -167,6 +193,7 @@ export default function WorldChatPage() {
     // رفرش ملایم‌تر
     const t = window.setInterval(() => void load(), 20000)
     return () => {
+      window.clearInterval(timer)
       alive = false
       window.clearInterval(t)
       unsub?.unsubscribe()
