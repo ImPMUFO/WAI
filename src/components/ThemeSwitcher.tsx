@@ -11,16 +11,38 @@ export default function ThemeSwitcher() {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem(THEME_KEY) || 'main'
-    const t = isThemeId(saved) ? saved : 'main'
-    setTheme(t)
-    document.documentElement.setAttribute('data-theme', t)
+    const read = () => {
+      const saved = localStorage.getItem(THEME_KEY) || 'main'
+      const t = isThemeId(saved) ? saved : 'main'
+      setTheme(t)
+      document.documentElement.setAttribute('data-theme', t)
+    }
+    read()
+    const onCustom = (e: Event) => {
+      const d = (e as CustomEvent).detail
+      if (typeof d === 'string' && isThemeId(d)) {
+        setTheme(d)
+      } else {
+        read()
+      }
+    }
+    window.addEventListener('waima-theme', onCustom as EventListener)
+    window.addEventListener('storage', read)
+    return () => {
+      window.removeEventListener('waima-theme', onCustom as EventListener)
+      window.removeEventListener('storage', read)
+    }
   }, [])
 
   const apply = (id: ThemeId) => {
     setTheme(id)
     localStorage.setItem(THEME_KEY, id)
     document.documentElement.setAttribute('data-theme', id)
+    try {
+      window.dispatchEvent(new CustomEvent('waima-theme', { detail: id }))
+    } catch {
+      /* ignore */
+    }
     setOpen(false)
   }
 
@@ -57,7 +79,11 @@ export default function ThemeSwitcher() {
                   >
                     <span className="flex gap-1 shrink-0">
                       {t.preview.map((c) => (
-                        <span key={c} className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm" style={{ background: c }} />
+                        <span
+                          key={c}
+                          className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm"
+                          style={{ background: c }}
+                        />
                       ))}
                     </span>
                     <span className="min-w-0">
