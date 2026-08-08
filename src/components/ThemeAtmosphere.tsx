@@ -18,11 +18,13 @@ function Draggable({
   children,
   style,
   label,
+  onDragChange,
 }: {
   className?: string
   children?: ReactNode
   style?: CSSProperties
   label?: string
+  onDragChange?: (dragging: boolean) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -37,8 +39,9 @@ function Draggable({
       ref.current?.setPointerCapture(e.pointerId)
       origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
       setDragging(true)
+      onDragChange?.(true)
     },
-    [pos.x, pos.y]
+    [pos.x, pos.y, onDragChange]
   )
 
   const onPointerMove = useCallback(
@@ -62,9 +65,10 @@ function Draggable({
         /* ignore */
       }
       setDragging(false)
+      onDragChange?.(false)
       setPos((p) => ({ x: p.x * 0.88, y: p.y * 0.88 }))
     },
-    [dragging]
+    [dragging, onDragChange]
   )
 
   return (
@@ -125,6 +129,90 @@ function WaterBucket() {
       </span>
       <span className="ta-bucket-label">{label}</span>
     </button>
+  )
+}
+
+
+function OrbitPlanet({
+  orbitClass,
+  planetClass,
+  name,
+}: {
+  orbitClass: string
+  planetClass: string
+  name: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [paused, setPaused] = useState(false)
+  /** موقعیت fixed موقع کشیدن — مختصات صفحه، مستقل از چرخش مدار */
+  const [fly, setFly] = useState<{ x: number; y: number } | null>(null)
+  const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    e.preventDefault()
+    e.stopPropagation()
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    el.setPointerCapture(e.pointerId)
+    const x = r.left + r.width / 2
+    const y = r.top + r.height / 2
+    origin.current = { px: e.clientX, py: e.clientY, x, y }
+    setFly({ x, y })
+    setPaused(true)
+  }
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!fly) return
+    e.preventDefault()
+    setFly({
+      x: origin.current.x + (e.clientX - origin.current.px),
+      y: origin.current.y + (e.clientY - origin.current.py),
+    })
+  }
+
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!fly) return
+    try {
+      ref.current?.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+    setFly(null)
+    setPaused(false)
+  }
+
+  return (
+    <div className={`ta-orbit ${orbitClass}`}>
+      <div
+        className="ta-orbit-inner"
+        style={{ animationPlayState: paused ? 'paused' : 'running' }}
+      >
+        <div
+          ref={ref}
+          className={`ta-interactive ta-planet ${planetClass}${fly ? ' is-dragging' : ''}`}
+          role="presentation"
+          title={name}
+          style={
+            fly
+              ? {
+                  position: 'fixed',
+                  left: fly.x,
+                  top: fly.y,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 100,
+                  margin: 0,
+                }
+              : undefined
+          }
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        />
+      </div>
+    </div>
   )
 }
 
@@ -214,11 +302,12 @@ export default function ThemeAtmosphere() {
         <div className="ta-star-dot d7" />
         <div className="ta-star-dot d8" />
         {PLANETS.map((p) => (
-          <div key={p.planet} className={`ta-orbit ${p.orbit}`}>
-            <div className="ta-orbit-inner">
-              <Draggable className={`ta-planet ${p.planet}`} label={p.name} />
-            </div>
-          </div>
+          <OrbitPlanet
+            key={p.planet}
+            orbitClass={p.orbit}
+            planetClass={p.planet}
+            name={p.name}
+          />
         ))}
       </div>
 
