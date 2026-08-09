@@ -5,16 +5,63 @@
  *   OPENROUTER_API_KEY  (الزامی)
  *   OPENROUTER_MODEL    (اختیاری)
  *
- * پیش‌فرض رایگان: deepseek/deepseek-chat:free
- * (نسخه free مربوط به V4 Flash دیگر در OpenRouter موجود نیست)
+ * بسیاری از مدل‌های deepseek/*:free دیگر رایگان نیستند.
+ * پیش‌فرض: openrouter/free (مسیریاب مدل‌های واقعاً رایگان)
  *
- * گزینه‌های دیگر:
- *   deepseek/deepseek-v4-flash     → پولی، کیفیت بالاتر
- *   deepseek/deepseek-v4-pro      → پولی، قوی‌ترین
- *   openrouter/free               → مسیریاب مدل‌های رایگان
- *
+ * پولی (اگر اعتبار داری):
+ *   deepseek/deepseek-chat
+ *   deepseek/deepseek-v4-flash
+ *   deepseek/deepseek-v4-pro
+ */
 
-/** متن پاسخ مدل‌های مختلف OpenRouter (content رشته / آرایه / reasoning) */
+/** مدل‌هایی که هنوز معمولاً endpoint رایگان دارند */
+export const FREE_FALLBACKS = [
+  'openrouter/free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'google/gemma-3-12b-it:free',
+  'qwen/qwen3-8b:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+]
+
+/** اگر اعتبار OpenRouter داری این‌ها کیفیت بهتری دارند */
+export const PAID_FALLBACKS = [
+  'deepseek/deepseek-chat',
+  'deepseek/deepseek-v4-flash',
+]
+
+export function getOpenRouterConfig() {
+  const apiKey = (
+    process.env.OPENROUTER_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    ''
+  ).trim()
+
+  const baseUrl = (
+    process.env.OPENROUTER_BASE_URL ||
+    process.env.OPENAI_BASE_URL ||
+    'https://openrouter.ai/api/v1'
+  )
+    .trim()
+    .replace(/\/+$/, '')
+
+  const model = (
+    process.env.OPENROUTER_MODEL ||
+    process.env.OPENAI_MODEL ||
+    'openrouter/free'
+  ).trim()
+
+  return { apiKey, baseUrl, model }
+}
+
+export function openRouterHeaders(apiKey: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://waima.vercel.app',
+    'X-Title': 'WAIMA',
+  }
+}
+
 export function extractMessageText(message: any): string {
   if (!message) return ''
   const c = message.content
@@ -32,53 +79,31 @@ export function extractMessageText(message: any): string {
     if (joined) return joined
   }
   if (typeof message.reasoning === 'string' && message.reasoning.trim()) {
-    // برخی مدل‌های reasoning فقط reasoning می‌دهند
     return message.reasoning.trim()
   }
   if (typeof message.text === 'string' && message.text.trim()) return message.text.trim()
   return ''
 }
 
-const FREE_FALLBACKS = [
-  'deepseek/deepseek-chat:free',
-  'deepseek/deepseek-r1:free',
-  'openrouter/free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-]
-
-export function getOpenRouterConfig() {
-
-  const apiKey = (
-    process.env.OPENROUTER_API_KEY ||
-    process.env.OPENAI_API_KEY || // سازگاری با env قدیمی
-    ''
-  ).trim()
-
-  const baseUrl = (
-    process.env.OPENROUTER_BASE_URL ||
-    process.env.OPENAI_BASE_URL ||
-    'https://openrouter.ai/api/v1'
+function isUnavailableFreeError(status: number, body: string) {
+  return (
+    status === 404 ||
+    /unavailable for free|not available|model.*not found|no endpoints/i.test(body)
   )
-    .trim()
-    .replace(/\/+$/, '')
-
-  const model = (
-    process.env.OPENROUTER_MODEL ||
-    process.env.OPENAI_MODEL ||
-    'deepseek/deepseek-chat:free'
-  ).trim()
-
-  return { apiKey, baseUrl, model }
 }
 
-/** هدرهای پیشنهادی OpenRouter */
-export function openRouterHeaders(apiKey: string): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`,
-    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://waima.vercel.app',
-    'X-Title': 'WAIMA',
-  }
+/** لیست مدل برای امتحان: مدل env + رایگان‌ها (+ پولی اگر ALLOW_PAID_MODELS=1) */
+export function modelsToAttempt(primary: string): string[] {
+  const allowPaid =
+    process.env.ALLOW_PAID_MODELS === '1' ||
+    process.env.ALLOW_PAID_MODELS === 'true' ||
+    // اگر صریحاً مدل پولی انتخاب شده
+    (!primary.includes(':free') && !primary.startsWith('openrouter/free') && primary.includes('deepseek/'))
+
+  const list = [primary, ...FREE_FALLBACKS]
+  if (allowPaid) list.push(...PAID_FALLBACKS)
+  // یکتا
+  return [...new Set(list.filter(Boolean))]
 }
 
 export async function openRouterChat(opts: {
@@ -91,65 +116,48 @@ export async function openRouterChat(opts: {
     return { ok: false, status: 500, error: 'OPENROUTER_API_KEY تنظیم نشده است' }
   }
 
-  try {
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: openRouterHeaders(apiKey),
-      body: JSON.stringify({
-        model,
-        messages: opts.messages,
-        temperature: opts.temperature ?? 0.7,
-        max_tokens: opts.max_tokens,
-      }),
-    })
-    let textBody = await resp.text()
-    if (!resp.ok) {
-      const needsFallback =
-        resp.status === 404 ||
-        /unavailable for free|not available|model.*not found/i.test(textBody)
-      if (needsFallback) {
-        for (const fb of FREE_FALLBACKS) {
-          if (fb === model) continue
-          const retry = await fetch(`${baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: openRouterHeaders(apiKey),
-            body: JSON.stringify({
-              model: fb,
-              messages: opts.messages,
-              temperature: opts.temperature ?? 0.7,
-              max_tokens: opts.max_tokens,
-            }),
-          })
-          textBody = await retry.text()
-          if (retry.ok) {
-            try {
-              const data = JSON.parse(textBody)
-              const content = extractMessageText(data?.choices?.[0]?.message)
-              if (content) return { ok: true, content, model: data?.model || fb }
-            } catch {
-              /* try next */
-            }
-          }
-        }
-      }
-      return { ok: false, status: resp.status, error: textBody.slice(0, 500) }
-    }
-    let data: any
+  const tryModels = modelsToAttempt(model)
+  let lastError = ''
+  let lastStatus = 502
+
+  for (const tryModel of tryModels) {
     try {
-      data = JSON.parse(textBody)
-    } catch {
-      return { ok: false, status: 502, error: 'پاسخ JSON نامعتبر از OpenRouter' }
-    }
-    const content = extractMessageText(data?.choices?.[0]?.message)
-    if (!content) {
-      return { ok: false, status: 502, error: 'محتوای خالی از مدل: ' + JSON.stringify(data?.choices?.[0]?.message || {}).slice(0, 200) }
-    }
-    return { ok: true, content, model: data?.model || model }
-  } catch (e: unknown) {
-    return {
-      ok: false,
-      status: 502,
-      error: e instanceof Error ? e.message : 'خطای شبکه OpenRouter',
+      const resp = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: openRouterHeaders(apiKey),
+        body: JSON.stringify({
+          model: tryModel,
+          messages: opts.messages,
+          temperature: opts.temperature ?? 0.7,
+          max_tokens: opts.max_tokens,
+        }),
+      })
+      const textBody = await resp.text()
+      if (!resp.ok) {
+        lastStatus = resp.status
+        lastError = textBody.slice(0, 400)
+        if (isUnavailableFreeError(resp.status, textBody) || resp.status === 429 || resp.status >= 500) {
+          continue
+        }
+        continue
+      }
+      let data: any
+      try {
+        data = JSON.parse(textBody)
+      } catch {
+        lastError = 'invalid json'
+        continue
+      }
+      const content = extractMessageText(data?.choices?.[0]?.message)
+      if (!content) {
+        lastError = 'empty content from ' + tryModel
+        continue
+      }
+      return { ok: true, content, model: data?.model || tryModel }
+    } catch (e: unknown) {
+      lastError = e instanceof Error ? e.message : 'network'
     }
   }
+
+  return { ok: false, status: lastStatus, error: lastError || 'هیچ مدلی پاسخ نداد' }
 }
