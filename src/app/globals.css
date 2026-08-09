@@ -1073,6 +1073,7 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
   width: 64px;
   height: 64px;
 }
+
 .ta-pos-sun {
   left: 12%;
   top: 6%;
@@ -1350,4 +1351,47 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto;
+}
+
+
+/* خورشید خودکار تم روز */
+.ta-sun.ta-sun-auto {
+  position: absolute !important;
+  width: 64px;
+  height: 64px;
+  top: 8%;
+  left: 8%;
+  animation: ta-sun-path 55s linear infinite !important;
+  z-index: 2;
+  pointer-events: none;
+}
+@media (min-width: 768px) {
+  .ta-sun.ta-sun-auto { width: 78px; height: 78px; top: 7%; }
+}
+
+/* گربه بزرگ‌تر و واضح */
+.ta-cat {
+  width: 72px !important;
+  height: 50px !important;
+  bottom: 11% !important;
+  z-index: 8 !important;
+}
+.ta-cat-body {
+  width: 42px !important;
+  height: 24px !important;
+  left: 12px !important;
+}
+.ta-cat-head {
+  width: 28px !important;
+  height: 26px !important;
+}
+@media (min-width: 768px) {
+  .ta-cat {
+    width: 96px !important;
+    height: 66px !important;
+    bottom: 12% !important;
+  }
+  .ta-cat-body { width: 56px !important; height: 32px !important; }
+  .ta-cat-head { width: 36px !important; height: 34px !important; }
+  .ta-cat-eye { width: 7px !important; height: 7px !important; }
 }
