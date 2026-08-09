@@ -173,10 +173,15 @@ function GalaxySystem() {
     return { cx, cy, radii: ORBIT_RATIOS.map((ratio) => base * ratio) }
   }, [])
 
-  const worldPos = (p: PlanetBody) => {
-    const { cx, cy, radii } = centerAndRadii()
+  const localPos = (p: PlanetBody) => {
+    const el = wrapRef.current
+    if (!el) return { x: 50, y: 50 }
+    const r = el.getBoundingClientRect()
+    const radii = ORBIT_RATIOS.map((ratio) => (Math.min(r.width, r.height) / 2) * ratio)
     const rad = radii[p.orbit] ?? radii[0]
-    return { x: cx + Math.cos(p.angle) * rad, y: cy + Math.sin(p.angle) * rad }
+    const x = r.width / 2 + Math.cos(p.angle) * rad
+    const y = r.height / 2 + Math.sin(p.angle) * rad
+    return { x, y }
   }
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>, id: string) => {
@@ -184,21 +189,25 @@ function GalaxySystem() {
     e.preventDefault()
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
+    const wrap = wrapRef.current?.getBoundingClientRect()
     const rect = e.currentTarget.getBoundingClientRect()
     const cx = rect.left + rect.width / 2
     const cy = rect.top + rect.height / 2
-    // آفست انگشت تا مرکز — سیاره زیر انگشت می‌ماند
     dragOffset.current = { ox: e.clientX - cx, oy: e.clientY - cy }
     setDragId(id)
-    setDragPos({ x: cx, y: cy })
+    if (wrap) {
+      setDragPos({ x: cx - wrap.left, y: cy - wrap.top })
+    }
   }
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!dragId) return
     e.preventDefault()
+    const wrap = wrapRef.current?.getBoundingClientRect()
+    if (!wrap) return
     setDragPos({
-      x: e.clientX - dragOffset.current.ox,
-      y: e.clientY - dragOffset.current.oy,
+      x: e.clientX - dragOffset.current.ox - wrap.left,
+      y: e.clientY - dragOffset.current.oy - wrap.top,
     })
   }
 
@@ -209,7 +218,15 @@ function GalaxySystem() {
     } catch {
       /* ignore */
     }
-    const { cx, cy, radii } = centerAndRadii()
+    const wrap = wrapRef.current?.getBoundingClientRect()
+    if (!wrap) {
+      setDragId(null)
+      setDragPos(null)
+      return
+    }
+    const cx = wrap.width / 2
+    const cy = wrap.height / 2
+    const radii = ORBIT_RATIOS.map((ratio) => (Math.min(wrap.width, wrap.height) / 2) * ratio)
     const dx = dragPos.x - cx
     const dy = dragPos.y - cy
     const dist = Math.hypot(dx, dy)
@@ -235,7 +252,7 @@ function GalaxySystem() {
       ))}
       {planets.map((p) => {
         const dragging = dragId === p.id
-        const pos = dragging && dragPos ? dragPos : worldPos(p)
+        const pos = dragging && dragPos ? dragPos : localPos(p)
         return (
           <div
             key={p.id}
@@ -243,7 +260,7 @@ function GalaxySystem() {
             title={p.name}
             role="presentation"
             style={{
-              position: 'fixed',
+              position: 'absolute',
               left: pos.x,
               top: pos.y,
               width: Math.max(p.size, 28),
