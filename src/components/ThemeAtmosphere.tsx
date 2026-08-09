@@ -423,7 +423,7 @@ function DayCat() {
       className={`ta-cat${look ? ' is-looking' : ''}`}
       style={{
         left: `${pos.current.x}%`,
-        transform: `translateX(-50%) scaleX(${pos.current.dir})`,
+        transform: `translateX(-50%) scaleX(${-pos.current.dir})`, // سر به سمت حرکت
       }}
       onClick={onTap}
       title="گربه سیامی"
@@ -526,6 +526,7 @@ export default function ThemeAtmosphere() {
     <>
       <div className="theme-atmosphere theme-atmosphere-bg" data-active={theme} aria-hidden>
         <div className="ta-layer ta-day">
+          <div className="ta-sun ta-sun-auto" aria-hidden />
           <div className="ta-grass" />
           <div className="ta-cottage" />
         </div>
@@ -564,7 +565,6 @@ export default function ThemeAtmosphere() {
         <div className="ta-layer ta-day">
           {theme === 'day' && (
             <>
-              <Draggable wrapClassName="ta-pos-sun" className="ta-sun ta-sun-drag" label="خورشید" />
               <Draggable wrapClassName="ta-pos-cloud-1" className="ta-cloud ta-cloud-1" label="ابر" />
               <Draggable wrapClassName="ta-pos-cloud-2" className="ta-cloud ta-cloud-2" label="ابر" />
               <Draggable wrapClassName="ta-pos-cloud-3" className="ta-cloud ta-cloud-3" label="ابر" />
