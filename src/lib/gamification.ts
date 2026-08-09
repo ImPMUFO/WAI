@@ -408,3 +408,36 @@ export function consumeWheelChance(): number {
     return 0
   }
 }
+
+
+const WHEEL_MIGRATED_KEY = 'waima_wheel_migrated_v1'
+
+/** برای کسانی که قبلاً لول رفته‌اند ولی شانس گردونه ثبت نشده */
+export function ensureWheelChancesBackfill(): number {
+  try {
+    const cur = getWheelChances()
+    if (localStorage.getItem(WHEEL_MIGRATED_KEY) === '1') return cur
+
+    const g = loadGame()
+    const earned = Math.max(0, (g.level || 1) - 1)
+    // تقریبی از شانس‌های مصرف‌شده: تعداد آواتار خاص بازشده
+    let used = 0
+    try {
+      const raw = localStorage.getItem('waima_unlocked_special')
+      if (raw) {
+        const arr = JSON.parse(raw)
+        if (Array.isArray(arr)) used = arr.length
+      }
+    } catch {
+      /* ignore */
+    }
+    const owed = Math.max(0, earned - used)
+    const next = Math.max(cur, owed)
+    localStorage.setItem(WHEEL_CHANCES_KEY, String(next))
+    localStorage.setItem(WHEEL_MIGRATED_KEY, '1')
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('waima-wheel-chances'))
+    return next
+  } catch {
+    return 0
+  }
+}
