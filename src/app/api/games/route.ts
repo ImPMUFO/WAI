@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getOpenRouterConfig, openRouterHeaders } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -64,8 +65,7 @@ function shuffle<T>(arr: T[], rand: () => number) {
 }
 
 async function aiGames(kind: string, date: string, locale: string) {
-  const apiKey = process.env.OPENAI_API_KEY
-  const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '')
+  const { apiKey, baseUrl, model } = getOpenRouterConfig()
   if (!apiKey) return null
 
   const lang = locale === 'en' ? 'English' : locale === 'ar' ? 'Arabic' : 'Persian (Farsi)'
@@ -86,12 +86,9 @@ No markdown.`
   try {
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: openRouterHeaders(apiKey),
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        model,
         temperature: 0.8,
         messages: [
           { role: 'system', content: 'You output only valid JSON arrays for educational games.' },
