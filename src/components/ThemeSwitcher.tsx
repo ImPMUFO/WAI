@@ -1,5 +1,7 @@
 'use client'
 
+import { bumpFromTheme } from '@/lib/mindmap'
+
 import { useEffect, useState } from 'react'
 import { Palette, Check } from 'lucide-react'
 import { THEMES, THEME_KEY, ThemeId, isThemeId } from '@/lib/themes'
@@ -39,6 +41,7 @@ export default function ThemeSwitcher() {
     localStorage.setItem(THEME_KEY, id)
     document.documentElement.setAttribute('data-theme', id)
     try {
+      try { bumpFromTheme(String(id)) } catch { /* */ }
       window.dispatchEvent(new CustomEvent('waima-theme', { detail: id }))
     } catch {
       /* ignore */
