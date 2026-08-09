@@ -188,7 +188,8 @@ function FireEraser({
       if (!changed) return
       patchesRef.current = next
       setPatches(next)
-      if (next.every((v) => !v)) {
+      const left = next.filter(Boolean).length
+      if (left <= 2) {
         try {
           localStorage.setItem(THEME_KEY, 'main')
           document.documentElement.setAttribute('data-theme', 'main')
@@ -247,12 +248,12 @@ type PlanetBody = {
   size: number
 }
 const INITIAL_PLANETS: PlanetBody[] = [
-  { id: 'mercury', name: 'Mercury', className: 'p-mercury', orbit: 0, angle: 0.2, speed: 0.9, size: 14 },
-  { id: 'venus', name: 'Venus', className: 'p-venus', orbit: 1, angle: 1.1, speed: 0.7, size: 18 },
-  { id: 'earth', name: 'Earth', className: 'p-earth', orbit: 2, angle: 2.4, speed: 0.55, size: 19 },
-  { id: 'mars', name: 'Mars', className: 'p-mars', orbit: 3, angle: 3.5, speed: 0.45, size: 17 },
-  { id: 'jupiter', name: 'Jupiter', className: 'p-jupiter', orbit: 4, angle: 4.8, speed: 0.28, size: 30 },
-  { id: 'saturn', name: 'Saturn', className: 'p-saturn', orbit: 5, angle: 5.6, speed: 0.2, size: 26 },
+  { id: 'mercury', name: 'Mercury', className: 'p-mercury', orbit: 0, angle: 0.2, speed: 0.9, size: 18 },
+  { id: 'venus', name: 'Venus', className: 'p-venus', orbit: 1, angle: 1.1, speed: 0.7, size: 24 },
+  { id: 'earth', name: 'Earth', className: 'p-earth', orbit: 2, angle: 2.4, speed: 0.55, size: 26 },
+  { id: 'mars', name: 'Mars', className: 'p-mars', orbit: 3, angle: 3.5, speed: 0.45, size: 22 },
+  { id: 'jupiter', name: 'Jupiter', className: 'p-jupiter', orbit: 4, angle: 4.8, speed: 0.28, size: 38 },
+  { id: 'saturn', name: 'Saturn', className: 'p-saturn', orbit: 5, angle: 5.6, speed: 0.2, size: 34 },
 ]
 
 function GalaxySystem() {
@@ -376,6 +377,71 @@ function GalaxySystem() {
   )
 }
 
+
+function DayCat() {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [look, setLook] = useState(false)
+  const pos = useRef({ x: 18, dir: 1 as 1 | -1 })
+  const [, bump] = useState(0)
+  const lookTimer = useRef<any>(null)
+
+  useEffect(() => {
+    let raf = 0
+    let last = performance.now()
+    const tick = (now: number) => {
+      if (!document.hidden && !look) {
+        const dt = Math.min(0.05, (now - last) / 1000)
+        last = now
+        let { x, dir } = pos.current
+        x += dir * 4.2 * dt // درصد عرض
+        if (x > 72) dir = -1
+        if (x < 10) dir = 1
+        pos.current = { x, dir }
+        bump((n) => n + 1)
+      } else {
+        last = now
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(raf)
+      if (lookTimer.current) window.clearTimeout(lookTimer.current)
+    }
+  }, [look])
+
+  const onTap = () => {
+    setLook(true)
+    if (lookTimer.current) window.clearTimeout(lookTimer.current)
+    lookTimer.current = window.setTimeout(() => setLook(false), 1400)
+  }
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={`ta-cat${look ? ' is-looking' : ''}`}
+      style={{
+        left: `${pos.current.x}%`,
+        transform: `translateX(-50%) scaleX(${pos.current.dir})`,
+      }}
+      onClick={onTap}
+      title="گربه سیامی"
+      aria-label="گربه سیامی"
+    >
+      <span className="ta-cat-body" />
+      <span className="ta-cat-head">
+        <span className="ta-cat-ear l" />
+        <span className="ta-cat-ear r" />
+        <span className="ta-cat-eye l" />
+        <span className="ta-cat-eye r" />
+        <span className="ta-cat-nose" />
+      </span>
+      <span className="ta-cat-tail" />
+    </button>
+  )
+}
+
 function OceanTreasure() {
   const key = 'waima_ocean_chest_day'
   const [claimed, setClaimed] = useState(true)
@@ -425,7 +491,7 @@ function OceanTreasure() {
 
 export default function ThemeAtmosphere() {
   const [theme, setTheme] = useState<ThemeId>('main')
-  const [firePatches, setFirePatches] = useState(() => Array.from({ length: 10 }, () => true))
+  const [firePatches, setFirePatches] = useState(() => Array.from({ length: 16 }, () => true))
   const [pearls, setPearls] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
@@ -443,7 +509,7 @@ export default function ThemeAtmosphere() {
       const d = (e as CustomEvent).detail
       if (typeof d === 'string' && isThemeId(d)) {
         setTheme(d)
-        if (d === 'fire') setFirePatches(Array.from({ length: 10 }, () => true))
+        if (d === 'fire') setFirePatches(Array.from({ length: 16 }, () => true))
       } else read()
     }
     window.addEventListener('storage', read)
@@ -458,7 +524,6 @@ export default function ThemeAtmosphere() {
     <>
       <div className="theme-atmosphere theme-atmosphere-bg" data-active={theme} aria-hidden>
         <div className="ta-layer ta-day">
-          <div className="ta-sun" />
           <div className="ta-grass" />
           <div className="ta-cottage" />
         </div>
@@ -497,9 +562,11 @@ export default function ThemeAtmosphere() {
         <div className="ta-layer ta-day">
           {theme === 'day' && (
             <>
+              <Draggable wrapClassName="ta-pos-sun" className="ta-sun ta-sun-drag" label="خورشید" />
               <Draggable wrapClassName="ta-pos-cloud-1" className="ta-cloud ta-cloud-1" label="ابر" />
               <Draggable wrapClassName="ta-pos-cloud-2" className="ta-cloud ta-cloud-2" label="ابر" />
               <Draggable wrapClassName="ta-pos-cloud-3" className="ta-cloud ta-cloud-3" label="ابر" />
+              <DayCat />
             </>
           )}
         </div>
@@ -558,7 +625,6 @@ export default function ThemeAtmosphere() {
               <Draggable wrapClassName="ta-pos-l2" className="ta-leaf l2" label="برگ" onActivate={() => playTick('leaf')} />
               <Draggable wrapClassName="ta-pos-l3" className="ta-leaf l3" label="برگ" onActivate={() => playTick('leaf')} />
               <Draggable wrapClassName="ta-pos-l4" className="ta-leaf l4" label="برگ" onActivate={() => playTick('leaf')} />
-              <Draggable wrapClassName="ta-pos-log" className="ta-log" label="چوب" onActivate={() => playTick('wood')} />
             </>
           )}
         </div>
