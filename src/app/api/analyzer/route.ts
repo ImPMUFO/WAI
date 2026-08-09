@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOpenRouterConfig, openRouterHeaders } from '@/lib/ai'
+import { getAIConfig, aiHeaders } from '@/lib/ai'
 
 type NodeStatus = 'known' | 'near' | 'far'
 
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
     // اختیاری: اگر API بود تحلیل ظریف‌تر؛ ولی برای سرعت همیشه پایه را نگه می‌داریم
     let aiNodes: { id: string; status?: NodeStatus; mastery?: number; note?: string }[] = []
-    const { apiKey, baseUrl, model } = getOpenRouterConfig()
+    const { apiKey, baseUrl, model } = getAIConfig('analyzer')
 
     if (apiKey && messages.length >= 2) {
       try {
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 Rules: mastery 0-100, small changes only (+/-15 max from typical). ids from: ${BASE_GRAPH.map((g) => g.id).join(', ')}. status known|near|far.`
         const resp = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
-          headers: openRouterHeaders(apiKey),
+          headers: aiHeaders(apiKey),
           body: JSON.stringify({
             model,
             messages: [
