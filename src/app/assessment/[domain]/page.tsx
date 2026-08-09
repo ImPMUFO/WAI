@@ -227,6 +227,7 @@ export default function AssessmentPage() {
   const [lastBook, setLastBook] = useState<Book | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
+  const forceClearRef = useRef(false)
 
   useEffect(() => {
     const savedName = localStorage.getItem(USER_KEY)?.trim() || ''
@@ -241,23 +242,33 @@ export default function AssessmentPage() {
       const parsed = parseAsJson<{ usedBooks?: string[] }>(savedStage)
       if (parsed?.usedBooks) setUsedBooks(safeArray<string>(parsed.usedBooks))
     }
-    // بازیابی کامل: محلی + آرشیو + سرور (هرگز از دست نده)
+    // اول محلی (سریع) — بعد در پس‌زمینه سرور
+    if (savedChat) {
+      const parsed = parseAsJson<Message[]>(savedChat)
+      if (parsed?.length) {
+        setMessages(parsed)
+        startedRef.current = true
+        setReady(true)
+        void recoverConversation(domain).then((recovered) => {
+          if (forceClearRef.current) return
+          if (recovered?.length && recovered.length > parsed.length) {
+            setMessages(recovered as Message[])
+          }
+        })
+        return
+      }
+    }
     void (async () => {
       const recovered = await recoverConversation(domain)
+      if (forceClearRef.current) {
+        setReady(true)
+        return
+      }
       if (recovered?.length) {
         setMessages(recovered as Message[])
         startedRef.current = true
         setReady(true)
         return
-      }
-      if (savedChat) {
-        const parsed = parseAsJson<Message[]>(savedChat)
-        if (parsed?.length) {
-          setMessages(parsed)
-          startedRef.current = true
-          setReady(true)
-          return
-        }
       }
       if (savedName) {
         setMessages([
@@ -275,13 +286,22 @@ export default function AssessmentPage() {
   useEffect(() => {
     if (!ready || messages.length === 0) return
     try {
-      const prevRaw = localStorage.getItem(chatKey(domain))
-      const prev = prevRaw ? JSON.parse(prevRaw) : []
-      // هرگز تاریخچهٔ بلندتر را با نسخهٔ کوتاه‌تر عوض نکن
-      if (Array.isArray(prev) && prev.length > messages.length) return
+      // گفتگوی جدید: اجازه بده تاریخچه کوتاه جایگزین بلند شود
+      if (!forceClearRef.current) {
+        const prevRaw = localStorage.getItem(chatKey(domain))
+        const prev = prevRaw ? JSON.parse(prevRaw) : []
+        if (Array.isArray(prev) && prev.length > messages.length) return
+      }
       localStorage.setItem(chatKey(domain), JSON.stringify(messages))
+      // کمی نگه دار تا recover پس‌زمینه دوباره پیام‌های قدیمی را نیاورد
+      window.setTimeout(() => {
+        forceClearRef.current = false
+      }, 2500)
     } catch {
       localStorage.setItem(chatKey(domain), JSON.stringify(messages))
+      window.setTimeout(() => {
+        forceClearRef.current = false
+      }, 2500)
     }
     void saveConversationToServer(domain, messages, info.title)
   }, [messages, domain, ready, info.title])
@@ -292,7 +312,7 @@ export default function AssessmentPage() {
   }, [usedBooks, ready])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
   }, [messages, isTyping, insight])
 
   const saveName = () => {
@@ -588,23 +608,37 @@ ${localInsight.question}` : ''),
   }
 
   const clearChat = () => {
-    // آرشیو کن — پاک نکن
-    if (messages.length) archiveLocalChat(domain, messages)
+    // قبل از پاک شدن UI، یک‌بار روی نقشه ذهنی اثر بگذارد (خود پیام‌ها آرشیو/ذخیره نمی‌شوند)
+    const snapshot = messages
+    if (snapshot.some((m) => m.role === 'user' && m.content.trim())) {
+      void updateMapFromChat(snapshot)
+    }
+    forceClearRef.current = true
     startedRef.current = false
     setLastBook(null)
     setInsight(null)
-    setMessages([
-      {
-        id: Date.now(),
-        role: 'assistant',
-        content:
-          locale === 'en'
-            ? `Okay ${userName}. New chat on "${domainLabel}". Previous chat was archived.`
-            : locale === 'ar'
-              ? `حسناً ${userName}. محادثة جديدة عن «${domainLabel}». تم حفظ السابقة.`
-              : `باشه ${userName}. گفت‌وگوی «${domainLabel}» از نو شروع شد. گفتگوی قبلی آرشیو شد.`,
-      },
-    ])
+    try {
+      localStorage.removeItem(chatKey(domain))
+    } catch {
+      /* ignore */
+    }
+    const welcome: Message = {
+      id: Date.now(),
+      role: 'assistant',
+      content:
+        locale === 'en'
+          ? `Alright ${userName || 'friend'}. Fresh chat on "${domainLabel}". Previous messages are cleared here; your mind map stays.`
+          : locale === 'ar'
+            ? `حسنًا ${userName || 'صديقي'}. محادثة جديدة عن «${domainLabel}». الرسائل هنا مُسحت والخريطة الذهنية تبقى.`
+            : `باشه ${userName || 'رفیق'}. گفتگوی «${domainLabel || info.title}» از نو شروع شد. پیام‌های قبلی از این صفحه پاک شدند؛ نقشه ذهنی‌ات می‌ماند.`,
+    }
+    setMessages([welcome])
+    try {
+      localStorage.setItem(chatKey(domain), JSON.stringify([welcome]))
+    } catch {
+      /* ignore */
+    }
+    void saveConversationToServer(domain, [welcome], info.title)
   }
 
   const currentBook = useMemo(() => lastBook || insight?.book || null, [lastBook, insight])
