@@ -2,13 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import LevelUpWheel from '@/components/LevelUpWheel'
-import { PENDING_LEVEL_UP_KEY, loadGame, getWheelChances } from '@/lib/gamification'
+import {
+  PENDING_LEVEL_UP_KEY,
+  loadGame,
+  getWheelChances,
+  ensureWheelChancesBackfill,
+} from '@/lib/gamification'
 
 export default function GlobalWheelHost() {
   const [open, setOpen] = useState(false)
   const [level, setLevel] = useState(1)
 
   useEffect(() => {
+    try {
+      ensureWheelChancesBackfill()
+    } catch {
+      /* ignore */
+    }
+
     const checkPending = () => {
       try {
         const pending = localStorage.getItem(PENDING_LEVEL_UP_KEY)
@@ -22,7 +33,7 @@ export default function GlobalWheelHost() {
     }
     const openManual = () => {
       try {
-        if (getWheelChances() <= 0) return
+        ensureWheelChancesBackfill()
         setLevel(loadGame().level || 1)
         setOpen(true)
       } catch {
