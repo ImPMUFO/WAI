@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getOpenRouterConfig, openRouterHeaders } from '@/lib/ai'
 
 const domainNames: Record<string, string> = {
   general: 'دانش عمومی',
@@ -18,10 +19,9 @@ const domainNames: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY
-    const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '')
+    const { apiKey, baseUrl, model } = getOpenRouterConfig()
     if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'OPENAI_API_KEY تنظیم نشده است' }, { status: 500 })
+      return NextResponse.json({ success: false, error: 'OPENROUTER_API_KEY تنظیم نشده است' }, { status: 500 })
     }
 
     const body = await req.json()
@@ -92,12 +92,9 @@ export async function POST(req: NextRequest) {
 
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: openRouterHeaders(apiKey),
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
         messages: [{ role: 'system', content: systemPrompt }, ...recent],
         temperature: 0.7,
         max_tokens: suggestBook ? 520 : 400,
