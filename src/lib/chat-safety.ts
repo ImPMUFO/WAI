@@ -1,3 +1,5 @@
+import { parseSticker } from '@/lib/stickers'
+
 /** فیلتر ضداسپم و فقط-متن برای گفتگوی جهانی */
 
 export const MAX_BODY = 280
@@ -26,6 +28,10 @@ export function sanitizeGlobalMessage(raw: string): SafetyResult {
   text = text.replace(/\s+/g, ' ').trim()
 
   if (!text) return { ok: false, error: 'پیام خالی است.' }
+
+  // استیکر پیش‌فرض سایت
+  if (parseSticker(text)) return { ok: true, text }
+
   if (text.length > MAX_BODY) return { ok: false, error: `حداکثر ${MAX_BODY} کاراکتر.` }
 
   if (URL_RE.test(text)) {
