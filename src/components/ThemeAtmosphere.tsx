@@ -5,7 +5,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
@@ -19,17 +18,12 @@ function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
     if (!Ctx) return
     const ctx = new Ctx()
     const t0 = ctx.currentTime
-
     if (kind === 'wood') {
-      // صدای ضربه چوب / تخته (نویز کوتاه فیلترشده)
       const dur = 0.12
       const frames = Math.floor(ctx.sampleRate * dur)
       const buf = ctx.createBuffer(1, frames, ctx.sampleRate)
       const data = buf.getChannelData(0)
-      for (let i = 0; i < frames; i++) {
-        const env = Math.pow(1 - i / frames, 2.5)
-        data[i] = (Math.random() * 2 - 1) * env
-      }
+      for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / frames, 2.5)
       const src = ctx.createBufferSource()
       src.buffer = buf
       const filter = ctx.createBiquadFilter()
@@ -44,7 +38,6 @@ function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
       g.connect(ctx.destination)
       src.start(t0)
       src.stop(t0 + dur + 0.02)
-      // لایه بم تخته
       const o = ctx.createOscillator()
       const og = ctx.createGain()
       o.type = 'triangle'
@@ -58,32 +51,16 @@ function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
       o.stop(t0 + 0.11)
       return
     }
-
-    if (kind === 'leaf') {
-      const o = ctx.createOscillator()
-      const g = ctx.createGain()
-      o.type = 'sine'
-      o.frequency.setValueAtTime(520, t0)
-      o.frequency.exponentialRampToValueAtTime(280, t0 + 0.15)
-      g.gain.setValueAtTime(0.04, t0)
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16)
-      o.connect(g)
-      g.connect(ctx.destination)
-      o.start(t0)
-      o.stop(t0 + 0.17)
-      return
-    }
-
     const o = ctx.createOscillator()
     const g = ctx.createGain()
     o.type = 'sine'
-    o.frequency.value = kind === 'pearl' ? 880 : 660
+    o.frequency.value = kind === 'pearl' ? 880 : kind === 'xp' ? 660 : 420
     g.gain.value = 0.05
     o.connect(g)
     g.connect(ctx.destination)
     o.start(t0)
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18)
-    o.stop(t0 + 0.2)
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16)
+    o.stop(t0 + 0.18)
   } catch {
     /* ignore */
   }
@@ -91,21 +68,22 @@ function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
 
 function Draggable({
   className,
+  wrapClassName,
   children,
-  style,
   label,
-  onDoubleClick,
+  onActivate,
 }: {
   className?: string
+  wrapClassName?: string
   children?: ReactNode
-  style?: CSSProperties
   label?: string
-  onDoubleClick?: () => void
+  onActivate?: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
-  const [dragging, setDragging] = useState(false)
+  const dragging = useRef(false)
   const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
+  const [, force] = useState(0)
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -114,55 +92,55 @@ function Draggable({
       e.stopPropagation()
       ref.current?.setPointerCapture(e.pointerId)
       origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
-      setDragging(true)
+      dragging.current = true
+      force((n) => n + 1)
     },
     [pos.x, pos.y]
   )
 
-  const onPointerMove = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (!dragging) return
-      e.preventDefault()
-      setPos({
-        x: origin.current.x + (e.clientX - origin.current.px),
-        y: origin.current.y + (e.clientY - origin.current.py),
-      })
-    },
-    [dragging]
-  )
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return
+    e.preventDefault()
+    setPos({
+      x: origin.current.x + (e.clientX - origin.current.px),
+      y: origin.current.y + (e.clientY - origin.current.py),
+    })
+  }, [])
 
   const endDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (!dragging) return
+      if (!dragging.current) return
       try {
         ref.current?.releasePointerCapture(e.pointerId)
       } catch {
         /* ignore */
       }
-      setDragging(false)
+      const moved =
+        Math.abs(e.clientX - origin.current.px) + Math.abs(e.clientY - origin.current.py)
+      dragging.current = false
+      force((n) => n + 1)
+      if (moved < 8) onActivate?.()
     },
-    [dragging]
+    [onActivate]
   )
 
   return (
     <div
       ref={ref}
-      className={`ta-interactive${dragging ? ' is-dragging' : ''}${className ? ` ${className}` : ''}`}
+      className={`ta-drag${wrapClassName ? ` ${wrapClassName}` : ''}${dragging.current ? ' is-dragging' : ''}`}
       role="presentation"
       aria-hidden
       title={label}
       style={{
-        ...style,
-        translate: `${pos.x}px ${pos.y}px`,
-        transition: dragging ? 'none' : 'translate 0.25s ease',
+        transform: `translate(${pos.x}px, ${pos.y}px)`,
+        transition: dragging.current ? 'none' : 'transform 0.2s ease',
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onDoubleClick={onDoubleClick}
     >
-      {children}
+      <div className={className}>{children}</div>
     </div>
   )
 }
@@ -177,15 +155,17 @@ function FireEraser({
   const { dir } = useLocale()
   const side = dir === 'ltr' ? 'right' : 'left'
   const [pos, setPos] = useState({ x: 0, y: 0 })
-  const [drag, setDrag] = useState(false)
+  const drag = useRef(false)
   const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
   const ref = useRef<HTMLDivElement>(null)
   const patchesRef = useRef(patches)
   patchesRef.current = patches
+  const [, bump] = useState(0)
 
   useEffect(() => {
-    if (!drag) return
+    if (!drag.current) return
     const onMove = (e: PointerEvent) => {
+      if (!drag.current) return
       setPos({
         x: origin.current.x + (e.clientX - origin.current.px),
         y: origin.current.y + (e.clientY - origin.current.py),
@@ -218,14 +198,17 @@ function FireEraser({
         }
       }
     }
-    const onUp = () => setDrag(false)
+    const onUp = () => {
+      drag.current = false
+      bump((n) => n + 1)
+    }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
     return () => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
-  }, [drag, setPatches])
+  })
 
   return (
     <div
@@ -233,14 +216,16 @@ function FireEraser({
       className="ta-water-bucket"
       data-side={side}
       style={{
-        translate: `${pos.x}px ${pos.y}px`,
-        cursor: drag ? 'grabbing' : 'grab',
+        transform: `translate(${pos.x}px, ${pos.y}px)`,
+        cursor: drag.current ? 'grabbing' : 'grab',
         touchAction: 'none',
       }}
       onPointerDown={(e) => {
         e.preventDefault()
+        e.stopPropagation()
         origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
-        setDrag(true)
+        drag.current = true
+        bump((n) => n + 1)
       }}
       title="سطل آب"
     >
@@ -252,7 +237,6 @@ function FireEraser({
 }
 
 const ORBIT_RATIOS = [0.12, 0.18, 0.26, 0.34, 0.42, 0.5]
-
 type PlanetBody = {
   id: string
   name: string
@@ -262,7 +246,6 @@ type PlanetBody = {
   speed: number
   size: number
 }
-
 const INITIAL_PLANETS: PlanetBody[] = [
   { id: 'mercury', name: 'Mercury', className: 'p-mercury', orbit: 0, angle: 0.2, speed: 0.9, size: 14 },
   { id: 'venus', name: 'Venus', className: 'p-venus', orbit: 1, angle: 1.1, speed: 0.7, size: 18 },
@@ -289,9 +272,7 @@ function GalaxySystem() {
         setPlanets((prev) =>
           prev.map((p) => (p.id === dragId ? p : { ...p, angle: p.angle + p.speed * dt }))
         )
-      } else {
-        last = now
-      }
+      } else last = now
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -321,7 +302,7 @@ function GalaxySystem() {
         return (
           <div
             key={p.id}
-            className={`ta-interactive ta-planet ${p.className}${dragging ? ' is-dragging' : ''}`}
+            className={`ta-planet ${p.className}${dragging ? ' is-dragging' : ''}`}
             title={p.name}
             style={{
               position: 'absolute',
@@ -330,12 +311,13 @@ function GalaxySystem() {
               width: Math.max(p.size, 28),
               height: Math.max(p.size, 28),
               transform: 'translate(-50%, -50%)',
-              zIndex: dragging ? 50 : 5,
+              zIndex: dragging ? 40 : 6,
               touchAction: 'none',
             }}
             onPointerDown={(e) => {
               if (e.button !== 0 && e.pointerType === 'mouse') return
               e.preventDefault()
+              e.stopPropagation()
               e.currentTarget.setPointerCapture(e.pointerId)
               const wrap = wrapRef.current?.getBoundingClientRect()
               const rect = e.currentTarget.getBoundingClientRect()
@@ -401,8 +383,7 @@ function OceanTreasure() {
 
   useEffect(() => {
     try {
-      const day = new Date().toISOString().slice(0, 10)
-      setClaimed(localStorage.getItem(key) === day)
+      setClaimed(localStorage.getItem(key) === new Date().toISOString().slice(0, 10))
     } catch {
       setClaimed(false)
     }
@@ -413,8 +394,7 @@ function OceanTreasure() {
     const rewards = [5, 10, 15, 20, 25]
     const xp = rewards[Math.floor(Math.random() * rewards.length)]
     try {
-      const g = addXp(loadGame(), xp, 'صندوقچه دریایی')
-      saveGame(g)
+      saveGame(addXp(loadGame(), xp, 'صندوقچه دریایی'))
       localStorage.setItem(key, new Date().toISOString().slice(0, 10))
       setClaimed(true)
       setToast(`+${xp} XP`)
@@ -430,8 +410,12 @@ function OceanTreasure() {
   return (
     <>
       {!claimed && (
-        <button type="button" className="ta-treasure" onClick={open} title="صندوقچه">
-          🪙
+        <button type="button" className="ta-treasure" onClick={open} title="صندوقچه گنج">
+          <span className="ta-chest" aria-hidden>
+            <span className="ta-chest-lid" />
+            <span className="ta-chest-body" />
+            <span className="ta-chest-lock" />
+          </span>
         </button>
       )}
       {toast && <div className="ta-treasure-toast">{toast}</div>}
@@ -460,9 +444,7 @@ export default function ThemeAtmosphere() {
       if (typeof d === 'string' && isThemeId(d)) {
         setTheme(d)
         if (d === 'fire') setFirePatches(Array.from({ length: 10 }, () => true))
-      } else {
-        read()
-      }
+      } else read()
     }
     window.addEventListener('storage', read)
     window.addEventListener('waima-theme', onCustom as EventListener)
@@ -473,109 +455,114 @@ export default function ThemeAtmosphere() {
   }, [])
 
   return (
-    <div className="theme-atmosphere" data-active={theme}>
-      {/* DAY */}
-      <div className="ta-layer ta-day">
-        <div className="ta-sun" />
-        <Draggable className="ta-cloud ta-cloud-1" label="ابر" />
-        <Draggable className="ta-cloud ta-cloud-2" label="ابر" />
-        <Draggable className="ta-cloud ta-cloud-3" label="ابر" />
-        <div className="ta-grass" />
-        <div className="ta-cottage" />
+    <>
+      <div className="theme-atmosphere theme-atmosphere-bg" data-active={theme} aria-hidden>
+        <div className="ta-layer ta-day">
+          <div className="ta-sun" />
+          <div className="ta-grass" />
+          <div className="ta-cottage" />
+        </div>
+        <div className="ta-layer ta-ocean">
+          <div className="ta-wave ta-wave-1" />
+          <div className="ta-wave ta-wave-2" />
+          <div className="ta-wave ta-wave-3" />
+          <div className="ta-seaweed sw1" />
+          <div className="ta-seaweed sw2" />
+          <div className="ta-seaweed sw3" />
+          <div className="ta-bubble b1" />
+          <div className="ta-bubble b2" />
+          <div className="ta-bubble b3" />
+        </div>
+        <div className="ta-layer ta-galaxy">
+          <div className="ta-nebula" />
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className={`ta-star-dot d${i + 1}`} />
+          ))}
+        </div>
+        <div className="ta-layer ta-fire">
+          <div className="ta-lava" />
+          <div className="ta-smoke s1" />
+          <div className="ta-smoke s2" />
+        </div>
+        <div className="ta-layer ta-main">
+          <div className="ta-main-ring" />
+          <div className="ta-main-ring ta-main-ring-2" />
+          <div className="ta-main-glow g1" />
+          <div className="ta-main-glow g2" />
+          <div className="ta-main-glow g3" />
+        </div>
       </div>
 
-      {/* OCEAN — فقط وقتی فعال است سنگین‌ها را سوار کن */}
-      <div className="ta-layer ta-ocean">
-        <div className="ta-wave ta-wave-1" />
-        <div className="ta-wave ta-wave-2" />
-        <div className="ta-wave ta-wave-3" />
-        <div className="ta-seaweed sw1" />
-        <div className="ta-seaweed sw2" />
-        <div className="ta-seaweed sw3" />
-        <div className="ta-bubble b1" />
-        <div className="ta-bubble b2" />
-        <div className="ta-bubble b3" />
-        {theme === 'ocean' && (
-          <>
-            <Draggable className="ta-fish f1" label="ماهی">
-              <span className="ta-fish-fin" />
-              <span className="ta-fish-eye" />
-            </Draggable>
-            <Draggable className="ta-fish f2" label="ماهی">
-              <span className="ta-fish-fin" />
-              <span className="ta-fish-eye" />
-            </Draggable>
-            <Draggable className="ta-fish f3" label="ماهی">
-              <span className="ta-fish-fin" />
-              <span className="ta-fish-eye" />
-            </Draggable>
-            <Draggable className="ta-jelly j1" label="عروس دریایی" />
-            <Draggable className="ta-jelly j2" label="عروس دریایی" />
-            {['s1', 's2', 's3', 's4'].map((id) => (
-              <Draggable
-                key={id}
-                className={`ta-shell ${id}`}
-                label="صدف"
-                onDoubleClick={() => {
-                  if (pearls[id]) return
-                  setPearls((p) => ({ ...p, [id]: true }))
-                  playTick('pearl')
-                }}
-              >
-                {pearls[id] && <span className="ta-pearl" />}
-              </Draggable>
-            ))}
-            <OceanTreasure />
-          </>
-        )}
-      </div>
-
-      {/* GALAXY */}
-      <div className="ta-layer ta-galaxy">
-        <div className="ta-nebula" />
-        {Array.from({ length: 8 }, (_, i) => (
-          <div key={i} className={`ta-star-dot d${i + 1}`} />
-        ))}
-        {theme === 'galaxy' && <GalaxySystem />}
-      </div>
-
-      {/* FIRE */}
-      <div className="ta-layer ta-fire">
-        {theme === 'fire' &&
-          firePatches.map((on, i) =>
-            on ? <div key={i} data-fire-patch={i} className={`ta-ember e${(i % 5) + 1}`} /> : null
+      <div className="theme-atmosphere theme-atmosphere-fg" data-active={theme} aria-hidden>
+        <div className="ta-layer ta-day">
+          {theme === 'day' && (
+            <>
+              <Draggable wrapClassName="ta-pos-cloud-1" className="ta-cloud ta-cloud-1" label="ابر" />
+              <Draggable wrapClassName="ta-pos-cloud-2" className="ta-cloud ta-cloud-2" label="ابر" />
+              <Draggable wrapClassName="ta-pos-cloud-3" className="ta-cloud ta-cloud-3" label="ابر" />
+            </>
           )}
-        <div className="ta-lava" />
-        <div className="ta-smoke s1" />
-        <div className="ta-smoke s2" />
-        {theme === 'fire' && <FireEraser patches={firePatches} setPatches={setFirePatches} />}
-      </div>
+        </div>
 
-      {/* WOOD */}
-      <div className="ta-layer ta-wood">
-        {theme === 'wood' && (
-          <>
-            <Draggable className="ta-leaf l1" label="برگ" onDoubleClick={() => playTick('leaf')} />
-            <Draggable className="ta-leaf l2" label="برگ" onDoubleClick={() => playTick('leaf')} />
-            <Draggable className="ta-leaf l3" label="برگ" onDoubleClick={() => playTick('leaf')} />
-            <Draggable className="ta-leaf l1b" label="برگ" onDoubleClick={() => playTick('leaf')} />
-            <Draggable
-              className="ta-log"
-              label="چوب"
-              onDoubleClick={() => playTick('wood')}
-            />
-          </>
-        )}
-      </div>
+        <div className="ta-layer ta-ocean">
+          {theme === 'ocean' && (
+            <>
+              <Draggable wrapClassName="ta-pos-f1" className="ta-fish f1" label="ماهی">
+                <span className="ta-fish-fin" />
+                <span className="ta-fish-eye" />
+              </Draggable>
+              <Draggable wrapClassName="ta-pos-f2" className="ta-fish f2" label="ماهی">
+                <span className="ta-fish-fin" />
+                <span className="ta-fish-eye" />
+              </Draggable>
+              <Draggable wrapClassName="ta-pos-f3" className="ta-fish f3" label="ماهی">
+                <span className="ta-fish-fin" />
+                <span className="ta-fish-eye" />
+              </Draggable>
+              <Draggable wrapClassName="ta-pos-j1" className="ta-jelly j1" label="عروس دریایی" />
+              <Draggable wrapClassName="ta-pos-j2" className="ta-jelly j2" label="عروس دریایی" />
+              {(['s1', 's2', 's3', 's4'] as const).map((id) => (
+                <Draggable
+                  key={id}
+                  wrapClassName={`ta-pos-shell-${id}`}
+                  className={`ta-shell ${id}`}
+                  label="صدف"
+                  onActivate={() => {
+                    if (pearls[id]) return
+                    setPearls((p) => ({ ...p, [id]: true }))
+                    playTick('pearl')
+                  }}
+                >
+                  {pearls[id] && <span className="ta-pearl" />}
+                </Draggable>
+              ))}
+              <OceanTreasure />
+            </>
+          )}
+        </div>
 
-      {/* MAIN */}
-      <div className="ta-layer ta-main">
-        <div className="ta-main-ring" />
-        <div className="ta-main-ring ta-main-ring-2" />
-        <div className="ta-main-glow g1" />
-        <div className="ta-main-glow g2" />
-        <div className="ta-main-glow g3" />
+        <div className="ta-layer ta-galaxy">{theme === 'galaxy' && <GalaxySystem />}</div>
+
+        <div className="ta-layer ta-fire">
+          {theme === 'fire' &&
+            firePatches.map((on, i) =>
+              on ? <div key={i} data-fire-patch={i} className={`ta-ember e${(i % 5) + 1}`} /> : null
+            )}
+          {theme === 'fire' && <FireEraser patches={firePatches} setPatches={setFirePatches} />}
+        </div>
+
+        <div className="ta-layer ta-wood">
+          {theme === 'wood' && (
+            <>
+              <Draggable wrapClassName="ta-pos-l1" className="ta-leaf l1" label="برگ" onActivate={() => playTick('leaf')} />
+              <Draggable wrapClassName="ta-pos-l2" className="ta-leaf l2" label="برگ" onActivate={() => playTick('leaf')} />
+              <Draggable wrapClassName="ta-pos-l3" className="ta-leaf l3" label="برگ" onActivate={() => playTick('leaf')} />
+              <Draggable wrapClassName="ta-pos-l4" className="ta-leaf l4" label="برگ" onActivate={() => playTick('leaf')} />
+              <Draggable wrapClassName="ta-pos-log" className="ta-log" label="چوب" onActivate={() => playTick('wood')} />
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
