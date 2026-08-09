@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { User, Mail, LogIn, Palette, Globe, ChevronLeft, X } from 'lucide-react'
+import { User, Mail, LogIn, Palette, Globe, ChevronLeft, X, Dices } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
@@ -18,6 +18,7 @@ export default function SiteMenu() {
   const [open, setOpen] = useState(false)
   const [visible, setVisible] = useState(false)
   const [loggedIn, setLoggedIn] = useState(false)
+  const [wheelChances, setWheelChances] = useState(0)
   const [mounted, setMounted] = useState(false)
 
   const isRtl = dir !== 'ltr'
@@ -25,6 +26,22 @@ export default function SiteMenu() {
   const fromLeft = isRtl
 
   useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    const read = () => {
+      try {
+        setWheelChances(Number(localStorage.getItem('waima_wheel_chances') || '0') || 0)
+      } catch {
+        setWheelChances(0)
+      }
+    }
+    read()
+    window.addEventListener('waima-wheel-chances', read)
+    window.addEventListener('waima-level-up', read)
+    return () => {
+      window.removeEventListener('waima-wheel-chances', read)
+      window.removeEventListener('waima-level-up', read)
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -180,6 +197,33 @@ export default function SiteMenu() {
               </Link>
             ))}
           </nav>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (wheelChances <= 0) return
+              close()
+              window.dispatchEvent(new Event('waima-open-wheel'))
+            }}
+            className="mb-3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium"
+            style={{
+              color: 'var(--text)',
+              opacity: wheelChances > 0 ? 1 : 0.45,
+              background: wheelChances > 0 ? 'var(--accent-dim)' : 'transparent',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <span
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ background: 'var(--card-solid)', color: 'var(--accent)' }}
+            >
+              🎡
+            </span>
+            <span className="flex-1 text-start">
+              {locale === 'en' ? 'Luck wheel' : locale === 'ar' ? 'عجلة الحظ' : 'گردونه شانس'}
+              {wheelChances > 0 ? ` (${wheelChances})` : ''}
+            </span>
+          </button>
 
           <p
             className="px-2 mb-1.5 text-[11px] font-semibold uppercase tracking-wide"
