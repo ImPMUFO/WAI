@@ -239,6 +239,28 @@ function jpegToPdf(jpegBase64: string, imgW: number, imgH: number): Blob {
   return new Blob([out], { type: 'application/pdf' })
 }
 
+
+function buildMapInterpretation(map: MapData | null, dict: any): string {
+  if (!map?.nodes?.length) {
+    return dict.mapEmptyHint || 'هنوز گره‌ای کشف نشده. با گفتگو نقشه شکل می‌گیرد.'
+  }
+  const known = map.nodes.filter((n) => n.status === 'known')
+  const near = map.nodes.filter((n) => n.status === 'near')
+  const far = map.nodes.filter((n) => n.status === 'far')
+  const avg =
+    known.length > 0
+      ? Math.round(known.reduce((s, n) => s + (n.mastery || 0), 0) / known.length)
+      : 0
+  const top = [...known].sort((a, b) => (b.mastery || 0) - (a.mastery || 0)).slice(0, 3)
+  const names = top.map((n) => n.title).join('، ')
+  return (
+    `نقشه ذهنی تو ${map.nodes.length} گره دارد: ${known.length} معلوم، ${near.length} نزدیک، ${far.length} در افق. ` +
+    (avg ? `میانگین تسلط بخش‌های معلوم حدود ${avg}٪ است. ` : '') +
+    (names ? `قوی‌ترین نقاط: ${names}. ` : '') +
+    `با گفتگوی بیشتر، مه کنار می‌رود و مسیر یادگیری‌ات روشن‌تر می‌شود.`
+  )
+}
+
 export default function KnowledgeMapPage() {
   const { dict, dir, locale } = useLocale()
   const [map, setMap] = useState<MapData | null>(null)
@@ -544,8 +566,28 @@ export default function KnowledgeMapPage() {
     ctx.textBaseline = 'bottom'
     ctx.fillText(title, size / 2, size - 24 * scale)
 
+    // تفسیر نقشه در خروجی
+    const interpretation = buildMapInterpretation(map, dict)
+    ctx.font = `500 ${Math.round(13 * scale)}px ${fontFamily}`
+    ctx.fillStyle = text
+    ctx.globalAlpha = 0.9
+    const maxW = size - 80 * scale
+    const words = interpretation.split(' ')
+    let line = ''
+    let ly = size - 70 * scale
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w
+      if (ctx.measureText(test).width > maxW) {
+        ctx.fillText(line, size / 2, ly)
+        ly += 18 * scale
+        line = w
+      } else line = test
+    }
+    if (line) ctx.fillText(line, size / 2, ly)
+    ctx.globalAlpha = 1
+
     return canvas
-  }, [laid, links, map?.domainTitle, dict.mapTitle])
+  }, [laid, links, map, dict])
 
   const confirmExport = (format: 'jpg' | 'pdf') => {
     const fp = mapFingerprint(map)
@@ -850,6 +892,9 @@ export default function KnowledgeMapPage() {
             </svg>
           </div>
 
+          <div className="map-interpretation absolute bottom-10 inset-x-3 sm:inset-x-8 rounded-xl border border-[var(--border)] px-3 py-2 text-[11px] sm:text-xs leading-relaxed pointer-events-none" style={{ background: 'color-mix(in srgb, var(--card-solid) 92%, transparent)', color: 'var(--text)' }}>
+            {buildMapInterpretation(map, dict)}
+          </div>
           <p className="absolute bottom-2 inset-x-0 text-center text-[10px] text-[var(--muted)] pointer-events-none">
             {dir === 'ltr'
               ? 'Drag to pan · Wheel / pinch to zoom · Export JPG or PDF'
