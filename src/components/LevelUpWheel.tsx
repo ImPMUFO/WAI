@@ -7,7 +7,7 @@ import {
   setSavedAvatar,
   unlockSpecial,
 } from '@/lib/avatars'
-import { consumeWheelChance } from '@/lib/gamification'
+import { consumeWheelChance, getWheelChances } from '@/lib/gamification'
 
 type Props = {
   open: boolean
@@ -43,6 +43,7 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
   const [miss, setMiss] = useState(false)
   const [rotation, setRotation] = useState(0)
   const done = useRef(false)
+  const [chances, setChances] = useState(0)
 
   const segments = useMemo(() => ['✨', '🔥', '💎', '👑', '🌊', '⭐', '🎯', '❌'], [])
 
@@ -53,11 +54,17 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
       setResultLabel('')
       setMiss(false)
       done.current = false
+    } else {
+      try {
+        setChances(getWheelChances())
+      } catch {
+        setChances(0)
+      }
     }
   }, [open])
 
   const spin = () => {
-    if (spinning || done.current) return
+    if (spinning || done.current || chances <= 0) return
     setSpinning(true)
     setResultUrl(null)
     setMiss(false)
@@ -78,7 +85,8 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
         setMiss(true)
       }
       done.current = true
-      consumeWheelChance()
+      const left = consumeWheelChance()
+      setChances(left)
       setSpinning(false)
     }, 3200)
   }
@@ -112,9 +120,19 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
         </div>
 
         {!resultUrl && !miss && (
-          <button type="button" disabled={spinning} onClick={spin} className="btn-primary w-full py-3">
-            {spinning ? 'می‌چرخد…' : 'بچرخان'}
-          </button>
+          <>
+            <p className="text-center text-xs text-[var(--muted)] mb-2">
+              {chances > 0 ? `${chances} شانس باقی‌مانده` : 'شانسی برای چرخاندن ندارید — با ارتقای سطح شانس بگیرید'}
+            </p>
+            <button
+              type="button"
+              disabled={spinning || chances <= 0}
+              onClick={spin}
+              className="btn-primary w-full py-3 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {spinning ? 'می‌چرخد…' : chances > 0 ? 'بچرخان' : 'بدون شانس'}
+            </button>
+          </>
         )}
 
         {resultUrl && (
