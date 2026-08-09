@@ -15,27 +15,33 @@ import { addXp, loadGame, saveGame } from '@/lib/gamification'
 
 /* ---------- Ambient audio (home only) ---------- */
 function useThemeAmbient(theme: ThemeId, enabled: boolean) {
-  const ctxRef = useRef<AudioContext | null>(null)
   const nodesRef = useRef<{ stop: () => void } | null>(null)
+  const unlockedRef = useRef(false)
 
   useEffect(() => {
-    if (!enabled) {
+    let cancelled = false
+
+    const stopAll = () => {
       nodesRef.current?.stop()
       nodesRef.current = null
+    }
+
+    if (!enabled) {
+      stopAll()
       return
     }
-    let stopped = false
+
     const start = async () => {
+      if (cancelled || !unlockedRef.current) return
       try {
         const Ctx = window.AudioContext || (window as any).webkitAudioContext
         if (!Ctx) return
-        const ctx: AudioContext = ctxRef.current || new Ctx()
-        ctxRef.current = ctx
+        const ctx: AudioContext = new Ctx()
         if (ctx.state === 'suspended') await ctx.resume()
-        nodesRef.current?.stop()
+        stopAll()
 
         const master = ctx.createGain()
-        master.gain.value = 0.035
+        master.gain.value = 0.03
         master.connect(ctx.destination)
 
         const stoppers: Array<() => void> = []
@@ -53,17 +59,15 @@ function useThemeAmbient(theme: ThemeId, enabled: boolean) {
             lfo.connect(lg)
             lg.connect(o.frequency)
             lfo.start()
-            stoppers.push(() => lfo.stop())
+            stoppers.push(() => {
+              try { lfo.stop() } catch { /* */ }
+            })
           }
           o.connect(g)
           g.connect(master)
           o.start()
           stoppers.push(() => {
-            try {
-              o.stop()
-            } catch {
-              /* */
-            }
+            try { o.stop() } catch { /* */ }
           })
         }
 
@@ -74,41 +78,53 @@ function useThemeAmbient(theme: ThemeId, enabled: boolean) {
           addOsc('triangle', 520, 0.08, 1.2)
           addOsc('sine', 180, 0.12, 0.15)
         } else if (theme === 'ocean') {
-          // soft noise-ish via detuned sines
           addOsc('sine', 60, 0.35, 0.2)
           addOsc('sine', 90, 0.2, 0.35)
-          addOsc('triangle', 40, 0.15, 0.1)
         } else if (theme === 'fire') {
           addOsc('sawtooth', 55, 0.08, 8)
-          addOsc('square', 90, 0.04, 12)
         } else if (theme === 'galaxy') {
           addOsc('sine', 80, 0.25, 0.04)
           addOsc('sine', 240, 0.08, 0.07)
         } else if (theme === 'wood') {
           addOsc('sine', 100, 0.2, 0.12)
-          addOsc('triangle', 220, 0.06, 0.3)
         }
 
         nodesRef.current = {
           stop: () => {
             stoppers.forEach((s) => s())
-            master.disconnect()
+            try { master.disconnect() } catch { /* */ }
+            try { ctx.close() } catch { /* */ }
           },
         }
       } catch {
-        /* ignore */
+        /* ignore audio errors */
       }
     }
-    void start()
+
+    const unlock = () => {
+      unlockedRef.current = true
+      void start()
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+
+    if (!unlockedRef.current) {
+      window.addEventListener('pointerdown', unlock, { once: true })
+      window.addEventListener('keydown', unlock, { once: true })
+    } else {
+      void start()
+    }
+
     return () => {
-      stopped = true
-      nodesRef.current?.stop()
-      nodesRef.current = null
+      cancelled = true
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+      stopAll()
     }
   }, [theme, enabled])
 }
 
-function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
+function playTickfunction playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
     const o = ctx.createOscillator()
@@ -219,6 +235,9 @@ function FireEraser({
   const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
   const ref = useRef<HTMLDivElement>(null)
 
+  const patchesRef = useRef(patches)
+  patchesRef.current = patches
+
   useEffect(() => {
     if (!drag) return
     const onMove = (e: PointerEvent) => {
@@ -230,11 +249,11 @@ function FireEraser({
       if (!bucket) return
       const bx = bucket.left + bucket.width / 2
       const by = bucket.top + bucket.height / 2
-      const next = [...patches]
+      const next = [...patchesRef.current]
       let changed = false
       document.querySelectorAll<HTMLElement>('[data-fire-patch]').forEach((el) => {
         const i = Number(el.dataset.firePatch)
-        if (next[i] === false) return
+        if (!Number.isFinite(i) || next[i] === false) return
         const r = el.getBoundingClientRect()
         const cx = r.left + r.width / 2
         const cy = r.top + r.height / 2
@@ -244,6 +263,7 @@ function FireEraser({
         }
       })
       if (changed) {
+        patchesRef.current = next
         setPatches(next)
         if (next.every((v) => !v)) {
           try {
@@ -263,7 +283,7 @@ function FireEraser({
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
-  }, [drag, patches, setPatches])
+  }, [drag, setPatches])
 
   return (
     <div
@@ -319,6 +339,11 @@ function GalaxySystem() {
     let raf = 0
     let last = performance.now()
     const tick = (now: number) => {
+      if (document.hidden) {
+        last = now
+        raf = requestAnimationFrame(tick)
+        return
+      }
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       setPlanets((prev) =>
@@ -479,32 +504,53 @@ export default function ThemeAtmosphere() {
 
   useEffect(() => {
     const read = () => {
-      const saved = localStorage.getItem(THEME_KEY) || 'main'
-      setTheme(isThemeId(saved) ? saved : 'main')
-    }
-    read()
-    const path = () => setOnHome(window.location.pathname === '/')
-    path()
-    const onCustom = (e: Event) => {
-      const d = (e as CustomEvent).detail
-      if (typeof d === 'string' && isThemeId(d)) setTheme(d)
-      else read()
-      if (typeof d === 'string' && d === 'fire') {
-        setFirePatches(Array.from({ length: 10 }, () => true))
+      try {
+        const saved = localStorage.getItem(THEME_KEY) || 'main'
+        const t = isThemeId(saved) ? saved : 'main'
+        setTheme((prev) => (prev === t ? prev : t))
+      } catch {
+        /* ignore */
       }
     }
+    read()
+
+    const syncPath = () => {
+      const home = window.location.pathname === '/'
+      setOnHome((prev) => (prev === home ? prev : home))
+    }
+    syncPath()
+
+    const onCustom = (e: Event) => {
+      const d = (e as CustomEvent).detail
+      if (typeof d === 'string' && isThemeId(d)) {
+        setTheme(d)
+        if (d === 'fire') setFirePatches(Array.from({ length: 10 }, () => true))
+      } else {
+        read()
+      }
+    }
+
+    // ناوبری App Router: کلیک روی لینک‌های داخلی
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.('a')
+      if (!a) return
+      const href = a.getAttribute('href')
+      if (!href || href.startsWith('http') || href.startsWith('mailto:')) return
+      window.setTimeout(syncPath, 50)
+    }
+
     window.addEventListener('storage', read)
     window.addEventListener('waima-theme', onCustom as EventListener)
-    window.addEventListener('popstate', path)
-    // observe SPA navigations via click on links
-    const obs = new MutationObserver(path)
-    obs.observe(document.body, { childList: true, subtree: true })
-    const t = window.setInterval(path, 800)
+    window.addEventListener('popstate', syncPath)
+    document.addEventListener('click', onClick, true)
+    // فقط هر ۳ ثانیه یک‌بار (بدون MutationObserver که باعث هنگ می‌شد)
+    const t = window.setInterval(syncPath, 3000)
+
     return () => {
       window.removeEventListener('storage', read)
       window.removeEventListener('waima-theme', onCustom as EventListener)
-      window.removeEventListener('popstate', path)
-      obs.disconnect()
+      window.removeEventListener('popstate', syncPath)
+      document.removeEventListener('click', onClick, true)
       window.clearInterval(t)
     }
   }, [])
