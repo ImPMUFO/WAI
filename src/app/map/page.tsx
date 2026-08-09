@@ -242,22 +242,32 @@ function jpegToPdf(jpegBase64: string, imgW: number, imgH: number): Blob {
 
 function buildMapInterpretation(map: MapData | null, dict: any): string {
   if (!map?.nodes?.length) {
-    return dict.mapEmptyHint || 'هنوز گره‌ای کشف نشده. با گفتگو نقشه شکل می‌گیرد.'
+    return dict.mapEmptyHint || 'هنوز گره‌ای کشف نشده. با گفتگو، بازی و فعالیت در سایت نقشه شکل می‌گیرد.'
   }
   const known = map.nodes.filter((n) => n.status === 'known')
   const near = map.nodes.filter((n) => n.status === 'near')
   const far = map.nodes.filter((n) => n.status === 'far')
-  const avg =
+  const avgAll =
+    map.nodes.length > 0
+      ? Math.round(map.nodes.reduce((s, n) => s + (n.mastery || 0), 0) / map.nodes.length)
+      : 0
+  const avgKnown =
     known.length > 0
       ? Math.round(known.reduce((s, n) => s + (n.mastery || 0), 0) / known.length)
       : 0
   const top = [...known].sort((a, b) => (b.mastery || 0) - (a.mastery || 0)).slice(0, 3)
+  const weak = [...near, ...far].sort((a, b) => (a.mastery || 0) - (b.mastery || 0)).slice(0, 2)
   const names = top.map((n) => n.title).join('، ')
+  const weakNames = weak.map((n) => n.title).join('، ')
+  const coverage = Math.round((known.length / Math.max(1, map.nodes.length)) * 100)
   return (
-    `نقشه ذهنی تو ${map.nodes.length} گره دارد: ${known.length} معلوم، ${near.length} نزدیک، ${far.length} در افق. ` +
-    (avg ? `میانگین تسلط بخش‌های معلوم حدود ${avg}٪ است. ` : '') +
-    (names ? `قوی‌ترین نقاط: ${names}. ` : '') +
-    `با گفتگوی بیشتر، مه کنار می‌رود و مسیر یادگیری‌ات روشن‌تر می‌شود.`
+    `تفسیر نقشه ذهنی: ${map.nodes.length} گره — ${known.length} معلوم، ${near.length} نزدیک یادگیری، ${far.length} در مه. ` +
+    `پوشش کشف‌شده حدود ${coverage}٪ و میانگین تسلط کلی ${avgAll}٪` +
+    (avgKnown ? ` (میانگین معلوم‌ها ${avgKnown}٪)` : '') +
+    '. ' +
+    (names ? `نقاط قوت: ${names}. ` : '') +
+    (weakNames ? `پیشنهاد تمرکز بعدی: ${weakNames}. ` : '') +
+    'گفتگو با WAIMA، بازی‌ها و توجه به پوسته‌ها این نقشه را رشد می‌دهند؛ گفتگوی جهانی روی آن اثر ندارد.'
   )
 }
 
