@@ -2,36 +2,41 @@
 
 import { useEffect, useState } from 'react'
 import LevelUpWheel from '@/components/LevelUpWheel'
-import { PENDING_LEVEL_UP_KEY, loadGame } from '@/lib/gamification'
+import { PENDING_LEVEL_UP_KEY, loadGame, getWheelChances } from '@/lib/gamification'
 
-/**
- * گردونه شانس سراسری — هر ارتقای سطح = ۱ شانس
- * روی همه صفحات گوش می‌دهد
- */
 export default function GlobalWheelHost() {
   const [open, setOpen] = useState(false)
   const [level, setLevel] = useState(1)
 
-  const check = () => {
-    try {
-      const pending = localStorage.getItem(PENDING_LEVEL_UP_KEY)
-      if (pending) {
-        setLevel(Number(pending) || loadGame().level || 1)
-        setOpen(true)
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
   useEffect(() => {
-    check()
-    const onLvl = () => check()
-    window.addEventListener('waima-level-up', onLvl)
-    window.addEventListener('storage', onLvl)
+    const checkPending = () => {
+      try {
+        const pending = localStorage.getItem(PENDING_LEVEL_UP_KEY)
+        if (pending) {
+          setLevel(Number(pending) || loadGame().level || 1)
+          setOpen(true)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    const openManual = () => {
+      try {
+        if (getWheelChances() <= 0) return
+        setLevel(loadGame().level || 1)
+        setOpen(true)
+      } catch {
+        /* ignore */
+      }
+    }
+    checkPending()
+    window.addEventListener('waima-level-up', checkPending)
+    window.addEventListener('waima-open-wheel', openManual)
+    window.addEventListener('storage', checkPending)
     return () => {
-      window.removeEventListener('waima-level-up', onLvl)
-      window.removeEventListener('storage', onLvl)
+      window.removeEventListener('waima-level-up', checkPending)
+      window.removeEventListener('waima-open-wheel', openManual)
+      window.removeEventListener('storage', checkPending)
     }
   }, [])
 
