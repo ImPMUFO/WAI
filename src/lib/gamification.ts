@@ -3,6 +3,7 @@
 export const GAME_KEY = 'wai_game_state_v1'
 export const ACTIVE_DOMAINS_KEY = 'wai_active_domains'
 export const PENDING_LEVEL_UP_KEY = 'waima_pending_level_up'
+export const WHEEL_CHANCES_KEY = 'waima_wheel_chances'
 
 export type AchievementId =
   | 'first_chat'
@@ -227,7 +228,12 @@ export function addXp(g: GameState, amount: number, reason: string): GameState {
     ].slice(0, 40)
     try {
       localStorage.setItem(PENDING_LEVEL_UP_KEY, String(after.level))
-      if (typeof window !== 'undefined') window.dispatchEvent(new Event('waima-level-up'))
+      const cur = Number(localStorage.getItem(WHEEL_CHANCES_KEY) || '0') || 0
+      localStorage.setItem(WHEEL_CHANCES_KEY, String(cur + Math.max(1, after.level - leveled.level)))
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('waima-level-up'))
+        window.dispatchEvent(new Event('waima-wheel-chances'))
+      }
     } catch {
       /* ignore */
     }
@@ -380,4 +386,25 @@ export function onQuizQuestionAnswered(
   }
   saveGame(g)
   return { state: g, alreadyAnswered: false, gainedXp: g.xp - before }
+}
+
+
+export function getWheelChances(): number {
+  try {
+    return Math.max(0, Number(localStorage.getItem(WHEEL_CHANCES_KEY) || '0') || 0)
+  } catch {
+    return 0
+  }
+}
+
+export function consumeWheelChance(): number {
+  try {
+    const n = getWheelChances()
+    const next = Math.max(0, n - 1)
+    localStorage.setItem(WHEEL_CHANCES_KEY, String(next))
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('waima-wheel-chances'))
+    return next
+  } catch {
+    return 0
+  }
 }
