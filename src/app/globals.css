@@ -357,8 +357,8 @@ main {
   position: absolute;
   bottom: 16%;
   right: 12%;
-  width: 56px;
-  height: 36px;
+  width: 120px;
+  height: 94px;
   background: #d6b896;
   border-radius: 3px 3px 0 0;
   box-shadow: inset 0 -6px 0 #b8956c;
@@ -1138,3 +1138,165 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
   right: auto !important;
   bottom: auto !important;
 }
+
+/* خورشید قابل‌درگ — انیمیشن خودکار خاموش */
+.ta-sun.ta-sun-drag,
+.ta-drag .ta-sun {
+  animation: none !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 64px;
+  height: 64px;
+}
+.ta-pos-sun {
+  left: 12%;
+  top: 6%;
+  z-index: 3;
+}
+
+/* گربه سیامی */
+.ta-cat {
+  position: absolute;
+  bottom: 11%;
+  width: 52px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  z-index: 5;
+  pointer-events: auto;
+  transition: filter 0.2s ease;
+}
+.ta-cat-body {
+  position: absolute;
+  left: 8px;
+  bottom: 0;
+  width: 30px;
+  height: 18px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 55%, #0f172a 100%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.ta-cat-head {
+  position: absolute;
+  left: 0;
+  bottom: 8px;
+  width: 20px;
+  height: 18px;
+  border-radius: 10px 10px 8px 8px;
+  background: linear-gradient(180deg, #f8fafc 40%, #0f172a 100%);
+}
+.ta-cat-ear {
+  position: absolute;
+  top: -6px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid #0f172a;
+}
+.ta-cat-ear.l { left: 0; }
+.ta-cat-ear.r { right: 0; }
+.ta-cat-ear::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 3px;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-bottom: 5px solid #fbcfe8;
+}
+.ta-cat-eye {
+  position: absolute;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #67e8f9, #0284c7);
+  box-shadow: 0 0 4px rgba(34, 211, 238, 0.8);
+}
+.ta-cat-eye.l { left: 3px; }
+.ta-cat-eye.r { right: 3px; }
+.ta-cat.is-looking .ta-cat-eye {
+  transform: scale(1.25);
+  box-shadow: 0 0 8px rgba(125, 211, 252, 1);
+}
+.ta-cat-nose {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 4px;
+  height: 3px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: #f9a8d4;
+}
+.ta-cat-tail {
+  position: absolute;
+  right: 0;
+  bottom: 10px;
+  width: 16px;
+  height: 4px;
+  border-radius: 4px;
+  background: #0f172a;
+  transform-origin: left center;
+  animation: ta-cat-tail 1.2s ease-in-out infinite;
+}
+.ta-cat.is-looking .ta-cat-tail {
+  animation-duration: 0.5s;
+}
+@keyframes ta-cat-tail {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(18deg); }
+}
+@media (min-width: 768px) {
+  .ta-cat { width: 64px; height: 44px; bottom: 12%; }
+  .ta-cat-body { width: 38px; height: 22px; }
+  .ta-cat-head { width: 24px; height: 22px; }
+  .ta-cottage { width: 140px !important; height: 110px !important; }
+}
+
+/* کهکشان موبایل پایین‌تر */
+@media (max-width: 640px) {
+  .theme-atmosphere-fg .ta-galaxy-system,
+  .ta-galaxy-system {
+    top: 68% !important;
+    width: min(96vw, 340px) !important;
+    height: min(96vw, 340px) !important;
+  }
+}
+
+/* ماهی دو طرفه — انیمیشن روی خود ماهی داخل درگ خاموش نشود */
+.ta-drag .ta-fish.f1 { animation: ta-fish-swim-ltr 10s ease-in-out infinite; }
+.ta-drag .ta-fish.f2 { animation: ta-fish-swim-rtl 12s ease-in-out infinite; }
+.ta-drag .ta-fish.f3 { animation: ta-fish-swim-ltr 14s ease-in-out infinite; animation-delay: 1s; }
+@keyframes ta-fish-swim-ltr {
+  0%, 100% { transform: translateX(0) scaleX(1); }
+  50% { transform: translateX(18px) scaleX(1); }
+}
+@keyframes ta-fish-swim-rtl {
+  0%, 100% { transform: translateX(0) scaleX(-1); }
+  50% { transform: translateX(-18px) scaleX(-1); }
+}
+
+/* شعله‌ها پخش‌تر برای پاک کردن تدریجی */
+.ta-ember {
+  opacity: 0.95;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.theme-atmosphere-fg .ta-layer.ta-fire {
+  transition: opacity 0.8s ease;
+}
+
+/* جلوگیری از غیب شدن ناگهانی لایه‌ها */
+.theme-atmosphere .ta-layer {
+  transition: opacity 0.7s ease !important;
+}
+.theme-atmosphere .ta-drag {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.ta-log { display: none !important; }
