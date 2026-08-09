@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOpenRouterConfig, openRouterHeaders } from '@/lib/ai'
+import { getAIConfig, aiHeaders } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -65,7 +65,7 @@ function shuffle<T>(arr: T[], rand: () => number) {
 }
 
 async function aiGames(kind: string, date: string, locale: string) {
-  const { apiKey, baseUrl, model } = getOpenRouterConfig()
+  const { apiKey, baseUrl, model } = getAIConfig('games')
   if (!apiKey) return null
 
   const lang = locale === 'en' ? 'English' : locale === 'ar' ? 'Arabic' : 'Persian (Farsi)'
@@ -86,7 +86,7 @@ No markdown.`
   try {
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: openRouterHeaders(apiKey),
+      headers: aiHeaders(apiKey),
       body: JSON.stringify({
         model,
         temperature: 0.8,
