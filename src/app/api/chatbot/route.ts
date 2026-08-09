@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOpenRouterConfig, openRouterHeaders, extractMessageText } from '@/lib/ai'
 
+const MODEL_FALLBACKS = [
+  'deepseek/deepseek-chat:free',
+  'deepseek/deepseek-r1:free',
+  'openrouter/free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'deepseek/deepseek-v4-flash',
+]
+
+
 const domainNames: Record<string, string> = {
   general: 'دانش عمومی',
   philosophy: 'فلسفه',
@@ -98,12 +107,14 @@ export async function POST(req: NextRequest) {
     }
 
     let lastError = ''
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const modelsToTry = [model, ...MODEL_FALLBACKS.filter((m) => m !== model)]
+    for (let attempt = 0; attempt < modelsToTry.length; attempt++) {
       try {
+        const tryModel = modelsToTry[attempt]
         const resp = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
           headers: openRouterHeaders(apiKey),
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, model: tryModel }),
         })
         const textBody = await resp.text()
         if (!resp.ok) {
