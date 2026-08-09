@@ -1,53 +1,39 @@
 /**
- * تنظیمات OpenRouter برای WAIMA
+ * تنظیمات SambaNova برای WAIMA
  *
  * Vercel env:
- *   OPENROUTER_API_KEY  (الزامی)
- *   OPENROUTER_MODEL    (اختیاری)
- *
- * بسیاری از مدل‌های deepseek/*:free دیگر رایگان نیستند.
- * پیش‌فرض: openrouter/free (مسیریاب مدل‌های واقعاً رایگان)
- *
- * پولی (اگر اعتبار داری):
- *   deepseek/deepseek-chat
- *   deepseek/deepseek-v4-flash
- *   deepseek/deepseek-v4-pro
+ *   SAMBANOVA_API_KEY    (الزامی)
+ *   SAMBANOVA_BASE_URL   (اختیاری — پیش‌فرض https://api.sambanova.ai/v1)
+ *   SAMBANOVA_MODEL      (اختیاری — پیش‌فرض DeepSeek-V3.1)
  */
 
-/** مدل‌هایی که هنوز معمولاً endpoint رایگان دارند */
+/** مدل‌های جایگزین روی SambaNova */
 export const FREE_FALLBACKS = [
-  'openrouter/free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'google/gemma-3-12b-it:free',
-  'qwen/qwen3-8b:free',
-  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'DeepSeek-V3.1',
+  'DeepSeek-V3.2',
+  'Meta-Llama-3.3-70B-Instruct',
+  'MiniMax-M2.7',
 ]
 
-/** اگر اعتبار OpenRouter داری این‌ها کیفیت بهتری دارند */
+/** مدل‌های پشتیبان (همان مدل‌های قوی SambaNova) */
 export const PAID_FALLBACKS = [
-  'deepseek/deepseek-chat',
-  'deepseek/deepseek-v4-flash',
+  'DeepSeek-V3.1',
+  'DeepSeek-V3.2',
 ]
 
 export function getOpenRouterConfig() {
-  const apiKey = (
-    process.env.OPENROUTER_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    ''
-  ).trim()
+  const apiKey = (process.env.SAMBANOVA_API_KEY || '').trim()
 
   const baseUrl = (
-    process.env.OPENROUTER_BASE_URL ||
-    process.env.OPENAI_BASE_URL ||
-    'https://openrouter.ai/api/v1'
+    process.env.SAMBANOVA_BASE_URL ||
+    'https://api.sambanova.ai/v1'
   )
     .trim()
     .replace(/\/+$/, '')
 
   const model = (
-    process.env.OPENROUTER_MODEL ||
-    process.env.OPENAI_MODEL ||
-    'openrouter/free'
+    process.env.SAMBANOVA_MODEL ||
+    'DeepSeek-V3.1'
   ).trim()
 
   return { apiKey, baseUrl, model }
@@ -96,9 +82,7 @@ function isUnavailableFreeError(status: number, body: string) {
 export function modelsToAttempt(primary: string): string[] {
   const allowPaid =
     process.env.ALLOW_PAID_MODELS === '1' ||
-    process.env.ALLOW_PAID_MODELS === 'true' ||
-    // اگر صریحاً مدل پولی انتخاب شده
-    (!primary.includes(':free') && !primary.startsWith('openrouter/free') && primary.includes('deepseek/'))
+    process.env.ALLOW_PAID_MODELS === 'true'
 
   const list = [primary, ...FREE_FALLBACKS]
   if (allowPaid) list.push(...PAID_FALLBACKS)
@@ -147,7 +131,7 @@ export async function openRouterChat(opts: {
 }): Promise<{ ok: true; content: string; model: string } | { ok: false; status: number; error: string }> {
   const { apiKey, baseUrl, model } = getOpenRouterConfig()
   if (!apiKey) {
-    return { ok: false, status: 500, error: 'OPENROUTER_API_KEY تنظیم نشده است' }
+    return { ok: false, status: 500, error: 'SAMBANOVA_API_KEY تنظیم نشده است' }
   }
 
   const tryModels = modelsToAttempt(model)
