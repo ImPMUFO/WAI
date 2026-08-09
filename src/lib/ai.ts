@@ -3,13 +3,11 @@
  *
  * Vercel env:
  *   OPENROUTER_API_KEY  (الزامی)
- *   OPENROUTER_MODEL    (اختیاری — پیش‌فرض: deepseek/deepseek-v4-pro)
+ *   OPENROUTER_MODEL    (اختیاری — پیش‌فرض: deepseek/deepseek-v4-flash:free)
  *
- * توجه: DeepSeek V4 Pro روی OpenRouter رایگان نیست (~$0.44 / $0.87 per 1M tokens).
- * برای تست رایگان می‌توانی بگذاری:
- *   OPENROUTER_MODEL=deepseek/deepseek-v4-flash:free
- * یا:
- *   OPENROUTER_MODEL=openrouter/free
+ * همه routeها (گفتگو، آنالیز نقشه، کوئیز، بازی) از همین مدل استفاده می‌کنند.
+ * نسخه :free هزینه توکن ندارد؛ سقف درخواست روزانه OpenRouter همچنان اعمال می‌شود.
+ * برای کیفیت بالاتر پولی: OPENROUTER_MODEL=deepseek/deepseek-v4-pro
  */
 
 export function getOpenRouterConfig() {
@@ -30,7 +28,7 @@ export function getOpenRouterConfig() {
   const model = (
     process.env.OPENROUTER_MODEL ||
     process.env.OPENAI_MODEL ||
-    'deepseek/deepseek-v4-pro'
+    'deepseek/deepseek-v4-flash:free'
   ).trim()
 
   return { apiKey, baseUrl, model }
