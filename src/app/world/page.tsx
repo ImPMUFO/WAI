@@ -541,7 +541,7 @@ export default function WorldChatPage() {
         </div>
       </div>
 
-      <div className="border-t border-[var(--border)] sticky bottom-0 bg-[var(--bg0)]">
+      <div className="world-composer border-t border-[var(--border)] sticky bottom-0 z-30 bg-[var(--bg0)] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="max-w-2xl mx-auto px-3 py-2.5 space-y-1.5">
           {!loggedIn && (
             <p className="text-[11px] text-amber-200/90">
