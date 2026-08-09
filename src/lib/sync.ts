@@ -33,6 +33,8 @@ export async function upsertProfilePatch(patch: {
   level?: number
   streak?: number
   game_state?: unknown
+  bio?: string
+  avatar_url?: string
 }) {
   const user = await getCurrentUser()
   if (!user) return { ok: false as const, reason: 'no-user' }
