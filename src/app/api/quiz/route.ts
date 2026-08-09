@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getOpenRouterConfig, openRouterHeaders } from '@/lib/ai'
 
 export type QuizItem = {
   id: string
@@ -183,8 +184,7 @@ export async function POST(req: NextRequest) {
     const date = (body?.date as string) || dayKey()
     const seedKey = `${date}|${level}|${locale}|${domains.join(',')}`
 
-    const apiKey = process.env.OPENAI_API_KEY
-    const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '')
+    const { apiKey, baseUrl, model } = getOpenRouterConfig()
 
     if (!apiKey) {
       return NextResponse.json({
@@ -214,12 +214,9 @@ No markdown, JSON array only.`
 
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: openRouterHeaders(apiKey),
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: `Generate today's quiz for ${date}. Randomize correct option index.` },
