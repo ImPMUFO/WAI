@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOpenRouterConfig, openRouterHeaders } from '@/lib/ai'
+import { getAIConfig, aiHeaders } from '@/lib/ai'
 
 export type QuizItem = {
   id: string
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
     const date = (body?.date as string) || dayKey()
     const seedKey = `${date}|${level}|${locale}|${domains.join(',')}`
 
-    const { apiKey, baseUrl, model } = getOpenRouterConfig()
+    const { apiKey, baseUrl, model } = getAIConfig('games')
 
     if (!apiKey) {
       return NextResponse.json({
@@ -214,7 +214,7 @@ No markdown, JSON array only.`
 
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: openRouterHeaders(apiKey),
+      headers: aiHeaders(apiKey),
       body: JSON.stringify({
         model,
         messages: [
