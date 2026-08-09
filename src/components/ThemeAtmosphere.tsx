@@ -13,132 +13,23 @@ import { THEME_KEY, isThemeId, type ThemeId } from '@/lib/themes'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { addXp, loadGame, saveGame } from '@/lib/gamification'
 
-/* ---------- Ambient audio (home only) ---------- */
-function useThemeAmbient(theme: ThemeId, enabled: boolean) {
-  const nodesRef = useRef<{ stop: () => void } | null>(null)
-  const unlockedRef = useRef(false)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const stopAll = () => {
-      nodesRef.current?.stop()
-      nodesRef.current = null
-    }
-
-    if (!enabled) {
-      stopAll()
-      return
-    }
-
-    const start = async () => {
-      if (cancelled || !unlockedRef.current) return
-      try {
-        const Ctx = window.AudioContext || (window as any).webkitAudioContext
-        if (!Ctx) return
-        const ctx: AudioContext = new Ctx()
-        if (ctx.state === 'suspended') await ctx.resume()
-        stopAll()
-
-        const master = ctx.createGain()
-        master.gain.value = 0.03
-        master.connect(ctx.destination)
-
-        const stoppers: Array<() => void> = []
-        const addOsc = (type: OscillatorType, freq: number, gainVal: number, lfoHz = 0) => {
-          const o = ctx.createOscillator()
-          const g = ctx.createGain()
-          o.type = type
-          o.frequency.value = freq
-          g.gain.value = gainVal
-          if (lfoHz > 0) {
-            const lfo = ctx.createOscillator()
-            const lg = ctx.createGain()
-            lfo.frequency.value = lfoHz
-            lg.gain.value = freq * 0.02
-            lfo.connect(lg)
-            lg.connect(o.frequency)
-            lfo.start()
-            stoppers.push(() => {
-              try { lfo.stop() } catch { /* */ }
-            })
-          }
-          o.connect(g)
-          g.connect(master)
-          o.start()
-          stoppers.push(() => {
-            try { o.stop() } catch { /* */ }
-          })
-        }
-
-        if (theme === 'main') {
-          addOsc('sine', 110, 0.4, 0.08)
-          addOsc('sine', 164.8, 0.15, 0.05)
-        } else if (theme === 'day') {
-          addOsc('triangle', 520, 0.08, 1.2)
-          addOsc('sine', 180, 0.12, 0.15)
-        } else if (theme === 'ocean') {
-          addOsc('sine', 60, 0.35, 0.2)
-          addOsc('sine', 90, 0.2, 0.35)
-        } else if (theme === 'fire') {
-          addOsc('sawtooth', 55, 0.08, 8)
-        } else if (theme === 'galaxy') {
-          addOsc('sine', 80, 0.25, 0.04)
-          addOsc('sine', 240, 0.08, 0.07)
-        } else if (theme === 'wood') {
-          addOsc('sine', 100, 0.2, 0.12)
-        }
-
-        nodesRef.current = {
-          stop: () => {
-            stoppers.forEach((s) => s())
-            try { master.disconnect() } catch { /* */ }
-            try { ctx.close() } catch { /* */ }
-          },
-        }
-      } catch {
-        /* ignore audio errors */
-      }
-    }
-
-    const unlock = () => {
-      unlockedRef.current = true
-      void start()
-      window.removeEventListener('pointerdown', unlock)
-      window.removeEventListener('keydown', unlock)
-    }
-
-    if (!unlockedRef.current) {
-      window.addEventListener('pointerdown', unlock, { once: true })
-      window.addEventListener('keydown', unlock, { once: true })
-    } else {
-      void start()
-    }
-
-    return () => {
-      cancelled = true
-      window.removeEventListener('pointerdown', unlock)
-      window.removeEventListener('keydown', unlock)
-      stopAll()
-    }
-  }, [theme, enabled])
-}
-
-function playTickfunction playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
+function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
     const o = ctx.createOscillator()
     const g = ctx.createGain()
     o.type = kind === 'wood' ? 'triangle' : 'sine'
     o.frequency.value = kind === 'pearl' ? 880 : kind === 'xp' ? 660 : kind === 'leaf' ? 420 : 180
-    g.gain.value = 0.06
+    g.gain.value = 0.05
     o.connect(g)
     g.connect(ctx.destination)
     o.start()
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2)
-    o.stop(ctx.currentTime + 0.22)
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18)
+    o.stop(ctx.currentTime + 0.2)
   } catch {
-    /* */
+    /* ignore */
   }
 }
 
@@ -190,7 +81,7 @@ function Draggable({
       try {
         ref.current?.releasePointerCapture(e.pointerId)
       } catch {
-        /* */
+        /* ignore */
       }
       setDragging(false)
     },
@@ -207,7 +98,7 @@ function Draggable({
       style={{
         ...style,
         translate: `${pos.x}px ${pos.y}px`,
-        transition: dragging ? 'none' : 'translate 0.3s ease',
+        transition: dragging ? 'none' : 'translate 0.25s ease',
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -220,7 +111,6 @@ function Draggable({
   )
 }
 
-/** سطل آتش — پاک‌کن تکه‌تکه */
 function FireEraser({
   patches,
   setPatches,
@@ -234,7 +124,6 @@ function FireEraser({
   const [drag, setDrag] = useState(false)
   const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
   const ref = useRef<HTMLDivElement>(null)
-
   const patchesRef = useRef(patches)
   patchesRef.current = patches
 
@@ -255,24 +144,21 @@ function FireEraser({
         const i = Number(el.dataset.firePatch)
         if (!Number.isFinite(i) || next[i] === false) return
         const r = el.getBoundingClientRect()
-        const cx = r.left + r.width / 2
-        const cy = r.top + r.height / 2
-        if (Math.hypot(cx - bx, cy - by) < 48) {
+        if (Math.hypot(r.left + r.width / 2 - bx, r.top + r.height / 2 - by) < 48) {
           next[i] = false
           changed = true
         }
       })
-      if (changed) {
-        patchesRef.current = next
-        setPatches(next)
-        if (next.every((v) => !v)) {
-          try {
-            localStorage.setItem(THEME_KEY, 'main')
-            document.documentElement.setAttribute('data-theme', 'main')
-            window.dispatchEvent(new CustomEvent('waima-theme', { detail: 'main' }))
-          } catch {
-            /* */
-          }
+      if (!changed) return
+      patchesRef.current = next
+      setPatches(next)
+      if (next.every((v) => !v)) {
+        try {
+          localStorage.setItem(THEME_KEY, 'main')
+          document.documentElement.setAttribute('data-theme', 'main')
+          window.dispatchEvent(new CustomEvent('waima-theme', { detail: 'main' }))
+        } catch {
+          /* ignore */
         }
       }
     }
@@ -310,6 +196,7 @@ function FireEraser({
 }
 
 const ORBIT_RATIOS = [0.12, 0.18, 0.26, 0.34, 0.42, 0.5]
+
 type PlanetBody = {
   id: string
   name: string
@@ -319,6 +206,7 @@ type PlanetBody = {
   speed: number
   size: number
 }
+
 const INITIAL_PLANETS: PlanetBody[] = [
   { id: 'mercury', name: 'Mercury', className: 'p-mercury', orbit: 0, angle: 0.2, speed: 0.9, size: 14 },
   { id: 'venus', name: 'Venus', className: 'p-venus', orbit: 1, angle: 1.1, speed: 0.7, size: 18 },
@@ -339,16 +227,15 @@ function GalaxySystem() {
     let raf = 0
     let last = performance.now()
     const tick = (now: number) => {
-      if (document.hidden) {
+      if (!document.hidden) {
+        const dt = Math.min(0.05, (now - last) / 1000)
         last = now
-        raf = requestAnimationFrame(tick)
-        return
+        setPlanets((prev) =>
+          prev.map((p) => (p.id === dragId ? p : { ...p, angle: p.angle + p.speed * dt }))
+        )
+      } else {
+        last = now
       }
-      const dt = Math.min(0.05, (now - last) / 1000)
-      last = now
-      setPlanets((prev) =>
-        prev.map((p) => (p.id === dragId ? p : { ...p, angle: p.angle + p.speed * dt }))
-      )
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -416,7 +303,7 @@ function GalaxySystem() {
               try {
                 e.currentTarget.releasePointerCapture(e.pointerId)
               } catch {
-                /* */
+                /* ignore */
               }
               const wrap = wrapRef.current?.getBoundingClientRect()
               if (!wrap) {
@@ -477,9 +364,9 @@ function OceanTreasure() {
       setToast(`+${xp} XP`)
       playTick('xp')
       window.dispatchEvent(new Event('wai-game-updated'))
-      setTimeout(() => setToast(''), 2000)
+      window.setTimeout(() => setToast(''), 2000)
     } catch {
-      /* */
+      /* ignore */
     }
   }
 
@@ -498,7 +385,6 @@ function OceanTreasure() {
 
 export default function ThemeAtmosphere() {
   const [theme, setTheme] = useState<ThemeId>('main')
-  const [onHome, setOnHome] = useState(true)
   const [firePatches, setFirePatches] = useState(() => Array.from({ length: 10 }, () => true))
   const [pearls, setPearls] = useState<Record<string, boolean>>({})
 
@@ -513,13 +399,6 @@ export default function ThemeAtmosphere() {
       }
     }
     read()
-
-    const syncPath = () => {
-      const home = window.location.pathname === '/'
-      setOnHome((prev) => (prev === home ? prev : home))
-    }
-    syncPath()
-
     const onCustom = (e: Event) => {
       const d = (e as CustomEvent).detail
       if (typeof d === 'string' && isThemeId(d)) {
@@ -529,36 +408,17 @@ export default function ThemeAtmosphere() {
         read()
       }
     }
-
-    // ناوبری App Router: کلیک روی لینک‌های داخلی
-    const onClick = (e: MouseEvent) => {
-      const a = (e.target as HTMLElement | null)?.closest?.('a')
-      if (!a) return
-      const href = a.getAttribute('href')
-      if (!href || href.startsWith('http') || href.startsWith('mailto:')) return
-      window.setTimeout(syncPath, 50)
-    }
-
     window.addEventListener('storage', read)
     window.addEventListener('waima-theme', onCustom as EventListener)
-    window.addEventListener('popstate', syncPath)
-    document.addEventListener('click', onClick, true)
-    // فقط هر ۳ ثانیه یک‌بار (بدون MutationObserver که باعث هنگ می‌شد)
-    const t = window.setInterval(syncPath, 3000)
-
     return () => {
       window.removeEventListener('storage', read)
       window.removeEventListener('waima-theme', onCustom as EventListener)
-      window.removeEventListener('popstate', syncPath)
-      document.removeEventListener('click', onClick, true)
-      window.clearInterval(t)
     }
   }, [])
 
-  useThemeAmbient(theme, onHome)
-
   return (
     <div className="theme-atmosphere" data-active={theme}>
+      {/* DAY */}
       <div className="ta-layer ta-day">
         <div className="ta-sun" />
         <Draggable className="ta-cloud ta-cloud-1" label="ابر" />
@@ -568,6 +428,7 @@ export default function ThemeAtmosphere() {
         <div className="ta-cottage" />
       </div>
 
+      {/* OCEAN — فقط وقتی فعال است سنگین‌ها را سوار کن */}
       <div className="ta-layer ta-ocean">
         <div className="ta-wave ta-wave-1" />
         <div className="ta-wave ta-wave-2" />
@@ -578,38 +439,42 @@ export default function ThemeAtmosphere() {
         <div className="ta-bubble b1" />
         <div className="ta-bubble b2" />
         <div className="ta-bubble b3" />
-        <div className="ta-bubble b4" />
-        <Draggable className="ta-fish f1" label="ماهی">
-          <span className="ta-fish-fin" />
-          <span className="ta-fish-eye" />
-        </Draggable>
-        <Draggable className="ta-fish f2" label="ماهی">
-          <span className="ta-fish-fin" />
-          <span className="ta-fish-eye" />
-        </Draggable>
-        <Draggable className="ta-fish f3" label="ماهی">
-          <span className="ta-fish-fin" />
-          <span className="ta-fish-eye" />
-        </Draggable>
-        <Draggable className="ta-jelly j1" label="عروس دریایی" />
-        <Draggable className="ta-jelly j2" label="عروس دریایی" />
-        {['s1', 's2', 's3', 's4'].map((id) => (
-          <Draggable
-            key={id}
-            className={`ta-shell ${id}`}
-            label="صدف"
-            onDoubleClick={() => {
-              if (pearls[id]) return
-              setPearls((p) => ({ ...p, [id]: true }))
-              playTick('pearl')
-            }}
-          >
-            {pearls[id] && <span className="ta-pearl" />}
-          </Draggable>
-        ))}
-        <OceanTreasure />
+        {theme === 'ocean' && (
+          <>
+            <Draggable className="ta-fish f1" label="ماهی">
+              <span className="ta-fish-fin" />
+              <span className="ta-fish-eye" />
+            </Draggable>
+            <Draggable className="ta-fish f2" label="ماهی">
+              <span className="ta-fish-fin" />
+              <span className="ta-fish-eye" />
+            </Draggable>
+            <Draggable className="ta-fish f3" label="ماهی">
+              <span className="ta-fish-fin" />
+              <span className="ta-fish-eye" />
+            </Draggable>
+            <Draggable className="ta-jelly j1" label="عروس دریایی" />
+            <Draggable className="ta-jelly j2" label="عروس دریایی" />
+            {['s1', 's2', 's3', 's4'].map((id) => (
+              <Draggable
+                key={id}
+                className={`ta-shell ${id}`}
+                label="صدف"
+                onDoubleClick={() => {
+                  if (pearls[id]) return
+                  setPearls((p) => ({ ...p, [id]: true }))
+                  playTick('pearl')
+                }}
+              >
+                {pearls[id] && <span className="ta-pearl" />}
+              </Draggable>
+            ))}
+            <OceanTreasure />
+          </>
+        )}
       </div>
 
+      {/* GALAXY */}
       <div className="ta-layer ta-galaxy">
         <div className="ta-nebula" />
         {Array.from({ length: 8 }, (_, i) => (
@@ -618,41 +483,32 @@ export default function ThemeAtmosphere() {
         {theme === 'galaxy' && <GalaxySystem />}
       </div>
 
+      {/* FIRE */}
       <div className="ta-layer ta-fire">
-        {firePatches.map((on, i) =>
-          on ? (
-            <div
-              key={i}
-              data-fire-patch={i}
-              className={`ta-ember e${(i % 5) + 1}`}
-              style={{ opacity: 1 }}
-            />
-          ) : null
-        )}
+        {theme === 'fire' &&
+          firePatches.map((on, i) =>
+            on ? <div key={i} data-fire-patch={i} className={`ta-ember e${(i % 5) + 1}`} /> : null
+          )}
         <div className="ta-lava" />
         <div className="ta-smoke s1" />
         <div className="ta-smoke s2" />
-        {theme === 'fire' && (
-          <FireEraser patches={firePatches} setPatches={setFirePatches} />
+        {theme === 'fire' && <FireEraser patches={firePatches} setPatches={setFirePatches} />}
+      </div>
+
+      {/* WOOD */}
+      <div className="ta-layer ta-wood">
+        {theme === 'wood' && (
+          <>
+            <Draggable className="ta-leaf l1" label="برگ" onDoubleClick={() => playTick('leaf')} />
+            <Draggable className="ta-leaf l2" label="برگ" onDoubleClick={() => playTick('leaf')} />
+            <Draggable className="ta-leaf l3" label="برگ" onDoubleClick={() => playTick('leaf')} />
+            <Draggable className="ta-leaf l4" label="برگ" onDoubleClick={() => playTick('leaf')} />
+            <div className="ta-wood-hit" onPointerDown={() => playTick('wood')} aria-hidden />
+          </>
         )}
       </div>
 
-      <div className="ta-layer ta-wood">
-        <Draggable
-          className="ta-leaf l1"
-          label="برگ"
-          onDoubleClick={() => playTick('leaf')}
-        />
-        <Draggable className="ta-leaf l2" label="برگ" onDoubleClick={() => playTick('leaf')} />
-        <Draggable className="ta-leaf l3" label="برگ" onDoubleClick={() => playTick('leaf')} />
-        <Draggable className="ta-leaf l4" label="برگ" onDoubleClick={() => playTick('leaf')} />
-        <div
-          className="ta-wood-hit"
-          onPointerDown={() => playTick('wood')}
-          aria-hidden
-        />
-      </div>
-
+      {/* MAIN */}
       <div className="ta-layer ta-main">
         <div className="ta-main-ring" />
         <div className="ta-main-ring ta-main-ring-2" />
