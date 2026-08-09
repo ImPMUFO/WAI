@@ -1,3 +1,4 @@
+import { bumpFromQuiz } from '@/lib/mindmap'
 /** سیستم گیمیفیکیشن WAI – ذخیره در localStorage */
 
 export const GAME_KEY = 'wai_game_state_v1'
@@ -345,7 +346,7 @@ export function hasAnsweredQuestion(g: GameState, id: string) {
 export function onQuizQuestionAnswered(
   questionId: string,
   correct: boolean,
-  opts?: { xpCorrect?: number; xpWrong?: number }
+  opts?: { xpCorrect?: number; xpWrong?: number; domain?: string }
 ): { state: GameState; alreadyAnswered: boolean; gainedXp: number } {
   let g = loadGame()
   g = touchStreak(g)
@@ -353,12 +354,20 @@ export function onQuizQuestionAnswered(
   if (g.answeredQuestions.includes(questionId)) {
     return { state: g, alreadyAnswered: true, gainedXp: 0 }
   }
-  const before = g.xp
+  const before = Number(g.xp) || 0
   g.answeredQuestions = [...g.answeredQuestions, questionId]
-  g.totalQuizzes += 1
-  const xpC = opts?.xpCorrect ?? 5
-  const xpW = opts?.xpWrong ?? 0
-  g = addXp(g, correct ? xpC : xpW, correct ? 'پاسخ درست بازی' : 'تلاش در بازی')
+  g.totalQuizzes = (g.totalQuizzes || 0) + 1
+  const xpC = Math.max(1, opts?.xpCorrect ?? 5)
+  const xpW = Math.max(0, opts?.xpWrong ?? 1)
+  const gain = correct ? xpC : xpW
+  if (gain > 0) {
+    g = addXp(g, gain, correct ? 'پاسخ درست بازی' : 'تلاش در بازی')
+  }
+  try {
+    bumpFromQuiz(opts?.domain || 'general', correct)
+  } catch {
+    /* ignore */
+  }
   if (g.totalQuizzes >= 10) g = grantAchievement(g, 'quiz_master')
   const m = { ...g.missions }
   if (m.daily_quiz && !m.daily_quiz.claimed) {
@@ -385,7 +394,14 @@ export function onQuizQuestionAnswered(
     }
   }
   saveGame(g)
-  return { state: g, alreadyAnswered: false, gainedXp: g.xp - before }
+  try {
+    window.dispatchEvent(new Event('wai-game-updated'))
+    window.dispatchEvent(new Event('waima-map-updated'))
+  } catch {
+    /* ignore */
+  }
+  const gainedXp = Math.max(0, (Number(g.xp) || 0) - before)
+  return { state: g, alreadyAnswered: false, gainedXp }
 }
 
 
