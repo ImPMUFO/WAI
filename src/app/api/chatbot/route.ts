@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const { apiKey, baseUrl, model } = getOpenRouterConfig()
     if (!apiKey) {
       return NextResponse.json(
-        { success: false, error: 'OPENROUTER_API_KEY تنظیم نشده است' },
+        { success: false, error: 'SAMBANOVA_API_KEY تنظیم نشده است' },
         { status: 500 }
       )
     }
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
         details: lastError,
         tried: tryModels,
         hint:
-          'مدل‌های deepseek/*:free دیگر رایگان نیستند. OPENROUTER_MODEL=openrouter/free بگذار یا اعتبار بخر و deepseek/deepseek-chat استفاده کن.',
+          'مدل SambaNova پاسخ نداد. SAMBANOVA_API_KEY و SAMBANOVA_MODEL را در Vercel چک کن (مثلاً DeepSeek-V3.1).',
       },
       { status: lastStatus }
     )
@@ -136,6 +136,6 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     api: 'chatbot',
-    defaultModel: 'openrouter/free',
+    defaultModel: 'DeepSeek-V3.1',
   })
 }
