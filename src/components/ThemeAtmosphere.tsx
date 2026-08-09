@@ -11,6 +11,7 @@ import {
 import { THEME_KEY, isThemeId, type ThemeId } from '@/lib/themes'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { addXp, loadGame, saveGame } from '@/lib/gamification'
+import { startAmbient, type AmbientTheme } from '@/lib/ambient'
 
 function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
   try {
@@ -493,6 +494,45 @@ export default function ThemeAtmosphere() {
   const [theme, setTheme] = useState<ThemeId>('main')
   const [firePatches, setFirePatches] = useState(() => Array.from({ length: 16 }, () => true))
   const [pearls, setPearls] = useState<Record<string, boolean>>({})
+
+
+  // صدای محیطی فقط صفحه اصلی
+  useEffect(() => {
+    let handle: { stop: () => void } | null = null
+    let unlocked = false
+    const pathOk = () => window.location.pathname === '/'
+
+    const start = async () => {
+      if (!pathOk()) return
+      handle?.stop()
+      handle = await startAmbient(theme as AmbientTheme)
+    }
+
+    const unlock = () => {
+      if (unlocked) return
+      unlocked = true
+      void start()
+    }
+
+    window.addEventListener('pointerdown', unlock, { once: true })
+    const onTheme = () => {
+      if (unlocked && pathOk()) void start()
+    }
+    window.addEventListener('waima-theme', onTheme)
+    const iv = window.setInterval(() => {
+      if (!pathOk() && handle) {
+        handle.stop()
+        handle = null
+      }
+    }, 2000)
+
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('waima-theme', onTheme)
+      window.clearInterval(iv)
+      handle?.stop()
+    }
+  }, [theme])
 
   useEffect(() => {
     const read = () => {
