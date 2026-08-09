@@ -13,6 +13,7 @@ import {
 import UsernameEditor from '@/components/UsernameEditor'
 import AvatarPicker from '@/components/AvatarPicker'
 import PasswordChange from '@/components/PasswordChange'
+import { BIO_MAX, BIO_MIN, getSavedBio, setSavedBio, validateBio } from '@/lib/avatars'
 
 export default function AccountPage() {
   const { dict, dir } = useLocale()
@@ -24,6 +25,8 @@ export default function AccountPage() {
   const [mapSummary, setMapSummary] = useState('')
   const [error, setError] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
+  const [bio, setBio] = useState('')
+  const [bioMsg, setBioMsg] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -55,6 +58,7 @@ export default function AccountPage() {
         setUsername(metaUser)
         setName(metaName)
         setStatus('وارد شده‌ای')
+        setBio(getSavedBio())
         setLoading(false)
 
         // پس‌زمینه — UI را نگه ندار
@@ -63,13 +67,15 @@ export default function AccountPage() {
             const supabase = createClient()
             const { data: profile } = await supabase
               .from('profiles')
-              .select('display_name, username')
+              .select('display_name, username, bio')
               .eq('id', user.id)
               .maybeSingle()
 
             if (cancelled) return
             if (profile?.username) setUsername(String(profile.username))
             if (profile?.display_name) setName(String(profile.display_name))
+            if (profile && 'bio' in profile && profile.bio) setBio(String(profile.bio))
+            else setBio(getSavedBio())
 
             if (!profile) {
               await supabase.from('profiles').upsert({
@@ -165,6 +171,41 @@ export default function AccountPage() {
         </div>
 
         <div className="card space-y-2">
+          <div className="space-y-2 rounded-2xl border border-[var(--border)] p-4" style={{ background: 'var(--card)' }}>
+            <label className="block text-sm font-medium">بیوگرافی</label>
+            <p className="text-[11px] text-[var(--muted)]">
+              کوتاه و گویا — بین {BIO_MIN} تا {BIO_MAX} کاراکتر (اختیاری؛ خالی هم مجاز است)
+            </p>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
+              rows={3}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg0)] px-3 py-2 text-sm leading-relaxed resize-none"
+              placeholder="چند خط درباره خودت، علاقه‌ها یا مسیر یادگیری…"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-[var(--muted)]">{bio.trim().length}/{BIO_MAX}</span>
+              <button
+                type="button"
+                className="btn-primary px-3 py-1.5 text-sm"
+                onClick={() => {
+                  const err = validateBio(bio)
+                  if (err) {
+                    setBioMsg(err)
+                    return
+                  }
+                  setSavedBio(bio.trim())
+                  setBioMsg('ذخیره شد')
+                  void upsertProfilePatch({ bio: bio.trim() })
+                  window.setTimeout(() => setBioMsg(''), 2000)
+                }}
+              >
+                ذخیره بیو
+              </button>
+            </div>
+            {bioMsg && <p className="text-xs text-[var(--accent)]">{bioMsg}</p>}
+          </div>
+
           <AvatarPicker />
         </div>
 
