@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getUnlockedSpecial,
   rollSpecialReward,
-  setSavedAvatar,
   unlockSpecial,
 } from '@/lib/avatars'
 import { consumeWheelChance, getWheelChances } from '@/lib/gamification'
@@ -120,7 +119,6 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
     window.setTimeout(() => {
       if (prize) {
         unlockSpecial(prize.id)
-        setSavedAvatar(prize.url)
         setResultUrl(prize.url)
         setResultLabel(prize.label)
         setLandedLabel('آواتار خاص')
@@ -255,10 +253,13 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
         {resultUrl && (
           <div className="text-center space-y-3 rounded-2xl border border-[var(--accent)]/40 bg-[var(--accent-dim)] p-3">
             <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>
-              🎉 برنده شدی — آواتار خاص
+              🎉 آواتار خاص باز شد
             </p>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
               قطاع: {landedLabel || 'آواتار خاص'} · {resultLabel}
+            </p>
+            <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+              خودکار روی پروفایل اعمال نشد — از «حساب» خودت انتخابش کن.
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
