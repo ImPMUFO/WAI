@@ -279,7 +279,7 @@ main {
     0 0 28px 10px rgba(251, 191, 36, 0.55),
     0 0 56px 20px rgba(251, 146, 60, 0.25),
     inset -6px -6px 12px rgba(180, 83, 9, 0.25);
-  animation: ta-sun-path 28s linear infinite;
+  animation: ta-sun-path 60s linear infinite;
   will-change: transform;
 }
 @media (min-width: 768px) {
@@ -350,11 +350,10 @@ main {
 }
 
 @keyframes ta-sun-path {
-  0%   { transform: translate(0, 8vh); }
-  25%  { transform: translate(22vw, 3vh); }
-  50%  { transform: translate(45vw, 1vh); }
-  75%  { transform: translate(68vw, 4vh); }
-  100% { transform: translate(0, 8vh); }
+  /* حرکت افقی طبیعی: خارج چپ → راست → از چپ برگردد */
+  0%   { transform: translateX(-15vw) translateY(6vh); }
+  50%  { transform: translateX(55vw) translateY(2vh); }
+  100% { transform: translateX(115vw) translateY(7vh); }
 }
 @keyframes ta-cloud-move {
   0% { transform: translateX(0); }
@@ -860,4 +859,126 @@ html, body {
 }
 @supports (padding: env(safe-area-inset-bottom)) {
   body { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* عروس دریایی */
+.ta-jelly {
+  position: absolute;
+  width: 36px;
+  height: 40px;
+  border-radius: 50% 50% 40% 40%;
+  background: radial-gradient(circle at 50% 30%, rgba(255,255,255,0.7), rgba(165,243,252,0.55) 50%, rgba(34,211,238,0.35));
+  box-shadow: 0 8px 16px rgba(34,211,238,0.2);
+  animation: ta-jelly-bob 6s ease-in-out infinite;
+  pointer-events: auto;
+}
+.ta-jelly::after {
+  content: '';
+  position: absolute;
+  left: 8px; right: 8px; top: 70%;
+  height: 18px;
+  background: linear-gradient(180deg, rgba(165,243,252,0.5), transparent);
+  border-radius: 0 0 40% 40%;
+}
+.j1 { left: 20%; top: 55%; animation-delay: 0.5s; }
+.j2 { left: 70%; top: 60%; animation-delay: 1.2s; width: 28px; height: 32px; }
+@keyframes ta-jelly-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+.ta-shell { position: absolute; width: 28px; height: 20px; border-radius: 50% 50% 40% 40%; background: linear-gradient(135deg, #fde68a, #f59e0b); box-shadow: inset -2px -2px 4px rgba(0,0,0,0.2); pointer-events: auto; }
+.ta-shell.s1 { left: 12%; bottom: 18%; }
+.ta-shell.s2 { left: 35%; bottom: 14%; }
+.ta-shell.s3 { left: 58%; bottom: 20%; }
+.ta-shell.s4 { left: 80%; bottom: 16%; }
+.ta-pearl {
+  position: absolute;
+  left: 50%; top: 40%;
+  width: 10px; height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff, #e2e8f0);
+  box-shadow: 0 0 8px rgba(255,255,255,0.8);
+}
+.ta-seaweed {
+  position: absolute;
+  bottom: 0;
+  width: 14px;
+  height: 22%;
+  background: linear-gradient(180deg, #16a34a, #14532d);
+  border-radius: 20px;
+  transform-origin: bottom center;
+  animation: ta-weed 4s ease-in-out infinite;
+  opacity: 0.75;
+  pointer-events: none;
+}
+.sw1 { left: 18%; animation-delay: 0s; height: 18%; }
+.sw2 { left: 48%; animation-delay: 0.7s; height: 24%; }
+.sw3 { left: 78%; animation-delay: 1.1s; height: 20%; }
+@keyframes ta-weed {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(8deg); }
+}
+.ta-treasure {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  font-size: 28px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+  animation: ta-treasure-bob 2.5s ease-in-out infinite;
+  z-index: 6;
+}
+@keyframes ta-treasure-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+.ta-treasure-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24%;
+  transform: translateX(-50%);
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: var(--card-solid);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 700;
+  z-index: 50;
+}
+.ta-wood-hit {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+}
+/* bucket بدون برچسب متنی */
+.ta-water-bucket .ta-bucket-label { display: none !important; }
+.ta-water-bucket {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  bottom: 12%;
+  z-index: 8;
+}
+
+/* گفتگوی جهانی — نوار ارسال ثابت پایین در دسکتاپ */
+.world-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  padding: 0.75rem 0 1rem;
+  background: linear-gradient(180deg, transparent, var(--bg0) 28%);
+}
+@media (min-width: 768px) {
+  .world-composer {
+    bottom: 0;
+    padding-bottom: 1.25rem;
+  }
 }
