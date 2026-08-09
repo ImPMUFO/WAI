@@ -1,13 +1,19 @@
 /**
  * تنظیمات SambaNova برای WAIMA
  *
- * Vercel env:
- *   SAMBANOVA_API_KEY    (الزامی)
- *   SAMBANOVA_BASE_URL   (اختیاری — پیش‌فرض https://api.sambanova.ai/v1)
- *   SAMBANOVA_MODEL      (اختیاری — پیش‌فرض DeepSeek-V3.1)
+ * Vercel:
+ *   SAMBANOVA_API_KEY          کلید اصلی (الزامی)
+ *   SAMBANOVA_API_KEY_2        کلید دوم (اختیاری — چرخش هنگام 429/خطا)
+ *   SAMBANOVA_API_KEY_3        کلید سوم (اختیاری)
+ *   SAMBANOVA_API_KEY_CHAT     مخصوص گفتگو (اختیاری)
+ *   SAMBANOVA_API_KEY_ANALYZER مخصوص آنالیزور/نقشه (اختیاری)
+ *   SAMBANOVA_API_KEY_GAMES    مخصوص بازی‌ها (اختیاری)
+ *   SAMBANOVA_BASE_URL         پیش‌فرض https://api.sambanova.ai/v1
+ *   SAMBANOVA_MODEL            پیش‌فرض DeepSeek-V3.1
  */
 
-/** مدل‌های جایگزین روی SambaNova */
+export type AIFeature = 'chat' | 'analyzer' | 'games' | 'default'
+
 export const FREE_FALLBACKS = [
   'DeepSeek-V3.1',
   'DeepSeek-V3.2',
@@ -15,35 +21,49 @@ export const FREE_FALLBACKS = [
   'MiniMax-M2.7',
 ]
 
-/** مدل‌های پشتیبان (همان مدل‌های قوی SambaNova) */
-export const PAID_FALLBACKS = [
-  'DeepSeek-V3.1',
-  'DeepSeek-V3.2',
-]
+export const PAID_FALLBACKS = ['DeepSeek-V3.1', 'DeepSeek-V3.2']
 
-export function getOpenRouterConfig() {
-  const apiKey = (process.env.SAMBANOVA_API_KEY || '').trim()
-
-  const baseUrl = (
-    process.env.SAMBANOVA_BASE_URL ||
-    'https://api.sambanova.ai/v1'
-  )
-    .trim()
-    .replace(/\/+$/, '')
-
-  const model = (
-    process.env.SAMBANOVA_MODEL ||
-    'DeepSeek-V3.1'
-  ).trim()
-
-  return { apiKey, baseUrl, model }
+function splitKeys(raw: string): string[] {
+  return raw
+    .split(/[\s,|]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
-export function openRouterHeaders(apiKey: string): Record<string, string> {
+/** همه کلیدهای عمومی برای چرخش */
+export function listSambaKeys(): string[] {
+  const keys: string[] = []
+  const main = (process.env.SAMBANOVA_API_KEY || '').trim()
+  if (main) keys.push(...splitKeys(main))
+  for (const k of ['SAMBANOVA_API_KEY_2', 'SAMBANOVA_API_KEY_3', 'SAMBANOVA_API_KEYS']) {
+    const v = (process.env[k] || '').trim()
+    if (v) keys.push(...splitKeys(v))
+  }
+  return [...new Set(keys)]
+}
+
+function featureKey(feature: AIFeature): string | null {
+  if (feature === 'chat') return (process.env.SAMBANOVA_API_KEY_CHAT || '').trim() || null
+  if (feature === 'analyzer') return (process.env.SAMBANOVA_API_KEY_ANALYZER || '').trim() || null
+  if (feature === 'games') return (process.env.SAMBANOVA_API_KEY_GAMES || '').trim() || null
+  return null
+}
+
+export function getAIConfig(feature: AIFeature = 'default') {
+  const baseUrl = (process.env.SAMBANOVA_BASE_URL || 'https://api.sambanova.ai/v1')
+    .trim()
+    .replace(/\/+$/, '')
+  const model = (process.env.SAMBANOVA_MODEL || 'DeepSeek-V3.1').trim()
+  const preferred = featureKey(feature)
+  const pool = listSambaKeys()
+  const apiKey = preferred || pool[0] || ''
+  return { apiKey, baseUrl, model, keys: preferred ? [preferred, ...pool.filter((k) => k !== preferred)] : pool }
+}
+
+export function aiHeaders(apiKey: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${apiKey}`,
-    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://waima.vercel.app',
     'X-Title': 'WAIMA',
   }
 }
@@ -64,119 +84,103 @@ export function extractMessageText(message: any): string {
       .trim()
     if (joined) return joined
   }
-  if (typeof message.reasoning === 'string' && message.reasoning.trim()) {
-    return message.reasoning.trim()
-  }
+  if (typeof message.reasoning === 'string' && message.reasoning.trim()) return message.reasoning.trim()
   if (typeof message.text === 'string' && message.text.trim()) return message.text.trim()
   return ''
 }
 
-function isUnavailableFreeError(status: number, body: string) {
+function isRetryable(status: number, body: string) {
   return (
+    status === 401 ||
+    status === 403 ||
     status === 404 ||
-    /unavailable for free|not available|model.*not found|no endpoints/i.test(body)
+    status === 429 ||
+    status >= 500 ||
+    /rate limit|quota|unavailable|not found|invalid api/i.test(body)
   )
 }
 
-/** لیست مدل برای امتحان: مدل env + رایگان‌ها (+ پولی اگر ALLOW_PAID_MODELS=1) */
 export function modelsToAttempt(primary: string): string[] {
-  const allowPaid =
-    process.env.ALLOW_PAID_MODELS === '1' ||
-    process.env.ALLOW_PAID_MODELS === 'true'
-
-  const list = [primary, ...FREE_FALLBACKS]
-  if (allowPaid) list.push(...PAID_FALLBACKS)
-  // یکتا
+  const list = [primary, ...FREE_FALLBACKS, ...PAID_FALLBACKS]
   return [...new Set(list.filter(Boolean))]
 }
 
-
-/** پاسخ‌های خراب: نشت system prompt / monologue انگلیسی قوانین */
 export function sanitizeAssistantText(text: string): string {
   const t = (text || '').trim()
   if (!t) return ''
-
   const leakPatterns = [
     /we need to follow rules/i,
     /must answer in/i,
     /must be short/i,
     /language rule/i,
     /when useful:\s*one key point/i,
-    /who am i\? \/ mind mapper/i,
-    /waima, a warm learning/i,
     /cannot access the model/i,
     /stuck with error/i,
-    /the instruction about style/i,
-    /thus answer:/i,
-    /so answer in persian/i,
     /user writes/i,
-    /user wants a response/i,
   ]
   const hit = leakPatterns.filter((re) => re.test(t)).length
-  // متن کاملاً meta / انگلیسی درباره قوانین
   if (hit >= 2) return ''
   if (/^We need to follow rules/i.test(t)) return ''
-  if (hit >= 1 && t.length > 400 && /must |rules|instruction/i.test(t)) return ''
-
-  // بریدن پیشوندهای meta کوتاه
-  let out = t
-  out = out.replace(/^\s*ارزیاب\s*بخوان[\s\S]*?\n+/u, '')
+  let out = t.replace(/^\s*ارزیاب\s*بخوان[\s\S]*?\n+/u, '')
   return out.trim()
 }
 
-export async function openRouterChat(opts: {
+/** فراخوانی SambaNova با چرخش کلید و مدل */
+export async function sambaChat(opts: {
   messages: { role: string; content: string }[]
   temperature?: number
   max_tokens?: number
+  feature?: AIFeature
 }): Promise<{ ok: true; content: string; model: string } | { ok: false; status: number; error: string }> {
-  const { apiKey, baseUrl, model } = getOpenRouterConfig()
-  if (!apiKey) {
+  const cfg = getAIConfig(opts.feature || 'default')
+  const keys = cfg.keys.length ? cfg.keys : cfg.apiKey ? [cfg.apiKey] : []
+  if (!keys.length) {
     return { ok: false, status: 500, error: 'SAMBANOVA_API_KEY تنظیم نشده است' }
   }
 
-  const tryModels = modelsToAttempt(model)
+  const tryModels = modelsToAttempt(cfg.model)
   let lastError = ''
   let lastStatus = 502
 
-  for (const tryModel of tryModels) {
-    try {
-      const resp = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: openRouterHeaders(apiKey),
-        body: JSON.stringify({
-          model: tryModel,
-          messages: opts.messages,
-          temperature: opts.temperature ?? 0.7,
-          max_tokens: opts.max_tokens,
-        }),
-      })
-      const textBody = await resp.text()
-      if (!resp.ok) {
-        lastStatus = resp.status
-        lastError = textBody.slice(0, 400)
-        if (isUnavailableFreeError(resp.status, textBody) || resp.status === 429 || resp.status >= 500) {
+  for (const apiKey of keys) {
+    for (const tryModel of tryModels) {
+      try {
+        const resp = await fetch(`${cfg.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: aiHeaders(apiKey),
+          body: JSON.stringify({
+            model: tryModel,
+            messages: opts.messages,
+            temperature: opts.temperature ?? 0.7,
+            max_tokens: opts.max_tokens,
+          }),
+        })
+        const textBody = await resp.text()
+        if (!resp.ok) {
+          lastStatus = resp.status
+          lastError = textBody.slice(0, 400)
+          if (isRetryable(resp.status, textBody)) continue
           continue
         }
-        continue
+        let data: any
+        try {
+          data = JSON.parse(textBody)
+        } catch {
+          lastError = 'invalid json'
+          continue
+        }
+        const content = extractMessageText(data?.choices?.[0]?.message)
+        const clean = sanitizeAssistantText(content)
+        if (!clean) {
+          lastError = 'empty content from ' + tryModel
+          continue
+        }
+        return { ok: true, content: clean, model: data?.model || tryModel }
+      } catch (e: unknown) {
+        lastError = e instanceof Error ? e.message : 'network'
       }
-      let data: any
-      try {
-        data = JSON.parse(textBody)
-      } catch {
-        lastError = 'invalid json'
-        continue
-      }
-      const content = extractMessageText(data?.choices?.[0]?.message)
-      const clean = sanitizeAssistantText(content)
-      if (!clean) {
-        lastError = 'leaked or empty content from ' + tryModel
-        continue
-      }
-      return { ok: true, content: clean, model: data?.model || tryModel }
-    } catch (e: unknown) {
-      lastError = e instanceof Error ? e.message : 'network'
     }
   }
 
-  return { ok: false, status: lastStatus, error: lastError || 'هیچ مدلی پاسخ نداد' }
+  return { ok: false, status: lastStatus, error: lastError || 'هیچ کلید/مدلی پاسخ نداد' }
 }
