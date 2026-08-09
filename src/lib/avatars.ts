@@ -117,7 +117,8 @@ export function unlockSpecial(id: string) {
 }
 
 export function rollSpecialReward(already: string[]): AvatarItem | null {
-  if (Math.random() > 0.35) return null
+  // ۴۰٪ شانس آواتار خاص
+  if (Math.random() >= 0.4) return null
   const pool = SPECIAL_AVATARS.filter((s) => !already.includes(s.id))
   if (!pool.length) return null
   return pool[Math.floor(Math.random() * pool.length)]
