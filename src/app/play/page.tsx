@@ -202,7 +202,7 @@ export default function PlayPage() {
     setLocked(true)
     const correct = opt.trim() === String(current.answer || '').trim()
     setLastCorrect(correct)
-    const res = onQuizQuestionAnswered(current.id, correct)
+    const res = onQuizQuestionAnswered(current.id, correct, { domain: current.domain || 'general', xpCorrect: 5, xpWrong: 1 })
     setAlready(res.alreadyAnswered)
     setGained(res.gainedXp)
     const nextSet = new Set(answeredSet)
