@@ -18,16 +18,72 @@ function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
     const Ctx = window.AudioContext || (window as any).webkitAudioContext
     if (!Ctx) return
     const ctx = new Ctx()
+    const t0 = ctx.currentTime
+
+    if (kind === 'wood') {
+      // صدای ضربه چوب / تخته (نویز کوتاه فیلترشده)
+      const dur = 0.12
+      const frames = Math.floor(ctx.sampleRate * dur)
+      const buf = ctx.createBuffer(1, frames, ctx.sampleRate)
+      const data = buf.getChannelData(0)
+      for (let i = 0; i < frames; i++) {
+        const env = Math.pow(1 - i / frames, 2.5)
+        data[i] = (Math.random() * 2 - 1) * env
+      }
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.value = 420
+      filter.Q.value = 1.2
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.35, t0)
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur)
+      src.connect(filter)
+      filter.connect(g)
+      g.connect(ctx.destination)
+      src.start(t0)
+      src.stop(t0 + dur + 0.02)
+      // لایه بم تخته
+      const o = ctx.createOscillator()
+      const og = ctx.createGain()
+      o.type = 'triangle'
+      o.frequency.setValueAtTime(90, t0)
+      o.frequency.exponentialRampToValueAtTime(55, t0 + 0.08)
+      og.gain.setValueAtTime(0.12, t0)
+      og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1)
+      o.connect(og)
+      og.connect(ctx.destination)
+      o.start(t0)
+      o.stop(t0 + 0.11)
+      return
+    }
+
+    if (kind === 'leaf') {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.type = 'sine'
+      o.frequency.setValueAtTime(520, t0)
+      o.frequency.exponentialRampToValueAtTime(280, t0 + 0.15)
+      g.gain.setValueAtTime(0.04, t0)
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16)
+      o.connect(g)
+      g.connect(ctx.destination)
+      o.start(t0)
+      o.stop(t0 + 0.17)
+      return
+    }
+
     const o = ctx.createOscillator()
     const g = ctx.createGain()
-    o.type = kind === 'wood' ? 'triangle' : 'sine'
-    o.frequency.value = kind === 'pearl' ? 880 : kind === 'xp' ? 660 : kind === 'leaf' ? 420 : 180
+    o.type = 'sine'
+    o.frequency.value = kind === 'pearl' ? 880 : 660
     g.gain.value = 0.05
     o.connect(g)
     g.connect(ctx.destination)
-    o.start()
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18)
-    o.stop(ctx.currentTime + 0.2)
+    o.start(t0)
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18)
+    o.stop(t0 + 0.2)
   } catch {
     /* ignore */
   }
@@ -502,8 +558,12 @@ export default function ThemeAtmosphere() {
             <Draggable className="ta-leaf l1" label="برگ" onDoubleClick={() => playTick('leaf')} />
             <Draggable className="ta-leaf l2" label="برگ" onDoubleClick={() => playTick('leaf')} />
             <Draggable className="ta-leaf l3" label="برگ" onDoubleClick={() => playTick('leaf')} />
-            <Draggable className="ta-leaf l4" label="برگ" onDoubleClick={() => playTick('leaf')} />
-            <div className="ta-wood-hit" onPointerDown={() => playTick('wood')} aria-hidden />
+            <Draggable className="ta-leaf l1b" label="برگ" onDoubleClick={() => playTick('leaf')} />
+            <Draggable
+              className="ta-log"
+              label="چوب"
+              onDoubleClick={() => playTick('wood')}
+            />
           </>
         )}
       </div>
