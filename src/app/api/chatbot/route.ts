@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOpenRouterConfig, openRouterHeaders } from '@/lib/ai'
+import { getOpenRouterConfig, openRouterHeaders, extractMessageText } from '@/lib/ai'
 
 const domainNames: Record<string, string> = {
   general: 'دانش عمومی',
@@ -90,26 +90,77 @@ export async function POST(req: NextRequest) {
       .slice(-12)
       .map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1800) }))
 
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: openRouterHeaders(apiKey),
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'system', content: systemPrompt }, ...recent],
-        temperature: 0.7,
-        max_tokens: suggestBook ? 520 : 400,
-      }),
-    })
-
-    const textBody = await resp.text()
-    if (!resp.ok) {
-      return NextResponse.json({ success: false, error: 'model error', details: textBody }, { status: 502 })
+    const payload = {
+      model,
+      messages: [{ role: 'system', content: systemPrompt }, ...recent],
+      temperature: 0.7,
+      max_tokens: suggestBook ? 700 : 500,
     }
-    const data = JSON.parse(textBody)
-    const content = data?.choices?.[0]?.message?.content || 'No response.'
-    return NextResponse.json({ success: true, content, suggestBook })
-  } catch {
-    return NextResponse.json({ success: false, error: 'server error' }, { status: 500 })
+
+    let lastError = ''
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const resp = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: openRouterHeaders(apiKey),
+          body: JSON.stringify(payload),
+        })
+        const textBody = await resp.text()
+        if (!resp.ok) {
+          lastError = textBody.slice(0, 400)
+          // 429 یا خطای موقت → یک‌بار دیگر
+          if (resp.status === 429 || resp.status >= 500) {
+            await new Promise((r) => setTimeout(r, 800))
+            continue
+          }
+          return NextResponse.json(
+            { success: false, error: 'model error', details: lastError, model },
+            { status: 502 }
+          )
+        }
+        let data: any
+        try {
+          data = JSON.parse(textBody)
+        } catch {
+          lastError = 'invalid json'
+          continue
+        }
+        const content = extractMessageText(data?.choices?.[0]?.message)
+        if (!content) {
+          lastError = 'empty content'
+          continue
+        }
+        return NextResponse.json({
+          success: true,
+          content,
+          suggestBook,
+          model: data?.model || model,
+        })
+      } catch (e: unknown) {
+        lastError = e instanceof Error ? e.message : 'network'
+      }
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'model error',
+        details: lastError || 'unknown',
+        model,
+        hint:
+          'کلید OPENROUTER_API_KEY و مدل deepseek/deepseek-v4-flash:free را در Vercel بررسی کن. سقف روزانه رایگان OpenRouter هم ممکن است پر شده باشد.',
+      },
+      { status: 502 }
+    )
+  } catch (e: unknown) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'server error',
+        details: e instanceof Error ? e.message : 'unknown',
+      },
+      { status: 500 }
+    )
   }
 }
 
