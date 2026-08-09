@@ -3,12 +3,16 @@
  *
  * Vercel env:
  *   OPENROUTER_API_KEY  (الزامی)
- *   OPENROUTER_MODEL    (اختیاری — پیش‌فرض: deepseek/deepseek-v4-flash:free)
+ *   OPENROUTER_MODEL    (اختیاری)
  *
- * همه routeها (گفتگو، آنالیز نقشه، کوئیز، بازی) از همین مدل استفاده می‌کنند.
- * نسخه :free هزینه توکن ندارد؛ سقف درخواست روزانه OpenRouter همچنان اعمال می‌شود.
- * برای کیفیت بالاتر پولی: OPENROUTER_MODEL=deepseek/deepseek-v4-pro
- */
+ * پیش‌فرض رایگان: deepseek/deepseek-chat:free
+ * (نسخه free مربوط به V4 Flash دیگر در OpenRouter موجود نیست)
+ *
+ * گزینه‌های دیگر:
+ *   deepseek/deepseek-v4-flash     → پولی، کیفیت بالاتر
+ *   deepseek/deepseek-v4-pro      → پولی، قوی‌ترین
+ *   openrouter/free               → مسیریاب مدل‌های رایگان
+ *
 
 /** متن پاسخ مدل‌های مختلف OpenRouter (content رشته / آرایه / reasoning) */
 export function extractMessageText(message: any): string {
@@ -35,7 +39,15 @@ export function extractMessageText(message: any): string {
   return ''
 }
 
+const FREE_FALLBACKS = [
+  'deepseek/deepseek-chat:free',
+  'deepseek/deepseek-r1:free',
+  'openrouter/free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+]
+
 export function getOpenRouterConfig() {
+
   const apiKey = (
     process.env.OPENROUTER_API_KEY ||
     process.env.OPENAI_API_KEY || // سازگاری با env قدیمی
@@ -53,7 +65,7 @@ export function getOpenRouterConfig() {
   const model = (
     process.env.OPENROUTER_MODEL ||
     process.env.OPENAI_MODEL ||
-    'deepseek/deepseek-v4-flash:free'
+    'deepseek/deepseek-chat:free'
   ).trim()
 
   return { apiKey, baseUrl, model }
@@ -90,8 +102,36 @@ export async function openRouterChat(opts: {
         max_tokens: opts.max_tokens,
       }),
     })
-    const textBody = await resp.text()
+    let textBody = await resp.text()
     if (!resp.ok) {
+      const needsFallback =
+        resp.status === 404 ||
+        /unavailable for free|not available|model.*not found/i.test(textBody)
+      if (needsFallback) {
+        for (const fb of FREE_FALLBACKS) {
+          if (fb === model) continue
+          const retry = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: openRouterHeaders(apiKey),
+            body: JSON.stringify({
+              model: fb,
+              messages: opts.messages,
+              temperature: opts.temperature ?? 0.7,
+              max_tokens: opts.max_tokens,
+            }),
+          })
+          textBody = await retry.text()
+          if (retry.ok) {
+            try {
+              const data = JSON.parse(textBody)
+              const content = extractMessageText(data?.choices?.[0]?.message)
+              if (content) return { ok: true, content, model: data?.model || fb }
+            } catch {
+              /* try next */
+            }
+          }
+        }
+      }
       return { ok: false, status: resp.status, error: textBody.slice(0, 500) }
     }
     let data: any
