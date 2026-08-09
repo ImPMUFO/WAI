@@ -10,6 +10,31 @@
  * برای کیفیت بالاتر پولی: OPENROUTER_MODEL=deepseek/deepseek-v4-pro
  */
 
+/** متن پاسخ مدل‌های مختلف OpenRouter (content رشته / آرایه / reasoning) */
+export function extractMessageText(message: any): string {
+  if (!message) return ''
+  const c = message.content
+  if (typeof c === 'string' && c.trim()) return c.trim()
+  if (Array.isArray(c)) {
+    const joined = c
+      .map((part) => {
+        if (typeof part === 'string') return part
+        if (part && typeof part.text === 'string') return part.text
+        if (part && typeof part.content === 'string') return part.content
+        return ''
+      })
+      .join('')
+      .trim()
+    if (joined) return joined
+  }
+  if (typeof message.reasoning === 'string' && message.reasoning.trim()) {
+    // برخی مدل‌های reasoning فقط reasoning می‌دهند
+    return message.reasoning.trim()
+  }
+  if (typeof message.text === 'string' && message.text.trim()) return message.text.trim()
+  return ''
+}
+
 export function getOpenRouterConfig() {
   const apiKey = (
     process.env.OPENROUTER_API_KEY ||
@@ -75,9 +100,9 @@ export async function openRouterChat(opts: {
     } catch {
       return { ok: false, status: 502, error: 'پاسخ JSON نامعتبر از OpenRouter' }
     }
-    const content = data?.choices?.[0]?.message?.content
-    if (typeof content !== 'string') {
-      return { ok: false, status: 502, error: 'محتوای خالی از مدل' }
+    const content = extractMessageText(data?.choices?.[0]?.message)
+    if (!content) {
+      return { ok: false, status: 502, error: 'محتوای خالی از مدل: ' + JSON.stringify(data?.choices?.[0]?.message || {}).slice(0, 200) }
     }
     return { ok: true, content, model: data?.model || model }
   } catch (e: unknown) {
