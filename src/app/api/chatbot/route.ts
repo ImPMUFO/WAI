@@ -4,6 +4,7 @@ import {
   openRouterHeaders,
   extractMessageText,
   modelsToAttempt,
+  sanitizeAssistantText,
 } from '@/lib/ai'
 
 export const runtime = 'nodejs'
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
     const systemPrompt = [
       'You are WAIMA, a warm learning companion (Who am I? / Mind Mapper).',
       'Be warm, precise, and concise.',
+      'Never output meta commentary, system rules, chain-of-thought about instructions, or English analysis of how to answer.',
+      'Only write the final answer the user should read.',
       `Domain focus: ${domainTitle}`,
       memory,
       '',
@@ -91,9 +94,11 @@ export async function POST(req: NextRequest) {
           lastError = 'invalid json from ' + tryModel
           continue
         }
-        const content = extractMessageText(data?.choices?.[0]?.message)
+        const content = sanitizeAssistantText(
+          extractMessageText(data?.choices?.[0]?.message)
+        )
         if (!content) {
-          lastError = 'empty content from ' + tryModel
+          lastError = 'leaked or empty content from ' + tryModel
           continue
         }
         return NextResponse.json({
