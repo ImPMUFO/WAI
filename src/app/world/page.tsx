@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Globe2, Send, Pencil, Trash2, Check, X } from 'lucide-react'
+import { ArrowRight, Globe2, Send, Pencil, Trash2, Check, X, Smile } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { MAX_BODY, MAX_PER_HOUR, MIN_INTERVAL_MS, sanitizeGlobalMessage } from '@/lib/chat-safety'
+import { SITE_STICKERS, encodeSticker, parseSticker, isStickerMessage } from '@/lib/stickers'
 import { getSavedAvatar } from '@/lib/avatars'
 
 type Msg = {
@@ -49,6 +50,7 @@ export default function WorldChatPage() {
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [stickerOpen, setStickerOpen] = useState(false)
   const [error, setError] = useState('')
   const [myId, setMyId] = useState<string | null>(null)
   const [myUsername, setMyUsername] = useState('')
@@ -295,6 +297,74 @@ export default function WorldChatPage() {
     }
   }
 
+
+  const sendSticker = async (id: string) => {
+    setError('')
+    setStickerOpen(false)
+    if (!isSupabaseConfigured()) return
+    setSending(true)
+    try {
+      const supabase = createClient()
+      let uid = myIdRef.current || myId
+      if (!uid) uid = await refreshMe()
+      if (!uid) {
+        setError('برای ارسال وارد حساب شو.')
+        return
+      }
+      const now = Date.now()
+      if (now - lastSentRef.current < MIN_INTERVAL_MS) {
+        setError('کمی صبر کن.')
+        return
+      }
+      const payload = encodeSticker(id)
+      const safe = sanitizeGlobalMessage(payload)
+      if (!safe.ok) {
+        setError(safe.error)
+        return
+      }
+      const tempId = `tmp-${now}`
+      const uname = myUsername || 'user'
+      const av = getSavedAvatar() || fallbackAvatar(uname)
+      const optimistic: Msg = {
+        id: tempId,
+        username: uname,
+        body: safe.text,
+        created_at: new Date().toISOString(),
+        user_id: uid,
+        avatar_url: av,
+      }
+      setMessages((list) => [...list, optimistic])
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, display_name, avatar_url')
+        .eq('id', uid)
+        .maybeSingle()
+      const username = (profile?.username || profile?.display_name || uname || 'user').toString().slice(0, 24)
+      const avatar_url = getSavedAvatar() || profile?.avatar_url || av
+      let { data, error } = await supabase
+        .from('global_messages')
+        .insert({ user_id: uid, username, body: safe.text, avatar_url })
+        .select('id, username, body, created_at, user_id, avatar_url')
+        .single()
+      if (error) {
+        const ins2 = await supabase
+          .from('global_messages')
+          .insert({ user_id: uid, username, body: safe.text })
+          .select('id, username, body, created_at, user_id')
+          .single()
+        if (ins2.error) throw new Error(ins2.error.message)
+        data = { ...(ins2.data as Msg), avatar_url, user_id: uid }
+      }
+      lastSentRef.current = Date.now()
+      setMessages((list) => list.map((m) => (m.id === tempId ? (data as Msg) : m)))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'ارسال نشد')
+      setMessages((list) => list.filter((m) => !String(m.id).startsWith('tmp-')))
+    } finally {
+      setSending(false)
+    }
+  }
+
   const saveEdit = async (id: string) => {
     const safe = sanitizeGlobalMessage(editText)
     if (!safe.ok) {
@@ -506,12 +576,26 @@ export default function WorldChatPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
+                    (() => {
+                      const st = parseSticker(m.body)
+                      if (st) {
+                        return (
+                          <div className="flex flex-col items-start gap-0.5 py-1">
+                            <span className="text-5xl leading-none select-none" title={st.label}>{st.emoji}</span>
+                            <span className="text-[10px] text-[var(--muted)]">{st.label}</span>
+                          </div>
+                        )
+                      }
+                      return (
+                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
+                      )
+                    })()
                   )}
 
                   {/* همیشه برای پیام خودت — متن واضح */}
                   {mine && !editing && (
                     <div className="flex gap-2 pt-0.5 border-t border-[var(--border)]/60">
+                      {!isStickerMessage(m.body) && (
                       <button
                         type="button"
                         onClick={() => {
@@ -524,6 +608,7 @@ export default function WorldChatPage() {
                         <Pencil className="w-3.5 h-3.5" strokeWidth={2.5} />
                         ویرایش
                       </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => void removeMsg(m.id)}
@@ -554,6 +639,26 @@ export default function WorldChatPage() {
             </p>
           )}
           {error && <p className="text-[11px] text-rose-300 whitespace-pre-wrap">{error}</p>}
+          {stickerOpen && (
+            <div
+              className="rounded-2xl border p-2 grid grid-cols-4 gap-2"
+              style={{ background: 'var(--card-solid)', borderColor: 'var(--border)' }}
+            >
+              {SITE_STICKERS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  disabled={sending || !loggedIn}
+                  onClick={() => void sendSticker(s.id)}
+                  className="flex flex-col items-center gap-0.5 rounded-xl py-2 hover:bg-[var(--accent-dim)] transition disabled:opacity-40"
+                  title={s.label}
+                >
+                  <span className="text-2xl leading-none">{s.emoji}</span>
+                  <span className="text-[10px] text-[var(--muted)]">{s.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 items-end">
             <textarea
               value={text}
@@ -570,6 +675,16 @@ export default function WorldChatPage() {
                 }
               }}
             />
+            <button
+              type="button"
+              disabled={sending || !loggedIn}
+              onClick={() => setStickerOpen((v) => !v)}
+              className="btn-secondary px-3 py-2.5 shrink-0"
+              title="استیکر"
+              aria-label="استیکر"
+            >
+              <Smile className="w-4 h-4" />
+            </button>
             <button
               type="button"
               disabled={sending || !text.trim()}
