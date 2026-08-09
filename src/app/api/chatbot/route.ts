@@ -1,78 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOpenRouterConfig, openRouterHeaders, extractMessageText } from '@/lib/ai'
+import {
+  getOpenRouterConfig,
+  openRouterHeaders,
+  extractMessageText,
+  modelsToAttempt,
+} from '@/lib/ai'
 
-const MODEL_FALLBACKS = [
-  'deepseek/deepseek-chat:free',
-  'deepseek/deepseek-r1:free',
-  'openrouter/free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'deepseek/deepseek-v4-flash',
-]
-
-
-const domainNames: Record<string, string> = {
-  general: 'دانش عمومی',
-  philosophy: 'فلسفه',
-  programming: 'برنامه‌نویسی',
-  history: 'تاریخ',
-  psychology: 'روان‌شناسی',
-  religion: 'دین و الهیات',
-  ethics: 'اخلاق',
-  physics: 'فیزیک',
-  chemistry: 'شیمی',
-  math: 'ریاضی',
-  biology: 'زیست‌شناسی',
-  literature: 'ادبیات',
-  economics: 'اقتصاد',
-}
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json().catch(() => ({}))
+    const domain = String(body?.domain || 'general')
+    const suggestBook = Boolean(body?.suggestBook)
+    const lastBook = body?.lastBook || null
+    const messages = Array.isArray(body?.messages) ? body.messages : []
+
     const { apiKey, baseUrl, model } = getOpenRouterConfig()
     if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'OPENROUTER_API_KEY تنظیم نشده است' }, { status: 500 })
+      return NextResponse.json(
+        { success: false, error: 'OPENROUTER_API_KEY تنظیم نشده است' },
+        { status: 500 }
+      )
     }
 
-    const body = await req.json()
-    const messages = body?.messages as { role: 'user' | 'assistant' | 'system'; content: string }[]
-    const domain = (body?.domain as string) || 'general'
-    const suggestBook = Boolean(body?.suggestBook)
-    const lastBook = body?.lastBook as { title?: string; author?: string; reason?: string } | null
-
-    if (!messages?.length) {
-      return NextResponse.json({ success: false, error: 'messages الزامی است' }, { status: 400 })
-    }
-
-    const domainTitle = domainNames[domain] || domain
-
-    const memory = lastBook?.title
-      ? [
-          'Memory: you already recommended this book in this chat:',
-          `- title: ${lastBook.title}`,
-          `- author: ${lastBook.author || 'unknown'}`,
-          `- reason: ${lastBook.reason || '-'}`,
-          'If the user asks about that book, acknowledge it. Do not deny it.',
-        ].join('\n')
-      : ''
-
+    const domainTitle = domain
+    const memory = ''
     const bookRule = suggestBook
-      ? [
-          'Now suggest ONE book relevant to this conversation.',
-          'Make it practical and interesting, matching the user level.',
-          'Write the book block in the SAME language as the user.',
-          'End with exactly 3 lines using labels in the user language, or:',
-          'Book: <title>',
-          'Author: <author>',
-          'Why: <short reason>',
-          'Persian labels also OK: کتاب پیشنهادی / نویسنده / چرا این کتاب',
-        ].join('\n')
-      : [
-          'Do not suggest a new book unless the user asks for one.',
-          'If they ask about a previous book recommendation, use the memory above.',
-        ].join('\n')
+      ? 'If appropriate, suggest ONE relevant book with a short reason.'
+      : lastBook
+        ? `You already suggested: ${JSON.stringify(lastBook)}. Avoid repeating the same book.`
+        : ''
 
     const systemPrompt = [
-      'You are the learning companion of WAIMA (Who am I? / Mind Mapper).',
+      'You are WAIMA, a warm learning companion (Who am I? / Mind Mapper).',
       'Be warm, precise, and concise.',
       `Domain focus: ${domainTitle}`,
       memory,
@@ -95,57 +57,50 @@ export async function POST(req: NextRequest) {
       .join('\n')
 
     const recent = messages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .filter((m: any) => m.role === 'user' || m.role === 'assistant')
       .slice(-12)
-      .map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1800) }))
+      .map((m: any) => ({ role: m.role, content: String(m.content || '').slice(0, 1800) }))
 
-    const payload = {
-      model,
+    const payloadBase = {
       messages: [{ role: 'system', content: systemPrompt }, ...recent],
       temperature: 0.7,
       max_tokens: suggestBook ? 700 : 500,
     }
 
+    const tryModels = modelsToAttempt(model)
     let lastError = ''
-    const modelsToTry = [model, ...MODEL_FALLBACKS.filter((m) => m !== model)]
-    for (let attempt = 0; attempt < modelsToTry.length; attempt++) {
+    let lastStatus = 502
+
+    for (const tryModel of tryModels) {
       try {
-        const tryModel = modelsToTry[attempt]
         const resp = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
           headers: openRouterHeaders(apiKey),
-          body: JSON.stringify({ ...payload, model: tryModel }),
+          body: JSON.stringify({ ...payloadBase, model: tryModel }),
         })
         const textBody = await resp.text()
         if (!resp.ok) {
+          lastStatus = resp.status
           lastError = textBody.slice(0, 400)
-          // 429 یا خطای موقت → یک‌بار دیگر
-          if (resp.status === 429 || resp.status >= 500) {
-            await new Promise((r) => setTimeout(r, 800))
-            continue
-          }
-          return NextResponse.json(
-            { success: false, error: 'model error', details: lastError, model },
-            { status: 502 }
-          )
+          continue
         }
         let data: any
         try {
           data = JSON.parse(textBody)
         } catch {
-          lastError = 'invalid json'
+          lastError = 'invalid json from ' + tryModel
           continue
         }
         const content = extractMessageText(data?.choices?.[0]?.message)
         if (!content) {
-          lastError = 'empty content'
+          lastError = 'empty content from ' + tryModel
           continue
         }
         return NextResponse.json({
           success: true,
           content,
           suggestBook,
-          model: data?.model || model,
+          model: data?.model || tryModel,
         })
       } catch (e: unknown) {
         lastError = e instanceof Error ? e.message : 'network'
@@ -156,12 +111,12 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         error: 'model error',
-        details: lastError || 'unknown',
-        model,
+        details: lastError,
+        tried: tryModels,
         hint:
-          'کلید OPENROUTER_API_KEY و مدل deepseek/deepseek-v4-flash:free را در Vercel بررسی کن. سقف روزانه رایگان OpenRouter هم ممکن است پر شده باشد.',
+          'مدل‌های deepseek/*:free دیگر رایگان نیستند. OPENROUTER_MODEL=openrouter/free بگذار یا اعتبار بخر و deepseek/deepseek-chat استفاده کن.',
       },
-      { status: 502 }
+      { status: lastStatus }
     )
   } catch (e: unknown) {
     return NextResponse.json(
@@ -176,5 +131,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', api: 'chatbot-lang' })
+  return NextResponse.json({
+    status: 'ok',
+    api: 'chatbot',
+    defaultModel: 'openrouter/free',
+  })
 }
