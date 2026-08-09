@@ -326,8 +326,12 @@ export default function AssessmentPage() {
       }),
     })
     const data = await res.json().catch(() => null)
-    if (!res.ok || !data?.success || typeof data.content !== 'string') {
-      throw new Error(data?.error || 'خطا در ارتباط با هوش مصنوعی')
+    if (!res.ok || !data?.success || typeof data.content !== 'string' || !data.content.trim()) {
+      const detail =
+        (typeof data?.details === 'string' && data.details.slice(0, 180)) ||
+        (typeof data?.error === 'string' && data.error) ||
+        `HTTP ${res.status}`
+      throw new Error(detail)
     }
     return data.content as string
   }
@@ -557,14 +561,26 @@ export default function AssessmentPage() {
       if (userCount > 0 && userCount % 5 === 0) {
         void updateMapFromChat(withReply)
       }
-    } catch {
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : ''
       const localInsight = computeInsight(next)
+      const hint =
+        detail && detail.length < 220
+          ? `
+
+(جزئیات: ${detail})`
+          : ''
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
           role: 'assistant',
-          content: `خطا در پاسخ. ادامه بده:\n\n${localInsight.question}`,
+          content:
+            `الان نتوانستم از هوش مصنوعی پاسخ بگیرم. یک‌بار دیگر بفرست.` +
+            hint +
+            (localInsight?.question ? `
+
+${localInsight.question}` : ''),
         },
       ])
       setIsTyping(false)
