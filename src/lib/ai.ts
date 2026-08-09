@@ -106,6 +106,40 @@ export function modelsToAttempt(primary: string): string[] {
   return [...new Set(list.filter(Boolean))]
 }
 
+
+/** پاسخ‌های خراب: نشت system prompt / monologue انگلیسی قوانین */
+export function sanitizeAssistantText(text: string): string {
+  const t = (text || '').trim()
+  if (!t) return ''
+
+  const leakPatterns = [
+    /we need to follow rules/i,
+    /must answer in/i,
+    /must be short/i,
+    /language rule/i,
+    /when useful:\s*one key point/i,
+    /who am i\? \/ mind mapper/i,
+    /waima, a warm learning/i,
+    /cannot access the model/i,
+    /stuck with error/i,
+    /the instruction about style/i,
+    /thus answer:/i,
+    /so answer in persian/i,
+    /user writes/i,
+    /user wants a response/i,
+  ]
+  const hit = leakPatterns.filter((re) => re.test(t)).length
+  // متن کاملاً meta / انگلیسی درباره قوانین
+  if (hit >= 2) return ''
+  if (/^We need to follow rules/i.test(t)) return ''
+  if (hit >= 1 && t.length > 400 && /must |rules|instruction/i.test(t)) return ''
+
+  // بریدن پیشوندهای meta کوتاه
+  let out = t
+  out = out.replace(/^\s*ارزیاب\s*بخوان[\s\S]*?\n+/u, '')
+  return out.trim()
+}
+
 export async function openRouterChat(opts: {
   messages: { role: string; content: string }[]
   temperature?: number
@@ -149,11 +183,12 @@ export async function openRouterChat(opts: {
         continue
       }
       const content = extractMessageText(data?.choices?.[0]?.message)
-      if (!content) {
-        lastError = 'empty content from ' + tryModel
+      const clean = sanitizeAssistantText(content)
+      if (!clean) {
+        lastError = 'leaked or empty content from ' + tryModel
         continue
       }
-      return { ok: true, content, model: data?.model || tryModel }
+      return { ok: true, content: clean, model: data?.model || tryModel }
     } catch (e: unknown) {
       lastError = e instanceof Error ? e.message : 'network'
     }
