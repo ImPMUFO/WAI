@@ -7,6 +7,7 @@ import {
   setSavedAvatar,
   unlockSpecial,
 } from '@/lib/avatars'
+import { consumeWheelChance } from '@/lib/gamification'
 
 type Props = {
   open: boolean
@@ -77,6 +78,7 @@ export default function LevelUpWheel({ open, level, onClose }: Props) {
         setMiss(true)
       }
       done.current = true
+      consumeWheelChance()
       setSpinning(false)
     }, 3200)
   }
