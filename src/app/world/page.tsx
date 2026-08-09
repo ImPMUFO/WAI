@@ -18,12 +18,13 @@ type Msg = {
 }
 
 type PublicProfile = {
-  id: string
-  username: string | null
-  display_name: string | null
-  avatar_url: string | null
-  level: number | null
-  xp: number | null
+  id?: string
+  username?: string | null
+  display_name?: string | null
+  avatar_url?: string | null
+  level?: number | null
+  xp?: number | null
+  bio?: string | null
 }
 
 function fallbackAvatar(seed: string) {
@@ -379,7 +380,7 @@ export default function WorldChatPage() {
       const supabase = createClient()
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, display_name, avatar_url, level, xp')
+        .select('id, username, display_name, avatar_url, level, xp, bio')
         .eq('id', m.user_id)
         .maybeSingle()
       if (data) {
@@ -388,6 +389,7 @@ export default function WorldChatPage() {
           username: data.username,
           display_name: data.display_name,
           avatar_url: data.avatar_url || avatarFor(m),
+          bio: (data as any).bio || null,
           level: data.level,
           xp: data.xp,
         })
@@ -611,18 +613,27 @@ export default function WorldChatPage() {
             {profileLoading ? (
               <p className="text-xs text-[var(--muted)]">…</p>
             ) : (
-              <div className="grid grid-cols-2 gap-2 text-center text-sm">
-                <div className="rounded-xl border border-[var(--border)] py-2">
-                  <p className="text-[10px] text-[var(--muted)]">سطح</p>
-                  <p className="font-semibold">{profileOpen.level ?? '—'}</p>
+              <>
+                <div className="grid grid-cols-2 gap-2 text-center text-sm">
+                  <div className="rounded-xl border border-[var(--border)] py-2">
+                    <p className="text-[10px] text-[var(--muted)]">سطح</p>
+                    <p className="font-semibold">{profileOpen.level ?? '—'}</p>
+                  </div>
+                  <div className="rounded-xl border border-[var(--border)] py-2">
+                    <p className="text-[10px] text-[var(--muted)]">XP</p>
+                    <p className="font-semibold">{profileOpen.xp ?? '—'}</p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-[var(--border)] py-2">
-                  <p className="text-[10px] text-[var(--muted)]">XP</p>
-                  <p className="font-semibold">{profileOpen.xp ?? '—'}</p>
+                <div className="rounded-xl border border-[var(--border)] p-3 text-start">
+                  <p className="text-[10px] text-[var(--muted)] mb-1">بیوگرافی</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {profileOpen.bio && String(profileOpen.bio).trim()
+                      ? String(profileOpen.bio).trim()
+                      : 'بیوگرافی ثبت نشده.'}
+                  </p>
                 </div>
-              </div>
+              </>
             )}
-            <p className="text-[11px] text-[var(--muted)] leading-relaxed">اطلاعات عمومی پروفایل</p>
             <button
               type="button"
               onClick={() => setProfileOpen(null)}
