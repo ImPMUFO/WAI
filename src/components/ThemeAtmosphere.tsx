@@ -11,7 +11,6 @@ import {
 import { THEME_KEY, isThemeId, type ThemeId } from '@/lib/themes'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { addXp, loadGame, saveGame } from '@/lib/gamification'
-import { startAmbient, type AmbientTheme } from '@/lib/ambient'
 
 function playTick(kind: 'leaf' | 'wood' | 'pearl' | 'xp') {
   try {
@@ -496,43 +495,6 @@ export default function ThemeAtmosphere() {
   const [pearls, setPearls] = useState<Record<string, boolean>>({})
 
 
-  // صدای محیطی فقط صفحه اصلی
-  useEffect(() => {
-    let handle: { stop: () => void } | null = null
-    let unlocked = false
-    const pathOk = () => window.location.pathname === '/'
-
-    const start = async () => {
-      if (!pathOk()) return
-      handle?.stop()
-      handle = await startAmbient(theme as AmbientTheme)
-    }
-
-    const unlock = () => {
-      if (unlocked) return
-      unlocked = true
-      void start()
-    }
-
-    window.addEventListener('pointerdown', unlock, { once: true })
-    const onTheme = () => {
-      if (unlocked && pathOk()) void start()
-    }
-    window.addEventListener('waima-theme', onTheme)
-    const iv = window.setInterval(() => {
-      if (!pathOk() && handle) {
-        handle.stop()
-        handle = null
-      }
-    }, 2000)
-
-    return () => {
-      window.removeEventListener('pointerdown', unlock)
-      window.removeEventListener('waima-theme', onTheme)
-      window.clearInterval(iv)
-      handle?.stop()
-    }
-  }, [theme])
 
   useEffect(() => {
     const read = () => {
@@ -614,18 +576,24 @@ export default function ThemeAtmosphere() {
         <div className="ta-layer ta-ocean">
           {theme === 'ocean' && (
             <>
-              <Draggable wrapClassName="ta-pos-f1" className="ta-fish f1" label="ماهی">
-                <span className="ta-fish-fin" />
-                <span className="ta-fish-eye" />
-              </Draggable>
-              <Draggable wrapClassName="ta-pos-f2" className="ta-fish f2" label="ماهی">
-                <span className="ta-fish-fin" />
-                <span className="ta-fish-eye" />
-              </Draggable>
-              <Draggable wrapClassName="ta-pos-f3" className="ta-fish f3" label="ماهی">
-                <span className="ta-fish-fin" />
-                <span className="ta-fish-eye" />
-              </Draggable>
+              <div className="ta-fish-swim f1" aria-hidden>
+                <div className="ta-fish f1">
+                  <span className="ta-fish-fin" />
+                  <span className="ta-fish-eye" />
+                </div>
+              </div>
+              <div className="ta-fish-swim f2" aria-hidden>
+                <div className="ta-fish f2">
+                  <span className="ta-fish-fin" />
+                  <span className="ta-fish-eye" />
+                </div>
+              </div>
+              <div className="ta-fish-swim f3" aria-hidden>
+                <div className="ta-fish f3">
+                  <span className="ta-fish-fin" />
+                  <span className="ta-fish-eye" />
+                </div>
+              </div>
               <Draggable wrapClassName="ta-pos-j1" className="ta-jelly j1" label="عروس دریایی" />
               <Draggable wrapClassName="ta-pos-j2" className="ta-jelly j2" label="عروس دریایی" />
               {(['s1', 's2', 's3', 's4'] as const).map((id) => (
