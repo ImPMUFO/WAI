@@ -123,3 +123,33 @@ export function rollSpecialReward(already: string[]): AvatarItem | null {
   if (!pool.length) return null
   return pool[Math.floor(Math.random() * pool.length)]
 }
+
+
+export const BIO_KEY = 'waima_user_bio'
+export const BIO_MIN = 20
+export const BIO_MAX = 160
+
+export function getSavedBio(): string {
+  try {
+    return (localStorage.getItem(BIO_KEY) || '').slice(0, BIO_MAX)
+  } catch {
+    return ''
+  }
+}
+
+export function setSavedBio(bio: string) {
+  try {
+    localStorage.setItem(BIO_KEY, bio.slice(0, BIO_MAX))
+    window.dispatchEvent(new Event('waima-bio-updated'))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function validateBio(bio: string): string | null {
+  const t = bio.trim()
+  if (!t) return null // اختیاری
+  if (t.length < BIO_MIN) return `بیوگرافی حداقل ${BIO_MIN} کاراکتر باشد`
+  if (t.length > BIO_MAX) return `بیوگرافی حداکثر ${BIO_MAX} کاراکتر باشد`
+  return null
+}
