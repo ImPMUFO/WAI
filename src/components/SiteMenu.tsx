@@ -1,5 +1,6 @@
 'use client'
 
+import { ensureWheelChancesBackfill } from '@/lib/gamification'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -29,6 +30,8 @@ export default function SiteMenu() {
   useEffect(() => {
     const read = () => {
       try {
+        // همگام‌سازی شانس‌های قبلی لول
+        ensureWheelChancesBackfill()
         setWheelChances(Number(localStorage.getItem('waima_wheel_chances') || '0') || 0)
       } catch {
         setWheelChances(0)
@@ -201,27 +204,42 @@ export default function SiteMenu() {
           <button
             type="button"
             onClick={() => {
-              if (wheelChances <= 0) return
               close()
               window.dispatchEvent(new Event('waima-open-wheel'))
             }}
-            className="mb-3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium"
+            className="mb-3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition"
             style={{
               color: 'var(--text)',
-              opacity: wheelChances > 0 ? 1 : 0.45,
-              background: wheelChances > 0 ? 'var(--accent-dim)' : 'transparent',
-              border: '1px solid var(--border)',
+              background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--card-solid)), var(--card-solid))',
+              border: '1px solid color-mix(in srgb, var(--accent) 45%, var(--border))',
+              boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent)',
             }}
           >
             <span
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: 'var(--card-solid)', color: 'var(--accent)' }}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
+              style={{
+                background: 'color-mix(in srgb, var(--accent) 25%, var(--bg0))',
+                color: 'var(--accent)',
+                border: '1px solid color-mix(in srgb, var(--accent) 40%, transparent)',
+              }}
             >
               🎡
             </span>
-            <span className="flex-1 text-start">
+            <span className="flex-1 text-start leading-tight">
               {locale === 'en' ? 'Luck wheel' : locale === 'ar' ? 'عجلة الحظ' : 'گردونه شانس'}
-              {wheelChances > 0 ? ` (${wheelChances})` : ''}
+              <span className="block text-[11px] font-normal" style={{ color: 'var(--muted)' }}>
+                {wheelChances > 0
+                  ? locale === 'en'
+                    ? `${wheelChances} spin(s) left`
+                    : locale === 'ar'
+                      ? `${wheelChances} محاولة متبقية`
+                      : `${wheelChances} شانس باقی‌مانده`
+                  : locale === 'en'
+                    ? 'No spins — level up to earn'
+                    : locale === 'ar'
+                      ? 'لا محاولات — ارتقِ مستواك'
+                      : 'شانسی ندارید — با ارتقای سطح بگیرید'}
+              </span>
             </span>
           </button>
 
