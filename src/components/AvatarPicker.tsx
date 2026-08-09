@@ -9,6 +9,7 @@ import {
 } from '@/lib/avatars'
 import { loadGame } from '@/lib/gamification'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
+import { bumpFromAvatar } from '@/lib/mindmap'
 
 export default function AvatarPicker() {
   const [selected, setSelected] = useState('')
@@ -28,6 +29,7 @@ export default function AvatarPicker() {
   const pick = async (url: string) => {
     setSelected(url)
     setSavedAvatar(url)
+    try { bumpFromAvatar() } catch { /* */ }
     if (!isSupabaseConfigured()) return
     try {
       const supabase = createClient()
