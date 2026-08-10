@@ -1919,3 +1919,152 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
 .theme-atmosphere:not([data-active='ocean']) .ta-fish {
   display: none !important;
 }
+
+
+
+/* ========== Performance + cloud fix + single fish tail ========== */
+
+/* لایه‌های غیرفعال: انیمیشن و paint خاموش */
+.theme-atmosphere .ta-layer {
+  content-visibility: auto;
+  contain: layout style paint;
+}
+.theme-atmosphere .ta-layer:not([style*="opacity: 1"]) {
+  /* opacity 0 layers already */
+}
+.theme-atmosphere[data-active]:not([data-active='day']) .ta-day,
+.theme-atmosphere[data-active]:not([data-active='ocean']) .ta-ocean,
+.theme-atmosphere[data-active]:not([data-active='galaxy']) .ta-galaxy,
+.theme-atmosphere[data-active]:not([data-active='fire']) .ta-fire,
+.theme-atmosphere[data-active]:not([data-active='wood']) .ta-wood,
+.theme-atmosphere[data-active]:not([data-active='main']) .ta-main {
+  animation: none !important;
+  pointer-events: none !important;
+}
+
+/* کم کردن فیلترهای سنگین */
+.ta-fish,
+.ta-drag .ta-fish {
+  filter: none !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+}
+.ta-cloud {
+  filter: none !important;
+  opacity: 0.9 !important;
+}
+.ta-cat {
+  filter: none !important;
+}
+
+/* ابرها: موقعیت روی wrapper، حرکت خودکار ملایم روی inner */
+.ta-pos-cloud-1,
+.ta-pos-cloud-2,
+.ta-pos-cloud-3 {
+  position: absolute !important;
+  z-index: 5 !important;
+  pointer-events: auto !important;
+  width: auto !important;
+  height: auto !important;
+}
+.ta-pos-cloud-1 { left: 8% !important; top: 8% !important; }
+.ta-pos-cloud-2 { left: 40% !important; top: 5% !important; }
+.ta-pos-cloud-3 { left: 68% !important; top: 12% !important; }
+
+.ta-drag .ta-cloud,
+.ta-cloud {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 72px !important;
+  height: 28px !important;
+  background: #fff !important;
+  border-radius: 40px !important;
+  opacity: 0.92 !important;
+  animation: ta-cloud-bob 7s ease-in-out infinite !important;
+  pointer-events: none !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
+}
+.ta-cloud::before,
+.ta-cloud::after {
+  content: '' !important;
+  position: absolute !important;
+  background: #fff !important;
+  border-radius: 50% !important;
+}
+.ta-cloud::before {
+  width: 36px !important;
+  height: 36px !important;
+  top: -16px !important;
+  left: 12px !important;
+}
+.ta-cloud::after {
+  width: 28px !important;
+  height: 28px !important;
+  top: -12px !important;
+  right: 10px !important;
+}
+.ta-cloud-1 { width: 70px !important; height: 26px !important; animation-duration: 6.5s !important; }
+.ta-cloud-2 { width: 88px !important; height: 30px !important; animation-duration: 8s !important; animation-delay: 1s !important; }
+.ta-cloud-3 { width: 60px !important; height: 24px !important; animation-duration: 7.2s !important; animation-delay: 2s !important; }
+
+@keyframes ta-cloud-bob {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(12px, -6px); }
+}
+
+.ta-drag.is-dragging .ta-cloud {
+  animation: none !important;
+}
+
+/* دم ماهی یک‌تکه و طبیعی (باله دمی) */
+.ta-fish-tail {
+  position: absolute !important;
+  left: -18px !important;
+  top: 50% !important;
+  width: 20px !important;
+  height: 22px !important;
+  margin-top: -11px !important;
+  border: none !important;
+  border-width: 0 !important;
+  background: #0ea5e9 !important;
+  clip-path: polygon(100% 50%, 0 0, 18% 50%, 0 100%) !important;
+  transform-origin: right center !important;
+  animation: ta-tail-wag 0.35s ease-in-out infinite !important;
+  z-index: 0 !important;
+  border-radius: 0 !important;
+}
+.f2 .ta-fish-tail { background: #f59e0b !important; border-color: transparent !important; }
+.f3 .ta-fish-tail { background: #14b8a6 !important; border-color: transparent !important; }
+@media (min-width: 768px) {
+  .ta-fish-tail {
+    left: -22px !important;
+    width: 24px !important;
+    height: 26px !important;
+    margin-top: -13px !important;
+  }
+}
+
+/* حذف دم تکراری از ::after بدن */
+.ta-fish::after {
+  display: none !important;
+  content: none !important;
+  border: none !important;
+}
+
+/* کاهش will-change دائمی */
+.ta-layer,
+.ta-sun,
+.ta-fish,
+.ta-cloud {
+  will-change: auto !important;
+}
+.ta-drag.is-dragging {
+  will-change: transform !important;
+}
+
+/* وقتی تب مخفی است انیمیشن‌ها را متوقف کن */
+@media (prefers-reduced-motion: reduce) {
+  .ta-fish, .ta-cloud, .ta-fish-tail, .ta-fish-fin-top, .ta-fish-fin-side, .ta-fish-bubble {
+    animation: none !important;
+  }
+}
