@@ -1668,3 +1668,254 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
 .theme-atmosphere-fg .ta-cat {
   pointer-events: auto !important;
 }
+
+
+
+/* ========== WAIMA cute objects + fish + drag fix (2026-08) ========== */
+
+/* هنگام درگ: انیمیشن CSS خاموش تا با transform درگ قاطی نشود (رفع باگ ابر) */
+.ta-drag.is-dragging,
+.ta-drag.is-dragging > * {
+  animation: none !important;
+}
+.ta-drag.is-dragging .ta-cloud,
+.ta-drag.is-dragging .ta-fish,
+.ta-drag.is-dragging .ta-leaf,
+.ta-drag.is-dragging .ta-jelly {
+  animation: none !important;
+}
+
+/* لایه درگ: جدا از انیمیشن داخلی */
+.ta-drag {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ta-drag > * {
+  pointer-events: none;
+}
+
+/* ——— ماهی کارتونی بانمک ——— */
+.ta-pos-f1 { left: 8%; top: 58%; z-index: 6; }
+.ta-pos-f2 { left: 42%; top: 70%; z-index: 6; }
+.ta-pos-f3 { left: 70%; top: 54%; z-index: 6; }
+@media (max-width: 640px) {
+  .ta-pos-f1 { left: 6%; top: 62%; }
+  .ta-pos-f2 { left: 38%; top: 72%; }
+  .ta-pos-f3 { left: 68%; top: 56%; }
+}
+
+.ta-drag .ta-fish,
+.ta-fish {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 58px !important;
+  height: 32px !important;
+  z-index: 6;
+  filter: drop-shadow(0 3px 5px rgba(0,0,0,0.28));
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+@media (min-width: 768px) {
+  .ta-drag .ta-fish,
+  .ta-fish { width: 72px !important; height: 40px !important; }
+}
+
+/* بدن */
+.ta-fish {
+  background: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 45%, #0284c7 100%);
+  border-radius: 50% 48% 48% 50% / 55% 50% 50% 55%;
+  box-shadow: inset 0 -3px 0 rgba(255,255,255,0.2), inset 0 3px 0 rgba(255,255,255,0.18);
+}
+.ta-fish.f1 { animation: ta-fish-wander-a 9s ease-in-out infinite; }
+.ta-fish.f2 {
+  background: linear-gradient(180deg, #fde68a 0%, #fbbf24 45%, #d97706 100%);
+  animation: ta-fish-wander-b 11s ease-in-out infinite;
+}
+.ta-fish.f3 {
+  background: linear-gradient(180deg, #6ee7b7 0%, #2dd4bf 45%, #0f766e 100%);
+  animation: ta-fish-wander-c 8s ease-in-out infinite;
+}
+.ta-drag .ta-fish.f1 { animation: ta-fish-wander-a 9s ease-in-out infinite; }
+.ta-drag .ta-fish.f2 { animation: ta-fish-wander-b 11s ease-in-out infinite; }
+.ta-drag .ta-fish.f3 { animation: ta-fish-wander-c 8s ease-in-out infinite; }
+
+/* دم قوی */
+.ta-fish-tail {
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin-top: -11px;
+  border-style: solid;
+  border-width: 11px 18px 11px 0;
+  border-color: transparent #0ea5e9 transparent transparent;
+  transform-origin: right center;
+  animation: ta-tail-wag 0.32s ease-in-out infinite;
+  z-index: 0;
+}
+.f2 .ta-fish-tail { border-color: transparent #f59e0b transparent transparent; }
+.f3 .ta-fish-tail { border-color: transparent #14b8a6 transparent transparent; }
+@media (min-width: 768px) {
+  .ta-fish-tail { left: -20px; margin-top: -13px; border-width: 13px 22px 13px 0; }
+}
+
+/* باله بالا */
+.ta-fish-fin-top {
+  position: absolute;
+  right: 22px;
+  top: -9px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 12px solid #7dd3fc;
+  opacity: 0.95;
+  animation: ta-fin-wave 0.7s ease-in-out infinite;
+  z-index: 1;
+}
+.f2 .ta-fish-fin-top { border-bottom-color: #fde68a; }
+.f3 .ta-fish-fin-top { border-bottom-color: #5eead4; }
+
+/* باله کناری */
+.ta-fish-fin-side {
+  position: absolute;
+  right: 24px;
+  bottom: 2px;
+  width: 12px;
+  height: 8px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 40% 60% 50% 50%;
+  transform-origin: right center;
+  animation: ta-fin-side 0.55s ease-in-out infinite;
+  z-index: 1;
+}
+
+/* چشم معصوم */
+.ta-fish-eye {
+  position: absolute !important;
+  right: 11px !important;
+  top: 8px !important;
+  width: 9px !important;
+  height: 9px !important;
+  background: radial-gradient(circle at 35% 30%, #fff 0 22%, #0f172a 23% 100%) !important;
+  border-radius: 50% !important;
+  z-index: 3 !important;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.85), 1px 1px 0 #f9a8d4 !important;
+}
+@media (min-width: 768px) {
+  .ta-fish-eye { width: 11px !important; height: 11px !important; right: 14px !important; top: 10px !important; }
+}
+
+/* دهن */
+.ta-fish-mouth {
+  position: absolute;
+  right: 2px;
+  top: 16px;
+  width: 7px;
+  height: 5px;
+  border-radius: 0 0 8px 8px;
+  background: #0c4a6e;
+  z-index: 3;
+  opacity: 0.85;
+}
+.f2 .ta-fish-mouth { background: #78350f; }
+.f3 .ta-fish-mouth { background: #134e4a; }
+@media (min-width: 768px) {
+  .ta-fish-mouth { right: 3px; top: 18px; width: 9px; height: 6px; }
+}
+
+/* حباب از دهن */
+.ta-fish-bubble {
+  position: absolute;
+  right: -2px;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(186, 230, 253, 0.9);
+  background: rgba(224, 242, 254, 0.35);
+  z-index: 4;
+  pointer-events: none;
+  animation: ta-mouth-bubble 2.8s ease-out infinite;
+}
+.ta-fish-bubble.b-b {
+  width: 4px;
+  height: 4px;
+  animation-delay: 1.4s;
+  animation-duration: 3.2s;
+}
+@keyframes ta-mouth-bubble {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: translate(-14px, -28px) scale(1.15); opacity: 0; }
+}
+
+@keyframes ta-tail-wag {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(14deg); }
+}
+@keyframes ta-fin-wave {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(10deg); }
+}
+@keyframes ta-fin-side {
+  0%, 100% { transform: scaleX(1) rotate(0deg); }
+  50% { transform: scaleX(0.7) rotate(-18deg); }
+}
+
+/* شنای نرم محدود (نمی‌پرد بیرون) */
+@keyframes ta-fish-wander-a {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(18px, -8px) rotate(-4deg); }
+  50% { transform: translate(28px, 4px) rotate(3deg); }
+  75% { transform: translate(10px, 10px) rotate(-2deg); }
+}
+@keyframes ta-fish-wander-b {
+  0%, 100% { transform: translate(0, 0) scaleX(-1); }
+  30% { transform: translate(-22px, 6px) scaleX(-1) rotate(3deg); }
+  60% { transform: translate(-12px, -10px) scaleX(-1) rotate(-4deg); }
+}
+@keyframes ta-fish-wander-c {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(14px, 8px) rotate(5deg); }
+  70% { transform: translate(-8px, -6px) rotate(-3deg); }
+}
+
+/* ابرها: موقعیت موبایل بهتر */
+.ta-pos-cloud-1 { left: 6%; top: 8%; z-index: 5; }
+.ta-pos-cloud-2 { left: 38%; top: 5%; z-index: 5; }
+.ta-pos-cloud-3 { left: 68%; top: 12%; z-index: 5; }
+@media (max-width: 640px) {
+  .ta-pos-cloud-1 { top: 6%; }
+  .ta-pos-cloud-2 { top: 4%; left: 36%; }
+  .ta-pos-cloud-3 { top: 10%; left: 64%; }
+}
+
+.ta-cloud {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
+  opacity: 0.92;
+}
+
+/* خورشید درگ: انیمیشن خودکار جدا */
+.ta-pos-sun.ta-sun-draggable {
+  z-index: 7;
+}
+
+/* گربه کمی بانمک‌تر */
+.ta-cat {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+/* برگ‌ها کمی بزرگ‌تر و واضح در موبایل */
+@media (max-width: 640px) {
+  .ta-leaf { transform: scale(1.15); }
+}
+
+/* فقط تم اقیانوس جلبک/ماهی */
+.theme-atmosphere:not([data-active='ocean']) .ta-seaweed,
+.theme-atmosphere:not([data-active='ocean']) .ta-fish {
+  display: none !important;
+}
