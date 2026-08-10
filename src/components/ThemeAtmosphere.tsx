@@ -85,12 +85,30 @@ function Draggable({
   const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
   const [, force] = useState(0)
 
+  useEffect(() => {
+    const up = () => {
+      if (!dragging.current) return
+      dragging.current = false
+      force((n) => n + 1)
+    }
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [])
+
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return
       e.preventDefault()
       e.stopPropagation()
-      ref.current?.setPointerCapture(e.pointerId)
+      try {
+        ref.current?.setPointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
       origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
       dragging.current = true
       force((n) => n + 1)
@@ -109,12 +127,14 @@ function Draggable({
 
   const endDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (!dragging.current) return
       try {
-        ref.current?.releasePointerCapture(e.pointerId)
+        if (ref.current?.hasPointerCapture?.(e.pointerId)) {
+          ref.current.releasePointerCapture(e.pointerId)
+        }
       } catch {
         /* ignore */
       }
+      if (!dragging.current) return
       const moved =
         Math.abs(e.clientX - origin.current.px) + Math.abs(e.clientY - origin.current.py)
       dragging.current = false
@@ -378,6 +398,7 @@ function GalaxySystem() {
 }
 
 
+
 function playMeow() {
   try {
     const Ctx = window.AudioContext || (window as any).webkitAudioContext
@@ -389,108 +410,234 @@ function playMeow() {
     o.connect(g)
     g.connect(ctx.destination)
     const t = ctx.currentTime
-    o.frequency.setValueAtTime(900, t)
-    o.frequency.exponentialRampToValueAtTime(480, t + 0.18)
-    o.frequency.exponentialRampToValueAtTime(720, t + 0.32)
+    o.frequency.setValueAtTime(980, t)
+    o.frequency.exponentialRampToValueAtTime(520, t + 0.16)
+    o.frequency.exponentialRampToValueAtTime(760, t + 0.3)
     g.gain.setValueAtTime(0.0001, t)
-    g.gain.exponentialRampToValueAtTime(0.09, t + 0.03)
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38)
+    g.gain.exponentialRampToValueAtTime(0.08, t + 0.02)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.36)
     o.start(t)
-    o.stop(t + 0.4)
+    o.stop(t + 0.38)
     window.setTimeout(() => {
       try {
         ctx.close()
       } catch {
         /* */
       }
-    }, 500)
+    }, 450)
   } catch {
     /* silent */
   }
 }
 
+/** خورشید: هم مسیر خودکار در آسمان، هم قابل کشیدن دستی */
+function DaySun() {
+  const ref = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+  const origin = useRef({ px: 0, py: 0, ox: 0, oy: 0 })
+  const offset = useRef({ x: 0, y: 0 })
+  const auto = useRef({ xPct: 12, yPct: 8, dir: 1 as 1 | -1, t0: performance.now() })
+
+  useEffect(() => {
+    let raf = 0
+    const loop = (now: number) => {
+      const el = ref.current
+      if (el && !dragging.current) {
+        const a = auto.current
+        // حرکت آرام چپ→راست در نوار بالای آسمان
+        a.xPct += a.dir * 0.012
+        if (a.xPct > 82) a.dir = -1
+        if (a.xPct < 8) a.dir = 1
+        const bob = Math.sin((now - a.t0) / 1800) * 1.2
+        el.style.left = `${a.xPct}%`
+        el.style.top = `${a.yPct + bob}%`
+        el.style.transform = `translate(${offset.current.x}px, ${offset.current.y}px)`
+      } else if (el && dragging.current) {
+        el.style.transform = `translate(${offset.current.x}px, ${offset.current.y}px)`
+      }
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    const up = () => {
+      dragging.current = false
+    }
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [])
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    e.preventDefault()
+    e.stopPropagation()
+    dragging.current = true
+    try {
+      ref.current?.setPointerCapture(e.pointerId)
+    } catch {
+      /* */
+    }
+    origin.current = {
+      px: e.clientX,
+      py: e.clientY,
+      ox: offset.current.x,
+      oy: offset.current.y,
+    }
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return
+    e.preventDefault()
+    offset.current = {
+      x: origin.current.ox + (e.clientX - origin.current.px),
+      y: origin.current.oy + (e.clientY - origin.current.py),
+    }
+    if (ref.current) {
+      ref.current.style.transform = `translate(${offset.current.x}px, ${offset.current.y}px)`
+    }
+  }
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    try {
+      if (ref.current?.hasPointerCapture?.(e.pointerId)) {
+        ref.current.releasePointerCapture(e.pointerId)
+      }
+    } catch {
+      /* */
+    }
+    dragging.current = false
+  }
+
+  return (
+    <div
+      ref={ref}
+      className="ta-drag ta-pos-sun ta-sun-draggable"
+      role="presentation"
+      title="خورشید"
+      style={{ left: '12%', top: '8%', transform: 'translate(0,0)' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      <div className="ta-sun ta-sun-face" />
+    </div>
+  )
+}
+
 function DayCat() {
-  const [look, setLook] = useState(false)
-  const [sitting, setSitting] = useState(false)
-  const pos = useRef({ x: 18, dir: 1 as 1 | -1 })
-  const [, bump] = useState(0)
-  const lookTimer = useRef<any>(null)
-  const sitTimer = useRef<any>(null)
-  const nextSit = useRef(performance.now() + 8000 + Math.random() * 10000)
+  const elRef = useRef<HTMLDivElement>(null)
+  const lookRef = useRef(false)
+  const sitRef = useRef(false)
+  const pos = useRef({ x: 16, dir: 1 as 1 | -1, step: 0 })
+  const timers = useRef<{ look?: any; sit?: any }>({})
+  const nextSit = useRef(performance.now() + 7000 + Math.random() * 9000)
 
   useEffect(() => {
     let raf = 0
     let last = performance.now()
-    const tick = (now: number) => {
-      if (!document.hidden && !look && !sitting) {
+    const loop = (now: number) => {
+      const el = elRef.current
+      if (el && !document.hidden) {
         const dt = Math.min(0.05, (now - last) / 1000)
         last = now
-        let { x, dir } = pos.current
-        x += dir * 4.5 * dt
-        if (x > 72) dir = -1
-        if (x < 10) dir = 1
-        pos.current = { x, dir }
-        bump((n) => n + 1)
-        if (now > nextSit.current) {
-          setSitting(true)
-          if (sitTimer.current) window.clearTimeout(sitTimer.current)
-          sitTimer.current = window.setTimeout(() => {
-            setSitting(false)
-            nextSit.current = performance.now() + 9000 + Math.random() * 12000
-          }, 2200 + Math.random() * 1800)
+        if (!lookRef.current && !sitRef.current) {
+          let { x, dir, step } = pos.current
+          x += dir * 5.2 * dt
+          if (x > 70) dir = -1
+          if (x < 10) dir = 1
+          step = (step + dt * 9) % (Math.PI * 2)
+          pos.current = { x, dir, step }
+          const bob = Math.sin(step) * 2
+          el.style.left = `${x}%`
+          el.style.transform = `translateX(-50%) translateY(${bob}px) scaleX(${-dir})`
+          el.classList.toggle('is-walk', true)
+          el.classList.toggle('is-sitting', false)
+          el.classList.toggle('is-looking', false)
+          if (now > nextSit.current) {
+            sitRef.current = true
+            el.classList.add('is-sitting')
+            el.classList.remove('is-walk')
+            if (timers.current.sit) window.clearTimeout(timers.current.sit)
+            timers.current.sit = window.setTimeout(() => {
+              sitRef.current = false
+              nextSit.current = performance.now() + 8000 + Math.random() * 12000
+            }, 2000 + Math.random() * 2000)
+          }
+        } else if (el) {
+          el.classList.toggle('is-looking', lookRef.current)
+          el.classList.toggle('is-sitting', sitRef.current || lookRef.current)
+          el.classList.toggle('is-walk', false)
         }
       } else {
         last = now
       }
-      raf = requestAnimationFrame(tick)
+      raf = requestAnimationFrame(loop)
     }
-    raf = requestAnimationFrame(tick)
+    raf = requestAnimationFrame(loop)
     return () => {
       cancelAnimationFrame(raf)
-      if (lookTimer.current) window.clearTimeout(lookTimer.current)
-      if (sitTimer.current) window.clearTimeout(sitTimer.current)
+      if (timers.current.look) window.clearTimeout(timers.current.look)
+      if (timers.current.sit) window.clearTimeout(timers.current.sit)
     }
-  }, [look, sitting])
+  }, [])
 
-  const onTap = () => {
+  const onTap = (e: React.MouseEvent | React.PointerEvent) => {
+    e.stopPropagation()
     playMeow()
-    setLook(true)
-    setSitting(true)
-    if (lookTimer.current) window.clearTimeout(lookTimer.current)
-    if (sitTimer.current) window.clearTimeout(sitTimer.current)
+    lookRef.current = true
+    sitRef.current = true
+    elRef.current?.classList.add('is-looking', 'is-sitting')
+    elRef.current?.classList.remove('is-walk')
+    if (timers.current.look) window.clearTimeout(timers.current.look)
     const wait = 1200 + Math.random() * 800
-    lookTimer.current = window.setTimeout(() => {
-      setLook(false)
-      setSitting(false)
-      nextSit.current = performance.now() + 7000 + Math.random() * 8000
+    timers.current.look = window.setTimeout(() => {
+      lookRef.current = false
+      sitRef.current = false
+      elRef.current?.classList.remove('is-looking', 'is-sitting')
+      nextSit.current = performance.now() + 6000 + Math.random() * 8000
     }, wait)
   }
 
   return (
-    <button
-      type="button"
-      className={`ta-cat${look ? ' is-looking' : ''}${sitting ? ' is-sitting' : ''}`}
-      style={{
-        left: `${pos.current.x}%`,
-        transform: `translateX(-50%) scaleX(${-pos.current.dir})`,
-      }}
+    <div
+      ref={elRef}
+      role="button"
+      tabIndex={0}
+      className="ta-cat"
+      style={{ left: '16%', transform: 'translateX(-50%) scaleX(-1)' }}
       onClick={onTap}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onTap(e as any)
+      }}
       title="گربه سیامی"
       aria-label="گربه سیامی"
     >
+      <span className="ta-cat-leg back-l" />
+      <span className="ta-cat-leg back-r" />
       <span className="ta-cat-body" />
+      <span className="ta-cat-leg front-l" />
+      <span className="ta-cat-leg front-r" />
       <span className="ta-cat-head">
         <span className="ta-cat-ear l" />
         <span className="ta-cat-ear r" />
         <span className="ta-cat-eye l" />
         <span className="ta-cat-eye r" />
         <span className="ta-cat-nose" />
+        <span className="ta-cat-whisker w1" />
+        <span className="ta-cat-whisker w2" />
+        <span className="ta-cat-whisker w3" />
+        <span className="ta-cat-whisker w4" />
+        <span className="ta-cat-whisker w5" />
+        <span className="ta-cat-whisker w6" />
       </span>
       <span className="ta-cat-tail" />
-    </button>
+    </div>
   )
 }
-
 
 function OceanTreasure() {
   const key = 'waima_ocean_chest_day'
@@ -576,7 +723,6 @@ export default function ThemeAtmosphere() {
     <>
       <div className="theme-atmosphere theme-atmosphere-bg" data-active={theme} aria-hidden>
         <div className="ta-layer ta-day">
-          <div className="ta-sun ta-sun-auto" aria-hidden />
           <div className="ta-grass" />
           <div className="ta-cottage" />
         </div>
@@ -615,6 +761,7 @@ export default function ThemeAtmosphere() {
         <div className="ta-layer ta-day">
           {theme === 'day' && (
             <>
+              <DaySun />
               <Draggable wrapClassName="ta-pos-cloud-1" className="ta-cloud ta-cloud-1" label="ابر" />
               <Draggable wrapClassName="ta-pos-cloud-2" className="ta-cloud ta-cloud-2" label="ابر" />
               <Draggable wrapClassName="ta-pos-cloud-3" className="ta-cloud ta-cloud-3" label="ابر" />
