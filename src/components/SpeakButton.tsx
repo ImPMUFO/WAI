@@ -187,26 +187,17 @@ export default function SpeakButton({ text }: { text: string }) {
   }
 
   return (
-    <div className="inline-flex items-center gap-1 flex-wrap">
+    <div className="inline-flex items-center gap-0.5">
       <button
         type="button"
         onClick={speaking ? stop : () => void play()}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] sm:text-xs border border-[var(--border)] text-[var(--muted)] hover:text-[var(--accent)]"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--muted)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition"
+        title={speaking ? dict.stop : dict.speak}
+        aria-label={speaking ? dict.stop : dict.speak}
       >
-        {speaking ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-        {speaking ? dict.stop : dict.speak}
+        {speaking ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
       </button>
-      <select
-        value={rate}
-        onChange={(e) => setRate(Number(e.target.value))}
-        className="text-[10px] rounded border border-[var(--border)] bg-transparent text-[var(--muted)] px-1 py-0.5"
-        title="speed"
-      >
-        <option value={0.8}>0.8×</option>
-        <option value={1}>1×</option>
-        <option value={1.2}>1.2×</option>
-      </select>
-      {err && <span className="text-[10px] text-rose-300">{err}</span>}
+      {err && <span className="text-[10px] text-rose-300 max-w-[8rem] truncate" title={err}>!</span>}
     </div>
   )
 }
