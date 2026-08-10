@@ -1460,3 +1460,208 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
   .ta-cat-head { width: 38px !important; height: 34px !important; }
   .ta-cat-eye { width: 8px !important; height: 8px !important; }
 }
+
+
+/* خورشید قابل‌درگ + حرکت خودکار */
+.ta-pos-sun.ta-sun-draggable {
+  position: absolute;
+  z-index: 6;
+  width: 64px;
+  height: 64px;
+  pointer-events: auto !important;
+  cursor: grab;
+  touch-action: none;
+}
+.ta-pos-sun.ta-sun-draggable:active { cursor: grabbing; }
+.ta-sun-draggable .ta-sun,
+.ta-sun-draggable .ta-sun-face {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 64px !important;
+  height: 64px !important;
+  animation: none !important;
+  pointer-events: none;
+}
+@media (min-width: 768px) {
+  .ta-pos-sun.ta-sun-draggable { width: 78px; height: 78px; }
+  .ta-sun-draggable .ta-sun-face { width: 78px !important; height: 78px !important; }
+}
+
+/* گربه سیامی — کامل‌تر */
+.ta-cat {
+  position: absolute !important;
+  bottom: 11% !important;
+  width: 88px !important;
+  height: 58px !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  z-index: 9 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ta-cat-body {
+  position: absolute !important;
+  left: 22px !important;
+  bottom: 10px !important;
+  width: 48px !important;
+  height: 28px !important;
+  border-radius: 40% 45% 40% 40% !important;
+  background:
+    radial-gradient(ellipse 40% 50% at 70% 30%, rgba(255,255,255,0.9), transparent 55%),
+    linear-gradient(180deg, #f8fafc 0%, #e2e8f0 28%, #94a3b8 55%, #1e293b 78%, #0f172a 100%) !important;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.25) !important;
+}
+.ta-cat-head {
+  position: absolute !important;
+  left: 2px !important;
+  bottom: 16px !important;
+  width: 32px !important;
+  height: 30px !important;
+  border-radius: 46% 46% 42% 42% !important;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 35%, #fff 0%, #f1f5f9 45%, transparent 70%),
+    linear-gradient(180deg, #f8fafc 0%, #e2e8f0 40%, #0f172a 100%) !important;
+  z-index: 3;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.ta-cat-ear {
+  position: absolute !important;
+  top: -8px !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-left: 7px solid transparent !important;
+  border-right: 7px solid transparent !important;
+  border-bottom: 12px solid #0f172a !important;
+  z-index: 2;
+}
+.ta-cat-ear.l { left: 1px !important; transform: rotate(-12deg); }
+.ta-cat-ear.r { right: 1px !important; transform: rotate(12deg); }
+.ta-cat-ear::after {
+  content: '' !important;
+  position: absolute !important;
+  left: -4px !important;
+  top: 4px !important;
+  border-left: 4px solid transparent !important;
+  border-right: 4px solid transparent !important;
+  border-bottom: 7px solid #f9a8d4 !important;
+}
+.ta-cat-eye {
+  position: absolute !important;
+  top: 11px !important;
+  width: 7px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle at 35% 30%, #fff 0 15%, transparent 16%),
+    radial-gradient(circle at 50% 45%, #22d3ee 0 35%, #0369a1 55%, #0c4a6e 100%) !important;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.75) !important;
+  z-index: 4;
+}
+.ta-cat-eye.l { left: 6px !important; }
+.ta-cat-eye.r { right: 6px !important; }
+.ta-cat.is-looking .ta-cat-eye {
+  transform: scale(1.2);
+  height: 9px !important;
+  box-shadow: 0 0 12px rgba(125, 211, 252, 1) !important;
+}
+.ta-cat-nose {
+  position: absolute !important;
+  left: 50% !important;
+  bottom: 7px !important;
+  width: 5px !important;
+  height: 4px !important;
+  margin-left: -2.5px !important;
+  border-radius: 50% !important;
+  background: #fb7185 !important;
+  z-index: 4;
+}
+/* سبیل */
+.ta-cat-whisker {
+  position: absolute;
+  height: 1px;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 1px;
+  z-index: 5;
+  pointer-events: none;
+}
+.ta-cat-whisker.w1 { width: 14px; left: -10px; bottom: 9px; transform: rotate(-12deg); }
+.ta-cat-whisker.w2 { width: 13px; left: -9px; bottom: 12px; transform: rotate(2deg); }
+.ta-cat-whisker.w3 { width: 12px; left: -8px; bottom: 6px; transform: rotate(-22deg); }
+.ta-cat-whisker.w4 { width: 14px; right: -10px; bottom: 9px; transform: rotate(12deg); }
+.ta-cat-whisker.w5 { width: 13px; right: -9px; bottom: 12px; transform: rotate(-2deg); }
+.ta-cat-whisker.w6 { width: 12px; right: -8px; bottom: 6px; transform: rotate(22deg); }
+/* پاها */
+.ta-cat-leg {
+  position: absolute;
+  bottom: 2px;
+  width: 7px;
+  height: 12px;
+  border-radius: 4px 4px 3px 3px;
+  background: linear-gradient(180deg, #e2e8f0 0%, #0f172a 100%);
+  z-index: 1;
+  transform-origin: top center;
+}
+.ta-cat-leg.front-l { left: 26px; z-index: 4; }
+.ta-cat-leg.front-r { left: 38px; z-index: 4; }
+.ta-cat-leg.back-l { left: 52px; }
+.ta-cat-leg.back-r { left: 62px; }
+.ta-cat.is-walk .ta-cat-leg.front-l { animation: ta-cat-step 0.45s ease-in-out infinite; }
+.ta-cat.is-walk .ta-cat-leg.front-r { animation: ta-cat-step 0.45s ease-in-out infinite 0.22s; }
+.ta-cat.is-walk .ta-cat-leg.back-l { animation: ta-cat-step 0.45s ease-in-out infinite 0.22s; }
+.ta-cat.is-walk .ta-cat-leg.back-r { animation: ta-cat-step 0.45s ease-in-out infinite; }
+@keyframes ta-cat-step {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(18deg) translateY(-2px); }
+}
+.ta-cat.is-sitting .ta-cat-body {
+  height: 24px !important;
+  bottom: 8px !important;
+  border-radius: 50% 50% 40% 40% !important;
+}
+.ta-cat.is-sitting .ta-cat-leg {
+  height: 8px;
+  animation: none !important;
+}
+.ta-cat.is-sitting .ta-cat-head {
+  bottom: 18px !important;
+}
+.ta-cat-tail {
+  position: absolute !important;
+  right: 4px !important;
+  bottom: 20px !important;
+  width: 18px !important;
+  height: 5px !important;
+  border-radius: 6px !important;
+  background: linear-gradient(90deg, #0f172a, #475569) !important;
+  transform-origin: left center !important;
+  animation: ta-cat-tail 1.1s ease-in-out infinite !important;
+  z-index: 2;
+}
+.ta-cat.is-looking .ta-cat-tail,
+.ta-cat.is-sitting .ta-cat-tail {
+  animation-duration: 0.45s !important;
+}
+@media (min-width: 768px) {
+  .ta-cat { width: 112px !important; height: 72px !important; bottom: 12% !important; }
+  .ta-cat-body { width: 62px !important; height: 34px !important; left: 28px !important; }
+  .ta-cat-head { width: 40px !important; height: 38px !important; }
+  .ta-cat-eye { width: 9px !important; height: 10px !important; }
+  .ta-cat-leg { width: 9px; height: 14px; }
+  .ta-cat-leg.front-l { left: 32px; }
+  .ta-cat-leg.front-r { left: 48px; }
+  .ta-cat-leg.back-l { left: 66px; }
+  .ta-cat-leg.back-r { left: 78px; }
+}
+
+/* لایه FG: فقط اشیای تعاملی کلیک بگیرند */
+.theme-atmosphere-fg {
+  pointer-events: none !important;
+}
+.theme-atmosphere-fg .ta-drag,
+.theme-atmosphere-fg .ta-cat {
+  pointer-events: auto !important;
+}
