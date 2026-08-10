@@ -153,6 +153,129 @@ function Draggable({
   )
 }
 
+
+/** برگ چوبی: درگ دستی + بعد از رها کردن آرام می‌افتد پایین */
+function FallingLeaf({
+  wrapClassName,
+  className,
+  label,
+}: {
+  wrapClassName: string
+  className: string
+  label?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const pos = useRef({ x: 0, y: 0 })
+  const dragging = useRef(false)
+  const falling = useRef(false)
+  const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
+  const pid = useRef<number | null>(null)
+  const vel = useRef({ vy: 0, vx: 0, rot: 0 })
+  const [, force] = useState(0)
+
+  useEffect(() => {
+    let raf = 0
+    let last = performance.now()
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      if (falling.current && !dragging.current && ref.current) {
+        vel.current.vy += 180 * dt // gravity px/s^2 soft
+        vel.current.vx *= 0.99
+        pos.current.x += vel.current.vx * dt
+        pos.current.y += vel.current.vy * dt
+        vel.current.rot += vel.current.vx * 0.08
+        const maxY = typeof window !== 'undefined' ? window.innerHeight * 0.72 : 600
+        // relative to start: stop near bottom of viewport roughly
+        if (pos.current.y > maxY) {
+          pos.current.y = maxY
+          falling.current = false
+          vel.current.vy = 0
+          vel.current.vx = 0
+        }
+        ref.current.style.transform = `translate(${pos.current.x}px, ${pos.current.y}px) rotate(${vel.current.rot}deg)`
+        ref.current.classList.add('is-falling')
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current || pid.current !== e.pointerId) return
+      e.preventDefault()
+      pos.current = {
+        x: origin.current.x + (e.clientX - origin.current.px),
+        y: origin.current.y + (e.clientY - origin.current.py),
+      }
+      if (ref.current) {
+        ref.current.style.transform = `translate(${pos.current.x}px, ${pos.current.y}px)`
+      }
+    }
+    const onUp = (e: PointerEvent) => {
+      if (!dragging.current || (pid.current !== null && pid.current !== e.pointerId)) return
+      dragging.current = false
+      pid.current = null
+      // شروع سقوط نرم
+      falling.current = true
+      vel.current.vy = 40
+      vel.current.vx = (Math.random() - 0.5) * 60
+      vel.current.rot = (Math.random() - 0.5) * 20
+      if (ref.current) {
+        ref.current.classList.remove('is-dragging')
+        ref.current.classList.add('is-falling')
+      }
+      try {
+        playTick('leaf')
+      } catch {
+        /* */
+      }
+      force((n) => n + 1)
+    }
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [])
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    e.preventDefault()
+    e.stopPropagation()
+    falling.current = false
+    vel.current = { vy: 0, vx: 0, rot: 0 }
+    pid.current = e.pointerId
+    origin.current = { px: e.clientX, py: e.clientY, x: pos.current.x, y: pos.current.y }
+    dragging.current = true
+    if (ref.current) {
+      ref.current.classList.add('is-dragging')
+      ref.current.classList.remove('is-falling')
+      ref.current.style.transition = 'none'
+      ref.current.style.animation = 'none'
+    }
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={`ta-drag ta-leaf-drag${wrapClassName ? ` ${wrapClassName}` : ''}`}
+      role="presentation"
+      title={label || 'برگ'}
+      style={{
+        transform: `translate(${pos.current.x}px, ${pos.current.y}px)`,
+        touchAction: 'none',
+      }}
+      onPointerDown={onPointerDown}
+    >
+      <div className={className} />
+    </div>
+  )
+}
+
 function FireEraser({
   patches,
   setPatches,
@@ -849,10 +972,10 @@ export default function ThemeAtmosphere() {
         <div className="ta-layer ta-wood">
           {theme === 'wood' && (
             <>
-              <Draggable wrapClassName="ta-pos-l1" className="ta-leaf l1" label="برگ" onActivate={() => playTick('leaf')} />
-              <Draggable wrapClassName="ta-pos-l2" className="ta-leaf l2" label="برگ" onActivate={() => playTick('leaf')} />
-              <Draggable wrapClassName="ta-pos-l3" className="ta-leaf l3" label="برگ" onActivate={() => playTick('leaf')} />
-              <Draggable wrapClassName="ta-pos-l4" className="ta-leaf l4" label="برگ" onActivate={() => playTick('leaf')} />
+              <FallingLeaf wrapClassName="ta-pos-l1" className="ta-leaf l1" label="برگ" />
+              <FallingLeaf wrapClassName="ta-pos-l2" className="ta-leaf l2" label="برگ" />
+              <FallingLeaf wrapClassName="ta-pos-l3" className="ta-leaf l3" label="برگ" />
+              <FallingLeaf wrapClassName="ta-pos-l4" className="ta-leaf l4" label="برگ" />
             </>
           )}
         </div>
