@@ -1339,9 +1339,14 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
   50% { transform: rotate(16deg); }
 }
 
-/* جلوگیری از غیب شدن لایه اقیانوس */
+/* اقیانوس فقط وقتی تم ocean فعال است */
 .theme-atmosphere .ta-layer.ta-ocean,
 .theme-atmosphere-fg .ta-layer.ta-ocean {
+  opacity: 0;
+  visibility: hidden;
+}
+.theme-atmosphere[data-active='ocean'] .ta-layer.ta-ocean,
+.theme-atmosphere-fg[data-active='ocean'] .ta-layer.ta-ocean {
   opacity: 1 !important;
   visibility: visible !important;
 }
@@ -1394,4 +1399,64 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
   .ta-cat-body { width: 56px !important; height: 32px !important; }
   .ta-cat-head { width: 36px !important; height: 34px !important; }
   .ta-cat-eye { width: 7px !important; height: 7px !important; }
+}
+
+/* جلبک فقط تم دریا */
+.theme-atmosphere:not([data-active='ocean']) .ta-seaweed,
+.theme-atmosphere-bg:not([data-active='ocean']) .ta-seaweed {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* گربه سیامی — ظاهر واقعی‌تر */
+.ta-cat {
+  width: 78px !important;
+  height: 54px !important;
+  bottom: 11% !important;
+  z-index: 8 !important;
+}
+.ta-cat-body {
+  left: 16px !important;
+  width: 46px !important;
+  height: 26px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 35%, #1e293b 72%, #0f172a 100%) !important;
+}
+.ta-cat-head {
+  width: 30px !important;
+  height: 28px !important;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 40%, #0f172a 100%) !important;
+  border-radius: 12px 12px 10px 10px !important;
+}
+.ta-cat-ear {
+  border-bottom-color: #0f172a !important;
+}
+.ta-cat-ear::after {
+  border-bottom-color: #fbcfe8 !important;
+}
+.ta-cat-eye {
+  width: 6px !important;
+  height: 6px !important;
+  background: radial-gradient(circle at 30% 30%, #a5f3fc, #0284c7 70%, #0c4a6e) !important;
+  box-shadow: 0 0 5px rgba(34, 211, 238, 0.9) !important;
+}
+.ta-cat.is-looking .ta-cat-eye {
+  transform: scale(1.35);
+  box-shadow: 0 0 10px rgba(125, 211, 252, 1) !important;
+}
+.ta-cat.is-sitting .ta-cat-body {
+  height: 22px !important;
+  border-radius: 16px 16px 10px 10px !important;
+}
+.ta-cat.is-sitting .ta-cat-head {
+  bottom: 12px !important;
+}
+.ta-cat-tail {
+  background: linear-gradient(90deg, #0f172a, #334155) !important;
+}
+@media (min-width: 768px) {
+  .ta-cat { width: 100px !important; height: 68px !important; bottom: 12% !important; }
+  .ta-cat-body { width: 58px !important; height: 32px !important; left: 20px !important; }
+  .ta-cat-head { width: 38px !important; height: 34px !important; }
+  .ta-cat-eye { width: 8px !important; height: 8px !important; }
 }
