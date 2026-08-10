@@ -430,35 +430,55 @@ function playMeow() {
   }
 }
 
-/** خورشید: هم مسیر خودکار در آسمان، هم قابل کشیدن دستی */
+/** خورشید: ورود از چپ → خروج از راست → تکرار بی‌نهایت؛ قابل کشیدن و ادامه مسیر بعد از رها کردن */
 function DaySun() {
   const ref = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const origin = useRef({ px: 0, py: 0, ox: 0, oy: 0 })
-  const offset = useRef({ x: 0, y: 0 })
-  const auto = useRef({ xPct: 12, yPct: 8, dir: 1 as 1 | -1, t0: performance.now() })
+  // progress 0..1 روی مسیر افقی آسمان (0 = خارج چپ، 1 = خارج راست)
+  const progress = useRef(0)
+  const yBoost = useRef(0) // جابه‌جایی عمودی باقی‌مانده از درگ (به‌تدریج برمی‌گردد)
+  const lastTs = useRef(performance.now())
+  // مدت یک عبور کامل (ثانیه)
+  const CYCLE = 55
+
+  const applyTransform = () => {
+    const el = ref.current
+    if (!el) return
+    // از کمی بیرون چپ تا کمی بیرون راست
+    const xPct = -12 + progress.current * 124 // -12% → 112%
+    // قوس ملایم ارتفاع مثل طلوع/غروب
+    const arc = Math.sin(progress.current * Math.PI) // 0→1→0
+    const yPct = 18 - arc * 12 + yBoost.current // بالاتر در وسط آسمان
+    el.style.left = `${xPct}%`
+    el.style.top = `${yPct}%`
+    el.style.transform = 'translate(-50%, -50%)'
+  }
 
   useEffect(() => {
     let raf = 0
+    lastTs.current = performance.now()
     const loop = (now: number) => {
-      const el = ref.current
-      if (el && !dragging.current) {
-        const a = auto.current
-        // حرکت آرام چپ→راست در نوار بالای آسمان
-        a.xPct += a.dir * 0.012
-        if (a.xPct > 82) a.dir = -1
-        if (a.xPct < 8) a.dir = 1
-        const bob = Math.sin((now - a.t0) / 1800) * 1.2
-        el.style.left = `${a.xPct}%`
-        el.style.top = `${a.yPct + bob}%`
-        el.style.transform = `translate(${offset.current.x}px, ${offset.current.y}px)`
-      } else if (el && dragging.current) {
-        el.style.transform = `translate(${offset.current.x}px, ${offset.current.y}px)`
+      const dt = Math.min(0.05, (now - lastTs.current) / 1000)
+      lastTs.current = now
+      if (!dragging.current) {
+        progress.current += dt / CYCLE
+        if (progress.current >= 1) progress.current -= 1
+        // برگرداندن نرم جابه‌جایی عمودی درگ
+        if (Math.abs(yBoost.current) > 0.05) {
+          yBoost.current *= 0.97
+        } else {
+          yBoost.current = 0
+        }
+        applyTransform()
       }
       raf = requestAnimationFrame(loop)
     }
+    applyTransform()
     raf = requestAnimationFrame(loop)
+
     const up = () => {
+      if (!dragging.current) return
       dragging.current = false
     }
     window.addEventListener('pointerup', up)
@@ -483,21 +503,26 @@ function DaySun() {
     origin.current = {
       px: e.clientX,
       py: e.clientY,
-      ox: offset.current.x,
-      oy: offset.current.y,
+      ox: progress.current,
+      oy: yBoost.current,
     }
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging.current) return
     e.preventDefault()
-    offset.current = {
-      x: origin.current.ox + (e.clientX - origin.current.px),
-      y: origin.current.oy + (e.clientY - origin.current.py),
-    }
-    if (ref.current) {
-      ref.current.style.transform = `translate(${offset.current.x}px, ${offset.current.y}px)`
-    }
+    const w = window.innerWidth || 1
+    const h = window.innerHeight || 1
+    // حرکت افقی → تغییر progress مسیر
+    const dx = (e.clientX - origin.current.px) / w
+    let p = origin.current.ox + dx * 0.9
+    // حلقه‌ای نگه دار
+    p = ((p % 1) + 1) % 1
+    progress.current = p
+    // حرکت عمودی محدود
+    const dy = ((e.clientY - origin.current.py) / h) * 28
+    yBoost.current = Math.max(-10, Math.min(10, origin.current.oy + dy))
+    applyTransform()
   }
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -517,7 +542,7 @@ function DaySun() {
       className="ta-drag ta-pos-sun ta-sun-draggable"
       role="presentation"
       title="خورشید"
-      style={{ left: '12%', top: '8%', transform: 'translate(0,0)' }}
+      style={{ left: '-12%', top: '18%', transform: 'translate(-50%, -50%)' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
