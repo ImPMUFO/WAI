@@ -80,85 +80,73 @@ function Draggable({
   onActivate?: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const pos = useRef({ x: 0, y: 0 })
   const dragging = useRef(false)
   const origin = useRef({ px: 0, py: 0, x: 0, y: 0 })
+  const pid = useRef<number | null>(null)
   const [, force] = useState(0)
 
   useEffect(() => {
-    const up = () => {
-      if (!dragging.current) return
-      dragging.current = false
-      force((n) => n + 1)
-    }
-    window.addEventListener('pointerup', up)
-    window.addEventListener('pointercancel', up)
-    return () => {
-      window.removeEventListener('pointerup', up)
-      window.removeEventListener('pointercancel', up)
-    }
-  }, [])
-
-  const onPointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current || pid.current !== e.pointerId) return
       e.preventDefault()
-      e.stopPropagation()
-      try {
-        ref.current?.setPointerCapture(e.pointerId)
-      } catch {
-        /* ignore */
+      pos.current = {
+        x: origin.current.x + (e.clientX - origin.current.px),
+        y: origin.current.y + (e.clientY - origin.current.py),
       }
-      origin.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y }
-      dragging.current = true
-      force((n) => n + 1)
-    },
-    [pos.x, pos.y]
-  )
-
-  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return
-    e.preventDefault()
-    setPos({
-      x: origin.current.x + (e.clientX - origin.current.px),
-      y: origin.current.y + (e.clientY - origin.current.py),
-    })
-  }, [])
-
-  const endDrag = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      try {
-        if (ref.current?.hasPointerCapture?.(e.pointerId)) {
-          ref.current.releasePointerCapture(e.pointerId)
-        }
-      } catch {
-        /* ignore */
+      if (ref.current) {
+        ref.current.style.transform = `translate(${pos.current.x}px, ${pos.current.y}px)`
       }
-      if (!dragging.current) return
+    }
+    const onUp = (e: PointerEvent) => {
+      if (!dragging.current || (pid.current !== null && pid.current !== e.pointerId)) return
       const moved =
         Math.abs(e.clientX - origin.current.px) + Math.abs(e.clientY - origin.current.py)
       dragging.current = false
+      pid.current = null
+      if (ref.current) {
+        ref.current.classList.remove('is-dragging')
+        ref.current.style.transition = 'transform 0.2s ease'
+      }
       force((n) => n + 1)
       if (moved < 8) onActivate?.()
-    },
-    [onActivate]
-  )
+    }
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [onActivate])
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    e.preventDefault()
+    e.stopPropagation()
+    // بدون setPointerCapture — تداخل با خورشید/اشیای دیگر ندارد
+    pid.current = e.pointerId
+    origin.current = { px: e.clientX, py: e.clientY, x: pos.current.x, y: pos.current.y }
+    dragging.current = true
+    if (ref.current) {
+      ref.current.classList.add('is-dragging')
+      ref.current.style.transition = 'none'
+    }
+  }
 
   return (
     <div
       ref={ref}
-      className={`ta-drag${wrapClassName ? ` ${wrapClassName}` : ''}${dragging.current ? ' is-dragging' : ''}`}
+      className={`ta-drag${wrapClassName ? ` ${wrapClassName}` : ''}`}
       role="presentation"
       aria-hidden
       title={label}
       style={{
-        transform: `translate(${pos.x}px, ${pos.y}px)`,
-        transition: dragging.current ? 'none' : 'transform 0.2s ease',
+        transform: `translate(${pos.current.x}px, ${pos.current.y}px)`,
+        transition: 'transform 0.2s ease',
       }}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
     >
       <div className={className}>{children}</div>
     </div>
@@ -430,26 +418,23 @@ function playMeow() {
   }
 }
 
-/** خورشید: ورود از چپ → خروج از راست → تکرار بی‌نهایت؛ قابل کشیدن و ادامه مسیر بعد از رها کردن */
+/** خورشید: ورود از چپ → خروج از راست → تکرار؛ درگ دستی بدون قفل pointer */
 function DaySun() {
   const ref = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
+  const pid = useRef<number | null>(null)
   const origin = useRef({ px: 0, py: 0, ox: 0, oy: 0 })
-  // progress 0..1 روی مسیر افقی آسمان (0 = خارج چپ، 1 = خارج راست)
   const progress = useRef(0)
-  const yBoost = useRef(0) // جابه‌جایی عمودی باقی‌مانده از درگ (به‌تدریج برمی‌گردد)
+  const yBoost = useRef(0)
   const lastTs = useRef(performance.now())
-  // مدت یک عبور کامل (ثانیه)
   const CYCLE = 55
 
   const applyTransform = () => {
     const el = ref.current
     if (!el) return
-    // از کمی بیرون چپ تا کمی بیرون راست
-    const xPct = -12 + progress.current * 124 // -12% → 112%
-    // قوس ملایم ارتفاع مثل طلوع/غروب
-    const arc = Math.sin(progress.current * Math.PI) // 0→1→0
-    const yPct = 18 - arc * 12 + yBoost.current // بالاتر در وسط آسمان
+    const xPct = -12 + progress.current * 124
+    const arc = Math.sin(progress.current * Math.PI)
+    const yPct = 18 - arc * 12 + yBoost.current
     el.style.left = `${xPct}%`
     el.style.top = `${yPct}%`
     el.style.transform = 'translate(-50%, -50%)'
@@ -464,12 +449,8 @@ function DaySun() {
       if (!dragging.current) {
         progress.current += dt / CYCLE
         if (progress.current >= 1) progress.current -= 1
-        // برگرداندن نرم جابه‌جایی عمودی درگ
-        if (Math.abs(yBoost.current) > 0.05) {
-          yBoost.current *= 0.97
-        } else {
-          yBoost.current = 0
-        }
+        if (Math.abs(yBoost.current) > 0.05) yBoost.current *= 0.97
+        else yBoost.current = 0
         applyTransform()
       }
       raf = requestAnimationFrame(loop)
@@ -477,16 +458,32 @@ function DaySun() {
     applyTransform()
     raf = requestAnimationFrame(loop)
 
-    const up = () => {
-      if (!dragging.current) return
-      dragging.current = false
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current || pid.current !== e.pointerId) return
+      e.preventDefault()
+      const w = window.innerWidth || 1
+      const h = window.innerHeight || 1
+      let p = origin.current.ox + ((e.clientX - origin.current.px) / w) * 0.9
+      p = ((p % 1) + 1) % 1
+      progress.current = p
+      const dy = ((e.clientY - origin.current.py) / h) * 28
+      yBoost.current = Math.max(-10, Math.min(10, origin.current.oy + dy))
+      applyTransform()
     }
-    window.addEventListener('pointerup', up)
-    window.addEventListener('pointercancel', up)
+    const onUp = (e: PointerEvent) => {
+      if (!dragging.current) return
+      if (pid.current !== null && pid.current !== e.pointerId) return
+      dragging.current = false
+      pid.current = null
+    }
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
     return () => {
       cancelAnimationFrame(raf)
-      window.removeEventListener('pointerup', up)
-      window.removeEventListener('pointercancel', up)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
     }
   }, [])
 
@@ -494,46 +491,14 @@ function DaySun() {
     if (e.button !== 0 && e.pointerType === 'mouse') return
     e.preventDefault()
     e.stopPropagation()
+    pid.current = e.pointerId
     dragging.current = true
-    try {
-      ref.current?.setPointerCapture(e.pointerId)
-    } catch {
-      /* */
-    }
     origin.current = {
       px: e.clientX,
       py: e.clientY,
       ox: progress.current,
       oy: yBoost.current,
     }
-  }
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragging.current) return
-    e.preventDefault()
-    const w = window.innerWidth || 1
-    const h = window.innerHeight || 1
-    // حرکت افقی → تغییر progress مسیر
-    const dx = (e.clientX - origin.current.px) / w
-    let p = origin.current.ox + dx * 0.9
-    // حلقه‌ای نگه دار
-    p = ((p % 1) + 1) % 1
-    progress.current = p
-    // حرکت عمودی محدود
-    const dy = ((e.clientY - origin.current.py) / h) * 28
-    yBoost.current = Math.max(-10, Math.min(10, origin.current.oy + dy))
-    applyTransform()
-  }
-
-  const onPointerUp = (e: React.PointerEvent) => {
-    try {
-      if (ref.current?.hasPointerCapture?.(e.pointerId)) {
-        ref.current.releasePointerCapture(e.pointerId)
-      }
-    } catch {
-      /* */
-    }
-    dragging.current = false
   }
 
   return (
@@ -544,9 +509,6 @@ function DaySun() {
       title="خورشید"
       style={{ left: '-12%', top: '18%', transform: 'translate(-50%, -50%)' }}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
     >
       <div className="ta-sun ta-sun-face" />
     </div>
