@@ -378,26 +378,67 @@ function GalaxySystem() {
 }
 
 
+function playMeow() {
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const o = ctx.createOscillator()
+    const g = ctx.createGain()
+    o.type = 'sine'
+    o.connect(g)
+    g.connect(ctx.destination)
+    const t = ctx.currentTime
+    o.frequency.setValueAtTime(900, t)
+    o.frequency.exponentialRampToValueAtTime(480, t + 0.18)
+    o.frequency.exponentialRampToValueAtTime(720, t + 0.32)
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(0.09, t + 0.03)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38)
+    o.start(t)
+    o.stop(t + 0.4)
+    window.setTimeout(() => {
+      try {
+        ctx.close()
+      } catch {
+        /* */
+      }
+    }, 500)
+  } catch {
+    /* silent */
+  }
+}
+
 function DayCat() {
-  const ref = useRef<HTMLButtonElement>(null)
   const [look, setLook] = useState(false)
+  const [sitting, setSitting] = useState(false)
   const pos = useRef({ x: 18, dir: 1 as 1 | -1 })
   const [, bump] = useState(0)
   const lookTimer = useRef<any>(null)
+  const sitTimer = useRef<any>(null)
+  const nextSit = useRef(performance.now() + 8000 + Math.random() * 10000)
 
   useEffect(() => {
     let raf = 0
     let last = performance.now()
     const tick = (now: number) => {
-      if (!document.hidden && !look) {
+      if (!document.hidden && !look && !sitting) {
         const dt = Math.min(0.05, (now - last) / 1000)
         last = now
         let { x, dir } = pos.current
-        x += dir * 4.2 * dt // درصد عرض
+        x += dir * 4.5 * dt
         if (x > 72) dir = -1
         if (x < 10) dir = 1
         pos.current = { x, dir }
         bump((n) => n + 1)
+        if (now > nextSit.current) {
+          setSitting(true)
+          if (sitTimer.current) window.clearTimeout(sitTimer.current)
+          sitTimer.current = window.setTimeout(() => {
+            setSitting(false)
+            nextSit.current = performance.now() + 9000 + Math.random() * 12000
+          }, 2200 + Math.random() * 1800)
+        }
       } else {
         last = now
       }
@@ -407,23 +448,31 @@ function DayCat() {
     return () => {
       cancelAnimationFrame(raf)
       if (lookTimer.current) window.clearTimeout(lookTimer.current)
+      if (sitTimer.current) window.clearTimeout(sitTimer.current)
     }
-  }, [look])
+  }, [look, sitting])
 
   const onTap = () => {
+    playMeow()
     setLook(true)
+    setSitting(true)
     if (lookTimer.current) window.clearTimeout(lookTimer.current)
-    lookTimer.current = window.setTimeout(() => setLook(false), 1400)
+    if (sitTimer.current) window.clearTimeout(sitTimer.current)
+    const wait = 1200 + Math.random() * 800
+    lookTimer.current = window.setTimeout(() => {
+      setLook(false)
+      setSitting(false)
+      nextSit.current = performance.now() + 7000 + Math.random() * 8000
+    }, wait)
   }
 
   return (
     <button
-      ref={ref}
       type="button"
-      className={`ta-cat${look ? ' is-looking' : ''}`}
+      className={`ta-cat${look ? ' is-looking' : ''}${sitting ? ' is-sitting' : ''}`}
       style={{
         left: `${pos.current.x}%`,
-        transform: `translateX(-50%) scaleX(${-pos.current.dir})`, // سر به سمت حرکت
+        transform: `translateX(-50%) scaleX(${-pos.current.dir})`,
       }}
       onClick={onTap}
       title="گربه سیامی"
@@ -441,6 +490,7 @@ function DayCat() {
     </button>
   )
 }
+
 
 function OceanTreasure() {
   const key = 'waima_ocean_chest_day'
