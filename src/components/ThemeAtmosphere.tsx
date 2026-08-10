@@ -761,16 +761,31 @@ export default function ThemeAtmosphere() {
           {theme === 'ocean' && (
             <>
               <Draggable wrapClassName="ta-pos-f1" className="ta-fish f1" label="ماهی">
-                <span className="ta-fish-fin" />
+                <span className="ta-fish-tail" />
+                <span className="ta-fish-fin-top" />
+                <span className="ta-fish-fin-side" />
                 <span className="ta-fish-eye" />
+                <span className="ta-fish-mouth" />
+                <span className="ta-fish-bubble b-a" />
+                <span className="ta-fish-bubble b-b" />
               </Draggable>
               <Draggable wrapClassName="ta-pos-f2" className="ta-fish f2" label="ماهی">
-                <span className="ta-fish-fin" />
+                <span className="ta-fish-tail" />
+                <span className="ta-fish-fin-top" />
+                <span className="ta-fish-fin-side" />
                 <span className="ta-fish-eye" />
+                <span className="ta-fish-mouth" />
+                <span className="ta-fish-bubble b-a" />
+                <span className="ta-fish-bubble b-b" />
               </Draggable>
               <Draggable wrapClassName="ta-pos-f3" className="ta-fish f3" label="ماهی">
-                <span className="ta-fish-fin" />
+                <span className="ta-fish-tail" />
+                <span className="ta-fish-fin-top" />
+                <span className="ta-fish-fin-side" />
                 <span className="ta-fish-eye" />
+                <span className="ta-fish-mouth" />
+                <span className="ta-fish-bubble b-a" />
+                <span className="ta-fish-bubble b-b" />
               </Draggable>
               <Draggable wrapClassName="ta-pos-j1" className="ta-jelly j1" label="عروس دریایی" />
               <Draggable wrapClassName="ta-pos-j2" className="ta-jelly j2" label="عروس دریایی" />
