@@ -2068,3 +2068,48 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
     animation: none !important;
   }
 }
+
+
+
+/* ——— برگ چوبی: درگ + سقوط بعد از رها ——— */
+.ta-pos-l1, .ta-pos-l2, .ta-pos-l3, .ta-pos-l4 {
+  position: absolute !important;
+  z-index: 8 !important;
+  pointer-events: auto !important;
+  width: 36px !important;
+  height: 28px !important;
+}
+.ta-pos-l1 { left: 12% !important; top: 12% !important; }
+.ta-pos-l2 { left: 38% !important; top: 8% !important; }
+.ta-pos-l3 { left: 62% !important; top: 14% !important; }
+.ta-pos-l4 { left: 82% !important; top: 10% !important; }
+
+.ta-leaf-drag {
+  pointer-events: auto !important;
+  cursor: grab !important;
+  touch-action: none !important;
+  z-index: 8 !important;
+}
+.ta-leaf-drag.is-dragging { cursor: grabbing !important; }
+.ta-leaf-drag .ta-leaf,
+.ta-drag .ta-leaf,
+.ta-leaf {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 30px !important;
+  height: 20px !important;
+  border-radius: 0 100% 0 100% !important;
+  opacity: 0.95 !important;
+  pointer-events: none !important;
+  animation: none !important; /* سقوط با JS بعد از رها */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+.ta-leaf.l1 { background: #22c55e !important; }
+.ta-leaf.l2 { background: #86efac !important; }
+.ta-leaf.l3 { background: #16a34a !important; }
+.ta-leaf.l4 { background: #4d7c0f !important; }
+
+.theme-atmosphere-fg .ta-leaf-drag {
+  pointer-events: auto !important;
+}
