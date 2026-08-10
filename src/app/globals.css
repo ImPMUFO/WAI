@@ -1462,15 +1462,17 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
 }
 
 
-/* خورشید قابل‌درگ + حرکت خودکار */
+/* خورشید: مسیر JS (چپ→راست حلقه‌ای) + درگ دستی */
 .ta-pos-sun.ta-sun-draggable {
   position: absolute;
   z-index: 6;
   width: 64px;
   height: 64px;
+  margin: 0;
   pointer-events: auto !important;
   cursor: grab;
   touch-action: none;
+  will-change: left, top;
 }
 .ta-pos-sun.ta-sun-draggable:active { cursor: grabbing; }
 .ta-sun-draggable .ta-sun,
@@ -1482,6 +1484,7 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
   height: 64px !important;
   animation: none !important;
   pointer-events: none;
+  border-radius: 50%;
 }
 @media (min-width: 768px) {
   .ta-pos-sun.ta-sun-draggable { width: 78px; height: 78px; }
