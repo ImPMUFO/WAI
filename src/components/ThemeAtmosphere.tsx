@@ -271,22 +271,49 @@ function GalaxySystem() {
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
   const dragOffset = useRef({ ox: 0, oy: 0 })
 
+  const planetsRef = useRef(planets)
+  planetsRef.current = planets
+  const dragIdRef = useRef(dragId)
+  dragIdRef.current = dragId
+
   useEffect(() => {
     let raf = 0
     let last = performance.now()
+    let acc = 0
     const tick = (now: number) => {
       if (!document.hidden) {
         const dt = Math.min(0.05, (now - last) / 1000)
         last = now
-        setPlanets((prev) =>
-          prev.map((p) => (p.id === dragId ? p : { ...p, angle: p.angle + p.speed * dt }))
-        )
+        acc += dt
+        // به‌روزرسانی DOM مستقیم هر فریم، React فقط هر ~100ms
+        const wrap = wrapRef.current
+        if (wrap && acc < 0.1) {
+          for (const p of planetsRef.current) {
+            if (p.id === dragIdRef.current) continue
+            p.angle += p.speed * dt
+            const el = wrap.querySelector(`[data-planet="${p.id}"]`) as HTMLElement | null
+            if (el && !el.classList.contains('is-dragging')) {
+              const r = 42 + p.orbit * 28
+              const x = 50 + Math.cos(p.angle) * (r / 6)
+              const y = 50 + Math.sin(p.angle) * (r / 9)
+              el.style.left = `${x}%`
+              el.style.top = `${y}%`
+            }
+          }
+        } else if (acc >= 0.1) {
+          acc = 0
+          setPlanets((prev) =>
+            prev.map((p) =>
+              p.id === dragIdRef.current ? p : { ...p, angle: p.angle + p.speed * 0.1 }
+            )
+          )
+        }
       } else last = now
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [dragId])
+  }, [])
 
   const localPos = (p: PlanetBody) => {
     const el = wrapRef.current
