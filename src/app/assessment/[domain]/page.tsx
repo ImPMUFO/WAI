@@ -18,6 +18,10 @@ import {
   Trash2,
   Check,
   X,
+  Copy,
+  Share2,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react'
 import SpeakButton from '@/components/SpeakButton'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
@@ -216,6 +220,7 @@ export default function AssessmentPage() {
   const [nameInput, setNameInput] = useState('')
   const [needsName, setNeedsName] = useState(true)
   const [messages, setMessages] = useState<Message[]>([])
+  const [reactions, setReactions] = useState<Record<number, 'like' | 'dislike' | null>>({})
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -506,6 +511,44 @@ export default function AssessmentPage() {
     }
   }
 
+
+  const copyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+    } catch {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = content
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  const shareMessage = async (content: string) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: content })
+        return
+      }
+    } catch {
+      /* user cancel or fail → copy */
+    }
+    await copyMessage(content)
+  }
+
+  const toggleReaction = (id: number, kind: 'like' | 'dislike') => {
+    setReactions((prev) => {
+      const cur = prev[id]
+      if (cur === kind) return { ...prev, [id]: null }
+      return { ...prev, [id]: kind }
+    })
+  }
+
   /** حذف پیام؛ اگر پیام کاربر بود، جواب AI بلافاصله بعدش هم حذف می‌شود */
   const deleteMessage = (id: number) => {
     if (isTyping) return
@@ -782,10 +825,58 @@ ${localInsight.question}` : ''),
 
                   {!isEditing && !isTyping && (
                     <div
-                      className={`flex gap-2 mt-2 pt-1.5 border-t ${
+                      className={`flex items-center gap-1 mt-2 pt-1.5 border-t ${
                         msg.role === 'user' ? 'border-white/25' : 'border-[var(--border)]'
                       }`}
                     >
+                      {msg.role === 'assistant' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void shareMessage(msg.content)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:text-[var(--accent)] transition"
+                            title="اشتراک‌گذاری"
+                            aria-label="اشتراک‌گذاری"
+                          >
+                            <Share2 className="w-3.5 h-3.5" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void copyMessage(msg.content)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:text-[var(--accent)] transition"
+                            title="کپی"
+                            aria-label="کپی"
+                          >
+                            <Copy className="w-3.5 h-3.5" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleReaction(msg.id, 'like')}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition ${
+                              reactions[msg.id] === 'like'
+                                ? 'text-emerald-400 bg-emerald-500/15'
+                                : 'text-[var(--muted)] hover:text-emerald-400'
+                            }`}
+                            title="لایک"
+                            aria-label="لایک"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleReaction(msg.id, 'dislike')}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition ${
+                              reactions[msg.id] === 'dislike'
+                                ? 'text-rose-400 bg-rose-500/15'
+                                : 'text-[var(--muted)] hover:text-rose-400'
+                            }`}
+                            title="دیس‌لایک"
+                            aria-label="دیس‌لایک"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" strokeWidth={2.25} />
+                          </button>
+                        </>
+                      )}
                       {isLastUser && (
                         <button
                           type="button"
@@ -793,23 +884,25 @@ ${localInsight.question}` : ''),
                             setEditingId(msg.id)
                             setEditText(msg.content)
                           }}
-                          className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                            msg.role === 'user' ? 'text-white/95' : 'text-[var(--text)]'
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition ${
+                            msg.role === 'user' ? 'text-white/95 hover:bg-white/10' : 'text-[var(--muted)] hover:text-[var(--accent)]'
                           }`}
+                          title="ویرایش"
+                          aria-label="ویرایش"
                         >
                           <Pencil className="w-3.5 h-3.5" strokeWidth={2.5} />
-                          ویرایش
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => deleteMessage(msg.id)}
-                        className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                          msg.role === 'user' ? 'text-white/95' : 'text-[var(--text)]'
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition ${
+                          msg.role === 'user' ? 'text-white/95 hover:bg-white/10' : 'text-[var(--muted)] hover:text-rose-400'
                         }`}
+                        title="حذف"
+                        aria-label="حذف"
                       >
                         <Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        حذف
                       </button>
                     </div>
                   )}
