@@ -13,6 +13,7 @@ import {
   PENDING_LEVEL_UP_KEY,
 } from '@/lib/gamification'
 import ExtraGames from '@/components/ExtraGames'
+import HumanState from '@/components/HumanState'
 import LevelUpWheel from '@/components/LevelUpWheel'
 import { getSavedAvatar } from '@/lib/avatars'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
@@ -408,6 +409,9 @@ export default function PlayPage() {
               </p>
               <p className="text-sm text-[var(--muted)]">
                 {dict.quizComeTomorrow}
+              </p>
+              <p className="text-xs text-[var(--accent)]">
+                جواب‌های درستت روی نقشه دانش هم ثبت شدن 🗺️
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 <Link href="/start" className="btn-primary px-5 py-3">
