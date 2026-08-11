@@ -9,10 +9,13 @@ import {
   getActiveDomains,
   loadGame,
   onQuizQuestionAnswered,
+  gameXpStatus,
+  DAILY_GAME_XP_CAP,
   hasAnsweredQuestion,
   PENDING_LEVEL_UP_KEY,
 } from '@/lib/gamification'
 import ExtraGames from '@/components/ExtraGames'
+// XP soft cap from gamification
 import HumanState from '@/components/HumanState'
 import LevelUpWheel from '@/components/LevelUpWheel'
 import { getSavedAvatar } from '@/lib/avatars'
@@ -204,6 +207,7 @@ export default function PlayPage() {
     const correct = opt.trim() === String(current.answer || '').trim()
     setLastCorrect(correct)
     const res = onQuizQuestionAnswered(current.id, correct, { domain: current.domain || 'general', xpCorrect: 5, xpWrong: 1 })
+    // res.atCap => soft daily cap
     setAlready(res.alreadyAnswered)
     setGained(res.gainedXp)
     const nextSet = new Set(answeredSet)
@@ -241,7 +245,16 @@ export default function PlayPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={myAvatar} alt="" className="w-10 h-10 rounded-full border border-[var(--accent)] object-cover" />
           <div className="flex-1 min-w-0">
-            <GamificationBar compact />
+            {(() => {
+          const st = gameXpStatus()
+          return (
+            <p className="text-[11px] text-[var(--muted)] text-center">
+              XP امروز از بازی: {st.fromToday}/{st.cap}
+              {st.atCap ? ' — سقف نرم رسید؛ هنوز می‌تونی تمرین کنی ولی XP خیلی کمتره.' : ''}
+            </p>
+          )
+        })()}
+        <GamificationBar compact />
           </div>
         </div>
 
@@ -411,10 +424,10 @@ export default function PlayPage() {
             <motion.div key="empty" className="card text-center space-y-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Trophy className="w-8 h-8 mx-auto text-[var(--accent)]" />
               <p className="font-semibold">
-                {dict.quizDoneToday}
+                {dict.quizDoneToday || 'سؤالات این مجموعه تمام شد'}
               </p>
               <p className="text-sm text-[var(--muted)]">
-                {dict.quizComeTomorrow}
+                مجموعه جدید به‌زودی می‌آید؛ می‌توانی بازی‌های دیگر را ادامه بدهی. XP بازی سقف نرم روزانه دارد تا عادلانه بماند.
               </p>
               <p className="text-xs text-[var(--accent)]">
                 جواب‌های درستت روی نقشه دانش هم ثبت شدن 🗺️
