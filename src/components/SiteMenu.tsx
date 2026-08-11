@@ -89,6 +89,7 @@ export default function SiteMenu() {
   }
 
   const items = [
+    { href: '/journey', icon: User, label: locale === 'en' ? 'Knowledge journey' : 'سفر دانش' },
     { href: '/account', icon: User, label: dict.accountTitle || 'مدیریت حساب' },
     { href: '/contact', icon: Mail, label: dict.contact || 'ارتباط با ما' },
     ...(!loggedIn
