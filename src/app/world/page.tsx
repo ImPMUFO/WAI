@@ -1,5 +1,28 @@
 'use client'
 
+const WORLD_ROOMS = [
+  { id: 'general', fa: 'عمومی', en: 'General', emoji: '💬' },
+  { id: 'philosophy', fa: 'فلسفه', en: 'Philosophy', emoji: '🧠' },
+  { id: 'history', fa: 'تاریخ', en: 'History', emoji: '📜' },
+  { id: 'science', fa: 'علم', en: 'Science', emoji: '🔬' },
+  { id: 'tech', fa: 'فناوری', en: 'Tech', emoji: '💻' },
+  { id: 'games', fa: 'بازی و ذهن', en: 'Games & mind', emoji: '🎮' },
+] as const
+
+type RoomId = (typeof WORLD_ROOMS)[number]['id']
+
+function roomPrefix(room: string) {
+  return `[[room:${room}]]`
+}
+function stripRoom(body: string): { room: RoomId; text: string } {
+  const m = /^(?:\[\[room:([a-z_]+)\]\]\s*)/i.exec(body || '')
+  if (m && WORLD_ROOMS.some((r) => r.id === m[1])) {
+    return { room: m[1] as RoomId, text: body.slice(m[0].length) }
+  }
+  return { room: 'general', text: body || '' }
+}
+
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Globe2, Send, Pencil, Trash2, Check, X, Smile } from 'lucide-react'
@@ -7,6 +30,7 @@ import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client'
 import { MAX_BODY, MAX_PER_HOUR, MIN_INTERVAL_MS, sanitizeGlobalMessage } from '@/lib/chat-safety'
 import { SITE_STICKERS, encodeSticker, parseSticker, isStickerMessage } from '@/lib/stickers'
+import HumanState from '@/components/HumanState'
 import { getSavedAvatar } from '@/lib/avatars'
 
 type Msg = {
@@ -45,8 +69,9 @@ function timeLabel(iso: string) {
 }
 
 export default function WorldChatPage() {
-  const { dict, dir } = useLocale()
+  const { dict, dir, locale } = useLocale()
   const [messages, setMessages] = useState<Msg[]>([])
+  const [room, setRoom] = useState<RoomId>('general')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
@@ -239,6 +264,7 @@ export default function WorldChatPage() {
         setError(safe.error)
         return
       }
+      const payloadBody = roomPrefix(room) + safe.text
 
       // optimistic
       const tempId = `temp-${now}`
@@ -247,7 +273,7 @@ export default function WorldChatPage() {
       const optimistic: Msg = {
         id: tempId,
         username: uname,
-        body: safe.text,
+        body: payloadBody,
         created_at: new Date().toISOString(),
         user_id: uid,
         avatar_url: av,
@@ -269,14 +295,14 @@ export default function WorldChatPage() {
       let row: Msg | null = null
       const ins1 = await supabase
         .from('global_messages')
-        .insert({ user_id: uid, username, body: safe.text, avatar_url })
+        .insert({ user_id: uid, username, body: payloadBody, avatar_url })
         .select('id, username, body, created_at, user_id, avatar_url')
         .single()
 
       if (ins1.error) {
         const ins2 = await supabase
           .from('global_messages')
-          .insert({ user_id: uid, username, body: safe.text })
+          .insert({ user_id: uid, username, body: payloadBody })
           .select('id, username, body, created_at, user_id')
           .single()
         if (ins2.error) {
@@ -322,13 +348,14 @@ export default function WorldChatPage() {
         setError(safe.error)
         return
       }
+      const payloadBody = roomPrefix(room) + safe.text
       const tempId = `tmp-${now}`
       const uname = myUsername || 'user'
       const av = getSavedAvatar() || fallbackAvatar(uname)
       const optimistic: Msg = {
         id: tempId,
         username: uname,
-        body: safe.text,
+        body: payloadBody,
         created_at: new Date().toISOString(),
         user_id: uid,
         avatar_url: av,
@@ -343,13 +370,13 @@ export default function WorldChatPage() {
       const avatar_url = getSavedAvatar() || profile?.avatar_url || av
       let { data, error } = await supabase
         .from('global_messages')
-        .insert({ user_id: uid, username, body: safe.text, avatar_url })
+        .insert({ user_id: uid, username, body: payloadBody, avatar_url })
         .select('id, username, body, created_at, user_id, avatar_url')
         .single()
       if (error) {
         const ins2 = await supabase
           .from('global_messages')
-          .insert({ user_id: uid, username, body: safe.text })
+          .insert({ user_id: uid, username, body: payloadBody })
           .select('id, username, body, created_at, user_id')
           .single()
         if (ins2.error) throw new Error(ins2.error.message)
@@ -498,7 +525,27 @@ export default function WorldChatPage() {
             <p className="text-sm text-[var(--muted)] text-center py-10">هنوز پیامی نیست.</p>
           )}
 
-          {messages.map((m) => {
+          
+        <div className="world-room-tabs flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-none" role="tablist">
+          {WORLD_ROOMS.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              role="tab"
+              aria-selected={room === r.id}
+              onClick={() => setRoom(r.id)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs sm:text-sm border transition ${
+                room === r.id
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--accent)] font-semibold'
+                  : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]/40'
+              }`}
+            >
+              {r.emoji} {locale === 'en' ? r.en : r.fa}
+            </button>
+          ))}
+        </div>
+
+          {messages.filter((m) => stripRoom(String((m as any).body ?? (m as any).content ?? "")).room === room).map((m) => {
             const mine = isMine(m)
             const editing = editingId === m.id
             return (
@@ -587,7 +634,7 @@ export default function WorldChatPage() {
                         )
                       }
                       return (
-                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
+                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{stripRoom(String(m.body || "")).text}</p>
                       )
                     })()
                   )}
