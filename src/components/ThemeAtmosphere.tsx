@@ -1,6 +1,7 @@
 'use client'
 
 import DayCat from '@/components/DayCat'
+import SwimmingFish from '@/components/SwimmingFish'
 
 import { usePathname } from 'next/navigation'
 
@@ -778,33 +779,9 @@ export default function ThemeAtmosphere() {
         <div className="ta-layer ta-ocean">
           {theme === 'ocean' && (
             <>
-              <Draggable wrapClassName="ta-pos-f1" className="ta-fish f1" label="ماهی">
-                <span className="ta-fish-tail" />
-                <span className="ta-fish-fin-top" />
-                <span className="ta-fish-fin-side" />
-                <span className="ta-fish-eye" />
-                <span className="ta-fish-mouth" />
-                <span className="ta-fish-bubble b-a" />
-                <span className="ta-fish-bubble b-b" />
-              </Draggable>
-              <Draggable wrapClassName="ta-pos-f2" className="ta-fish f2" label="ماهی">
-                <span className="ta-fish-tail" />
-                <span className="ta-fish-fin-top" />
-                <span className="ta-fish-fin-side" />
-                <span className="ta-fish-eye" />
-                <span className="ta-fish-mouth" />
-                <span className="ta-fish-bubble b-a" />
-                <span className="ta-fish-bubble b-b" />
-              </Draggable>
-              <Draggable wrapClassName="ta-pos-f3" className="ta-fish f3" label="ماهی">
-                <span className="ta-fish-tail" />
-                <span className="ta-fish-fin-top" />
-                <span className="ta-fish-fin-side" />
-                <span className="ta-fish-eye" />
-                <span className="ta-fish-mouth" />
-                <span className="ta-fish-bubble b-a" />
-                <span className="ta-fish-bubble b-b" />
-              </Draggable>
+              <SwimmingFish fishClass="f1" startX={12} y={58} speed={1} initialDir={1} />
+              <SwimmingFish fishClass="f2" startX={48} y={68} speed={0.85} initialDir={-1} />
+              <SwimmingFish fishClass="f3" startX={78} y={52} speed={1.15} initialDir={1} />
               <Draggable wrapClassName="ta-pos-j1" className="ta-jelly j1" label="عروس دریایی" />
               <Draggable wrapClassName="ta-pos-j2" className="ta-jelly j2" label="عروس دریایی" />
               {(['s1', 's2', 's3', 's4'] as const).map((id) => (
