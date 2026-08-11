@@ -671,9 +671,9 @@ function DayCat() {
   const elRef = useRef<HTMLDivElement>(null)
   const lookRef = useRef(false)
   const sitRef = useRef(false)
-  const pos = useRef({ x: 16, dir: 1 as 1 | -1, step: 0 })
-  const timers = useRef<{ look?: any; sit?: any }>({})
-  const nextSit = useRef(performance.now() + 7000 + Math.random() * 9000)
+  const pos = useRef({ x: 22, dir: 1 as 1 | -1, step: 0 })
+  const timers = useRef<{ look?: number; sit?: number }>({})
+  const nextSit = useRef(performance.now() + 6000 + Math.random() * 8000)
 
   useEffect(() => {
     let raf = 0
@@ -685,17 +685,18 @@ function DayCat() {
         last = now
         if (!lookRef.current && !sitRef.current) {
           let { x, dir, step } = pos.current
-          x += dir * 5.2 * dt
-          if (x > 70) dir = -1
-          if (x < 10) dir = 1
-          step = (step + dt * 9) % (Math.PI * 2)
+          // حرکت آهسته و طبیعی مثل گربه
+          x += dir * 3.6 * dt
+          if (x > 68) dir = -1
+          if (x < 12) dir = 1
+          step = (step + dt * 7.5) % (Math.PI * 2)
           pos.current = { x, dir, step }
-          const bob = Math.sin(step) * 2
+          const bob = Math.sin(step) * 1.6
+          const lean = Math.sin(step * 2) * 1.2
           el.style.left = `${x}%`
-          el.style.transform = `translateX(-50%) translateY(${bob}px) scaleX(${-dir})`
-          el.classList.toggle('is-walk', true)
-          el.classList.toggle('is-sitting', false)
-          el.classList.toggle('is-looking', false)
+          el.style.transform = `translateX(-50%) translateY(${bob}px) rotate(${lean}deg) scaleX(${-dir})`
+          el.classList.add('is-walk')
+          el.classList.remove('is-sitting', 'is-looking')
           if (now > nextSit.current) {
             sitRef.current = true
             el.classList.add('is-sitting')
@@ -703,8 +704,8 @@ function DayCat() {
             if (timers.current.sit) window.clearTimeout(timers.current.sit)
             timers.current.sit = window.setTimeout(() => {
               sitRef.current = false
-              nextSit.current = performance.now() + 8000 + Math.random() * 12000
-            }, 2000 + Math.random() * 2000)
+              nextSit.current = performance.now() + 7000 + Math.random() * 10000
+            }, 2200 + Math.random() * 2500)
           }
         } else if (el) {
           el.classList.toggle('is-looking', lookRef.current)
@@ -732,13 +733,11 @@ function DayCat() {
     elRef.current?.classList.add('is-looking', 'is-sitting')
     elRef.current?.classList.remove('is-walk')
     if (timers.current.look) window.clearTimeout(timers.current.look)
-    const wait = 1200 + Math.random() * 800
     timers.current.look = window.setTimeout(() => {
       lookRef.current = false
       sitRef.current = false
       elRef.current?.classList.remove('is-looking', 'is-sitting')
-      nextSit.current = performance.now() + 6000 + Math.random() * 8000
-    }, wait)
+    }, 1600 + Math.random() * 600)
   }
 
   return (
@@ -747,25 +746,29 @@ function DayCat() {
       role="button"
       tabIndex={0}
       className="ta-cat"
-      style={{ left: '16%', transform: 'translateX(-50%) scaleX(-1)' }}
-      onClick={onTap}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onTap(e as any)
-      }}
-      title="گربه سیامی"
       aria-label="گربه سیامی"
+      onClick={onTap}
+      onPointerDown={(e) => e.stopPropagation()}
     >
+      <span className="ta-cat-shadow" />
       <span className="ta-cat-leg back-l" />
       <span className="ta-cat-leg back-r" />
-      <span className="ta-cat-body" />
+      <span className="ta-cat-body">
+        <span className="ta-cat-fur f1" />
+        <span className="ta-cat-fur f2" />
+        <span className="ta-cat-fur f3" />
+        <span className="ta-cat-chest" />
+      </span>
       <span className="ta-cat-leg front-l" />
       <span className="ta-cat-leg front-r" />
       <span className="ta-cat-head">
-        <span className="ta-cat-ear l" />
-        <span className="ta-cat-ear r" />
-        <span className="ta-cat-eye l" />
-        <span className="ta-cat-eye r" />
+        <span className="ta-cat-ear l"><span className="inner" /></span>
+        <span className="ta-cat-ear r"><span className="inner" /></span>
+        <span className="ta-cat-mask" />
+        <span className="ta-cat-eye l"><span className="pupil" /><span className="shine" /></span>
+        <span className="ta-cat-eye r"><span className="pupil" /><span className="shine" /></span>
         <span className="ta-cat-nose" />
+        <span className="ta-cat-mouth" />
         <span className="ta-cat-whisker w1" />
         <span className="ta-cat-whisker w2" />
         <span className="ta-cat-whisker w3" />
