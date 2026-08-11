@@ -144,20 +144,11 @@ export default function PlayPage() {
   const loadDaily = async () => {
     setPhase('loading')
     const date = today()
-    try {
-      const cached = localStorage.getItem(CACHE_KEY)
-      if (cached) {
-        const parsed = JSON.parse(cached)
-        if (parsed?.date === date && Array.isArray(parsed.items) && parsed.items.length) {
-          setItems(randomizeList(parsed.items as QuizItem[])) // client shuffle
-          setSource(parsed.source || 'cache')
-          setPhase(parsed.items.some((q: QuizItem) => !hasAnsweredQuestion(loadGame(), q.id)) ? 'list' : 'empty')
-          return
-        }
-      }
-    } catch {
-      /* ignore */
-    }
+    // هر بار ورود: seed تازه تا سوال‌ها عوض شوند و XP دوباره قابل کسب باشد
+    const session =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().slice(0, 10)
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 
     try {
       const g = loadGame()
@@ -169,20 +160,26 @@ export default function PlayPage() {
           level: g.level || 1,
           domains: getActiveDomains(),
           date,
+          session,
+          refresh: true,
         }),
+        cache: 'no-store',
       })
       const data = await res.json()
-      const list = randomizeList((data?.items || []) as QuizItem[])
+      let list = randomizeList((data?.items || []) as QuizItem[])
+      // id یکتا برای این نشست — جلوی «قبلاً جواب دادی» غلط را می‌گیرد
+      list = list.map((q, i) => ({
+        ...q,
+        id: `s-${session}-${q.id || i}`,
+      }))
+      // اگر خالی بود fallback را هم با id نشست بساز
+      if (!list.length) {
+        list = []
+      }
       setItems(list)
       setSource(data?.source || 'api')
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ date, items: list, source: data?.source }))
-      } catch {
-        /* ignore */
-      }
-      const ans = new Set(loadGame().answeredQuestions || [])
-      setAnsweredSet(ans)
-      setPhase(list.some((q) => !ans.has(q.id)) ? 'list' : 'empty')
+      setAnsweredSet(new Set()) // فقط برای نمایش این نشست؛ XP با id یکتا کنترل می‌شود
+      setPhase(list.length ? 'list' : 'empty')
     } catch {
       setItems([])
       setPhase('empty')
