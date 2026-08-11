@@ -182,7 +182,8 @@ export async function POST(req: NextRequest) {
     const level = Number(body?.level) || 1
     const domains = Array.isArray(body?.domains) ? (body.domains as string[]) : []
     const date = (body?.date as string) || dayKey()
-    const seedKey = `${date}|${level}|${locale}|${domains.join(',')}`
+    const session = String(body?.session || body?.refresh || Date.now())
+    const seedKey = `${date}|${session}|${level}|${locale}|${domains.join(',')}`
 
     const cfg = getAIConfig('games')
     const { baseUrl, model } = cfg
