@@ -2543,3 +2543,22 @@ main, header, nav, .card, footer {
     bottom: 9% !important;
   }
 }
+
+/* گربه: دم همیشه عقب (سمت چپ ظاهر پیش‌فرض)، سر جلو (راست) */
+.ta-cat-tail {
+  left: 0 !important;
+  right: auto !important;
+  bottom: 30px !important;
+  transform-origin: right center !important;
+}
+.ta-cat-head {
+  /* سر سمت راست = جلو */
+  z-index: 5 !important;
+}
+.ta-cat.is-walk .ta-cat-body {
+  animation: ta-cat-body-bob 0.55s ease-in-out infinite;
+}
+@keyframes ta-cat-body-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
