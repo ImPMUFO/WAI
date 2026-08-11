@@ -308,7 +308,13 @@ export default function PlayPage() {
           </div>
         </div>
 
-        <ExtraGames />
+        <div className="mb-3">
+        <a href="/play/duel" className="card !p-3 flex items-center justify-between hover:border-[var(--accent)]/40 transition">
+          <span className="text-sm font-medium">⚔️ کوییز دونفره</span>
+          <span className="text-xs text-[var(--muted)]">رقابت محلی</span>
+        </a>
+      </div>
+      <ExtraGames />
 
         <AnimatePresence mode="wait">
           {phase === 'loading' && (
