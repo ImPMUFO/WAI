@@ -65,8 +65,10 @@ function shuffle<T>(arr: T[], rand: () => number) {
 }
 
 async function aiGames(kind: string, date: string, locale: string) {
-  const { apiKey, baseUrl, model } = getAIConfig('games')
-  if (!apiKey) return null
+  const cfg = getAIConfig('games')
+  const { baseUrl, model } = cfg
+  const keyPool = cfg.keys.length ? cfg.keys : cfg.apiKey ? [cfg.apiKey] : []
+  if (!keyPool.length) return null
 
   const lang = locale === 'en' ? 'English' : locale === 'ar' ? 'Arabic' : 'Persian (Farsi)'
 
@@ -83,30 +85,33 @@ Return ONLY JSON array: [{"id":"m1","left":"concept","right":"short definition"}
 Topics: philosophy, science, history, logic, mind maps.
 No markdown.`
 
-  try {
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: aiHeaders(apiKey),
-      body: JSON.stringify({
-        model,
-        temperature: 0.8,
-        messages: [
-          { role: 'system', content: 'You output only valid JSON arrays for educational games.' },
-          { role: 'user', content: prompt },
-        ],
-      }),
-    })
-    if (!resp.ok) return null
-    const data = await resp.json()
-    const content = data?.choices?.[0]?.message?.content || ''
-    const m = content.match(/\[[\s\S]*\]/)
-    if (!m) return null
-    const parsed = JSON.parse(m[0])
-    if (!Array.isArray(parsed) || parsed.length < 3) return null
-    return parsed
-  } catch {
-    return null
+  for (const tryKey of keyPool) {
+    try {
+      const resp = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: aiHeaders(tryKey),
+        body: JSON.stringify({
+          model,
+          temperature: 0.8,
+          messages: [
+            { role: 'system', content: 'You output only valid JSON arrays for educational games.' },
+            { role: 'user', content: prompt },
+          ],
+        }),
+      })
+      if (!resp.ok) continue
+      const data = await resp.json()
+      const content = data?.choices?.[0]?.message?.content || ''
+      const m = content.match(/\[[\s\S]*\]/)
+      if (!m) continue
+      const parsed = JSON.parse(m[0])
+      if (!Array.isArray(parsed) || parsed.length < 3) continue
+      return parsed
+    } catch {
+      continue
+    }
   }
+  return null
 }
 
 export async function POST(req: NextRequest) {
