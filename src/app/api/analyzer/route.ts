@@ -100,44 +100,54 @@ export async function POST(req: NextRequest) {
 
     // اختیاری: اگر API بود تحلیل ظریف‌تر؛ ولی برای سرعت همیشه پایه را نگه می‌داریم
     let aiNodes: { id: string; status?: NodeStatus; mastery?: number; note?: string }[] = []
-    const { apiKey, baseUrl, model } = getAIConfig('analyzer')
+    const cfg = getAIConfig('analyzer')
+    const { baseUrl, model } = cfg
+    const keyPool = cfg.keys.length ? cfg.keys : cfg.apiKey ? [cfg.apiKey] : []
 
-    if (apiKey && messages.length >= 2) {
-      try {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 8000)
-        const system = `You update a knowledge mind-map. Reply JSON only:
+    if (keyPool.length && messages.length >= 2) {
+      const system = `You update a knowledge mind-map. Reply JSON only:
 {"summary":"...","nodes":[{"id":"philosophy","status":"near","mastery":30,"note":"..."}]}
 Rules: mastery 0-100, small changes only (+/-15 max from typical). ids from: ${BASE_GRAPH.map((g) => g.id).join(', ')}. status known|near|far.`
-        const resp = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: aiHeaders(apiKey),
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: system },
-              {
-                role: 'user',
-                content: `domain=${domain}\nchat:\n${text.slice(0, 3500)}\nprevious:\n${JSON.stringify(previous.slice(0, 20))}`,
-              },
-            ],
-            temperature: 0.3,
-            max_tokens: 900,
-          }),
-          signal: controller.signal,
-        })
-        clearTimeout(timer)
-        if (resp.ok) {
+      for (const tryKey of keyPool) {
+        try {
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 8000)
+          const resp = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: aiHeaders(tryKey),
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: system },
+                {
+                  role: 'user',
+                  content: `domain=${domain}
+chat:
+${text.slice(0, 3500)}
+previous:
+${JSON.stringify(previous.slice(0, 20))}`,
+                },
+              ],
+              temperature: 0.3,
+              max_tokens: 900,
+            }),
+            signal: controller.signal,
+          })
+          clearTimeout(timer)
+          if (!resp.ok) continue
           const raw = await resp.text()
           const content = JSON.parse(raw)?.choices?.[0]?.message?.content || ''
           const m = content.match(/\{[\s\S]*\}/)
           if (m) {
             const parsed = JSON.parse(m[0])
-            if (Array.isArray(parsed.nodes)) aiNodes = parsed.nodes
+            if (Array.isArray(parsed.nodes)) {
+              aiNodes = parsed.nodes
+              break
+            }
           }
+        } catch {
+          continue
         }
-      } catch {
-        /* سرعت > دقت لحظه‌ای */
       }
     }
 
