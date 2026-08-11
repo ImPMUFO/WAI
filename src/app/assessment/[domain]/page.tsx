@@ -436,7 +436,7 @@ export default function AssessmentPage() {
       } finally {
         setIsTyping(false)
       }
-    }, 400)
+    }, 150)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, needsName, userName, messages.length])
@@ -726,33 +726,49 @@ ${localInsight.question}` : ''),
 
   return (
     <main dir={dir} className="min-h-screen flex flex-col" style={{ color: 'var(--text)' }}>
-      <header className="sticky top-0 z-50 backdrop-blur-lg border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--bg0)_78%,transparent)]">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-xl shrink-0">{info.emoji}</span>
-            <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-semibold truncate">{dict.assessment} {domainLabel}</h1>
-              <p className="text-[10px] sm:text-xs text-[var(--accent)] truncate">
-                {userName} {mapUpdating ? ` · ${dict.mapUpdating}` : ` · ${dict.unifiedMap}`}
+      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg0)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--bg0)]/85">
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-lg sm:text-xl shrink-0 w-8 text-center">{info.emoji}</span>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm sm:text-base font-semibold truncate leading-tight">
+                {dict.assessment} {domainLabel}
+              </h1>
+              <p className="text-[10px] text-[var(--muted)] truncate h-4 leading-4">
+                {userName || '…'}
+                {mapUpdating ? ` · ${dict.mapUpdating}` : ''}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <button onClick={clearChat} className="text-[10px] sm:text-xs text-[var(--muted)]">
+          <nav className="flex items-center gap-1 sm:gap-2 shrink-0" aria-label="chat-actions">
+            <button
+              type="button"
+              onClick={clearChat}
+              className="px-2 py-1.5 rounded-lg text-[10px] sm:text-xs text-[var(--muted)] hover:bg-[var(--card)]"
+            >
               {dict.newChat}
             </button>
-            <Link href="/play" className="text-[10px] sm:text-xs text-[var(--muted)]">
+            <Link
+              href="/play"
+              className="px-2 py-1.5 rounded-lg text-[10px] sm:text-xs text-[var(--muted)] hover:bg-[var(--card)]"
+            >
               {dict.games}
             </Link>
-            <Link href="/map" className="text-[10px] sm:text-xs text-[var(--accent)] inline-flex items-center gap-1">
-              <Map className="w-3.5 h-3.5" />
-              {dict.mindMap}
+            <Link
+              href="/map"
+              className="px-2 py-1.5 rounded-lg text-[10px] sm:text-xs text-[var(--accent)] inline-flex items-center gap-1 hover:bg-[var(--card)]"
+            >
+              <Map className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xs:inline sm:inline">{dict.mindMap}</span>
             </Link>
-            <Link href="/start" className="text-xs text-[var(--muted)] inline-flex items-center gap-1">
-              <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-              <span className="hidden sm:inline">{dict.back}</span>
+            <Link
+              href="/start"
+              className="p-1.5 rounded-lg text-[var(--muted)] hover:bg-[var(--card)]"
+              aria-label={dict.back}
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
             </Link>
-          </div>
+          </nav>
         </div>
       </header>
 
@@ -765,8 +781,8 @@ ${localInsight.question}` : ''),
               return (
               <motion.div
                 key={msg.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={false}
+                animate={{ opacity: 1 }}
                 className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}
               >
                 <div
