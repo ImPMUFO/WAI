@@ -28,10 +28,10 @@ export default function ExtraGames() {
 
   const load = async (kind: string) => {
     const date = new Date().toISOString().slice(0, 10)
-    const res = await fetch('/api/games', {
+    const res = await fetch('/api/games?_=' + Date.now(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, date, locale }),
+      body: JSON.stringify({ kind, date, locale, salt: String(Date.now()) }),
     })
     const data = await res.json()
     setDate(data.date || '')
@@ -53,7 +53,7 @@ export default function ExtraGames() {
     const ok = pickedLeft === rightId
     const key = `match-${pickedLeft}`
     if (matched[key]) return
-    const res = onQuizQuestionAnswered(key, ok, { xpCorrect: 5, xpWrong: 1, domain: 'general' })
+    const res = onQuizQuestionAnswered(`${Date.now()}-${key}`, ok, { xpCorrect: 5, xpWrong: 1, domain: 'general' })
     setMatched((m) => ({ ...m, [key]: ok }))
     setFeedback(ok ? `درست! +${res.gainedXp} XP` : 'نادرست')
     setPickedLeft(null)
@@ -63,7 +63,7 @@ export default function ExtraGames() {
   const answerTf = (val: boolean) => {
     if (!currentTf || tfDone[currentTf.id]) return
     const ok = currentTf.truth === val
-    const res = onQuizQuestionAnswered(`tf-${currentTf.id}`, ok, { xpCorrect: 5, xpWrong: 1, domain: 'general' })
+    const res = onQuizQuestionAnswered(`tf-${Date.now()}-${currentTf.id}`, ok, { xpCorrect: 5, xpWrong: 1, domain: 'general' })
     setTfDone((d) => ({ ...d, [currentTf.id]: true }))
     setFeedback(ok ? `درست! +${res.gainedXp} XP — ${currentTf.explain}` : `نادرست — ${currentTf.explain}`)
   }
@@ -72,6 +72,16 @@ export default function ExtraGames() {
 
   return (
     <div className="space-y-4">
+      <button
+        type="button"
+        className="text-xs text-[var(--accent)]"
+        onClick={() => {
+          void load('match')
+          void load('truefalse')
+        }}
+      >
+        مجموعه جدید بازی‌ها
+      </button>
       <div className="flex gap-2">
         <button
           type="button"
