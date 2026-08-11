@@ -184,9 +184,11 @@ export async function POST(req: NextRequest) {
     const date = (body?.date as string) || dayKey()
     const seedKey = `${date}|${level}|${locale}|${domains.join(',')}`
 
-    const { apiKey, baseUrl, model } = getAIConfig('games')
+    const cfg = getAIConfig('games')
+    const { baseUrl, model } = cfg
+    const keyPool = cfg.keys.length ? cfg.keys : cfg.apiKey ? [cfg.apiKey] : []
 
-    if (!apiKey) {
+    if (!keyPool.length) {
       return NextResponse.json({
         success: true,
         source: 'fallback',
@@ -212,22 +214,34 @@ CRITICAL RULES:
 - Fresh for date ${date}
 No markdown, JSON array only.`
 
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: aiHeaders(apiKey),
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: `Generate today's quiz for ${date}. Randomize correct option index.` },
-        ],
-        temperature: 0.85,
-        max_tokens: 2200,
-      }),
-    })
+    let raw = ''
+    let okResp = false
+    for (const tryKey of keyPool) {
+      try {
+        const resp = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: aiHeaders(tryKey),
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: `Generate today's quiz for ${date}. Randomize correct option index.` },
+            ],
+            temperature: 0.85,
+            max_tokens: 2200,
+          }),
+        })
+        raw = await resp.text()
+        if (resp.ok) {
+          okResp = true
+          break
+        }
+      } catch {
+        continue
+      }
+    }
 
-    const raw = await resp.text()
-    if (!resp.ok) {
+    if (!okResp) {
       return NextResponse.json({
         success: true,
         source: 'fallback',
