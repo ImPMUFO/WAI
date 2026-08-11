@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   description: 'WAIMA همراه شناخت و رشد دانش: گفتگو، نقشه دانش زنده، بازی و قدم بعدی شخصی.',
   keywords: ['WAIMA', 'من کیستم', 'ترسیم‌گر ذهنی', 'mind map', 'learning'],
   authors: [{ name: 'WAIMA' }],
+  verification: {
+    google: 'OTuv6aZFdCqFsNVe9VyUzmLBOpTORUm0Bv9up6TK1gw',
+  },
   openGraph: {
     type: 'website',
     locale: 'fa_IR',
