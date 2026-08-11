@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  getAIConfig,
-  aiHeaders,
-  extractMessageText,
-  modelsToAttempt,
-  sanitizeAssistantText,
-} from '@/lib/ai'
+import { sambaChat } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,16 +12,7 @@ export async function POST(req: NextRequest) {
     const lastBook = body?.lastBook || null
     const messages = Array.isArray(body?.messages) ? body.messages : []
 
-    const { apiKey, baseUrl, model } = getAIConfig('chat')
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: 'SAMBANOVA_API_KEY تنظیم نشده است' },
-        { status: 500 }
-      )
-    }
-
     const domainTitle = domain
-    const memory = ''
     const bookRule = suggestBook
       ? 'الان وقت معرفی یک کتاب است (تقریباً هر ۵ پیام کاربر). دقیقاً یک کتاب غیرتکراری و مرتبط با همین گفتگو پیشنهاد بده، فقط در یک جمله خودمونی، بدون تیتر و ستاره. هدف: بالا بردن سطح دانش کاربر.'
       : lastBook
@@ -56,65 +41,32 @@ export async function POST(req: NextRequest) {
       .slice(-8)
       .map((m: any) => ({ role: m.role, content: String(m.content || '').slice(0, 900) }))
 
-    const payloadBase = {
-      messages: [{ role: 'system', content: systemPrompt }, ...recent],
+    const result = await sambaChat({
+      feature: 'chat',
       temperature: 0.75,
       max_tokens: suggestBook ? 380 : 320,
+      messages: [{ role: 'system', content: systemPrompt }, ...recent],
+    })
+
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'model error',
+          details: result.error,
+          hint:
+            'هیچ‌کدام از کلیدهای SambaNova پاسخ ندادند. SAMBANOVA_API_KEY و _2 و _3 را در Vercel چک کن.',
+        },
+        { status: result.status || 502 }
+      )
     }
 
-    const tryModels = modelsToAttempt(model).slice(0, 3)
-    let lastError = ''
-    let lastStatus = 502
-
-    for (const tryModel of tryModels) {
-      try {
-        const resp = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: aiHeaders(apiKey),
-          body: JSON.stringify({ ...payloadBase, model: tryModel }),
-        })
-        const textBody = await resp.text()
-        if (!resp.ok) {
-          lastStatus = resp.status
-          lastError = textBody.slice(0, 400)
-          continue
-        }
-        let data: any
-        try {
-          data = JSON.parse(textBody)
-        } catch {
-          lastError = 'invalid json from ' + tryModel
-          continue
-        }
-        const content = sanitizeAssistantText(
-          extractMessageText(data?.choices?.[0]?.message)
-        )
-        if (!content) {
-          lastError = 'leaked or empty content from ' + tryModel
-          continue
-        }
-        return NextResponse.json({
-          success: true,
-          content,
-          suggestBook,
-          model: data?.model || tryModel,
-        })
-      } catch (e: unknown) {
-        lastError = e instanceof Error ? e.message : 'network'
-      }
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'model error',
-        details: lastError,
-        tried: tryModels,
-        hint:
-          'مدل SambaNova پاسخ نداد. SAMBANOVA_API_KEY و SAMBANOVA_MODEL را در Vercel چک کن (مثلاً DeepSeek-V3.1).',
-      },
-      { status: lastStatus }
-    )
+    return NextResponse.json({
+      success: true,
+      content: result.content,
+      suggestBook,
+      model: result.model,
+    })
   } catch (e: unknown) {
     return NextResponse.json(
       {
@@ -128,9 +80,5 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    api: 'chatbot',
-    defaultModel: 'DeepSeek-V3.1',
-  })
+  return NextResponse.json({ ok: true, service: 'chatbot' })
 }
