@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight,
   Brain,
@@ -23,7 +22,6 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from 'lucide-react'
-import SpeakButton from '@/components/SpeakButton'
 import { onChatMessage, onMapUpdated } from '@/lib/gamification'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
 import { domainTitle as domainTitleI18n, getDictionary } from '@/lib/i18n/dictionaries'
@@ -725,7 +723,7 @@ ${localInsight.question}` : ''),
   }
 
   return (
-    <main dir={dir} className="min-h-screen flex flex-col" style={{ color: 'var(--text)' }}>
+    <main dir={dir} className="h-[100dvh] min-h-0 flex flex-col overflow-hidden" style={{ color: 'var(--text)' }}>
       <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg0)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--bg0)]/85">
         <div className="max-w-3xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -772,24 +770,22 @@ ${localInsight.question}` : ''),
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          <AnimatePresence initial={false}>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-3 space-y-2.5">
+          <>
             {messages.map((msg) => {
               const isLastUser = msg.role === 'user' && msg.id === lastUserMessageId
               const isEditing = editingId === msg.id
               return (
-              <motion.div
+              <div
                 key={msg.id}
-                initial={false}
-                animate={{ opacity: 1 }}
                 className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}
               >
                 <div
-                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm sm:text-base leading-relaxed ${
+                  className={`max-w-[min(88%,28rem)] rounded-2xl px-3.5 py-2.5 text-[15px] leading-relaxed shadow-sm ${
                     msg.role === 'user'
-                      ? 'bg-[var(--btn-from)] text-white rounded-br-md'
-                      : 'bg-[var(--card)] border border-[var(--border)] rounded-bl-md'
+                      ? 'bg-[var(--btn-from)] text-white rounded-br-sm'
+                      : 'bg-[var(--card)] border border-[var(--border)] rounded-bl-sm'
                   }`}
                 >
                   {msg.role === 'assistant' && (
@@ -798,8 +794,7 @@ ${localInsight.question}` : ''),
                         <Brain className="w-3.5 h-3.5" />
                         <span className="text-[10px] sm:text-xs">{dict.evaluator}</span>
                       </div>
-                      <SpeakButton text={msg.content} />
-                    </div>
+</div>
                   )}
 
                   {isEditing ? (
@@ -923,15 +918,13 @@ ${localInsight.question}` : ''),
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
               )
             })}
-          </AnimatePresence>
+          </>
 
           {insight && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+            <div
               className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3"
             >
               <div className="flex items-center gap-2 text-[var(--accent)]">
@@ -974,7 +967,7 @@ ${localInsight.question}` : ''),
                   </ul>
                 </div>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {isTyping && (
@@ -989,7 +982,7 @@ ${localInsight.question}` : ''),
         </div>
       </div>
 
-      <div className="sticky bottom-0 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--bg0)_88%,transparent)] backdrop-blur-lg">
+      <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg0)]/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-3xl mx-auto px-4 py-3 sm:py-4">
           <div className="flex gap-2 sm:gap-3 items-end">
             <textarea
