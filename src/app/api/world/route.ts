@@ -9,7 +9,8 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const WINDOW_MS = 24 * 60 * 60 * 1000
+/** دیگر پیام‌ها را بعد از ۲۴ ساعت پاک نمی‌کنیم؛ فقط سقف تعداد نگه می‌داریم */
+const MESSAGE_LIMIT = 400
 
 function env() {
   const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/\/+$/, '')
@@ -45,7 +46,7 @@ function extractToken(req: NextRequest) {
 }
 
 function cutoffIso() {
-  return new Date(Date.now() - WINDOW_MS).toISOString()
+  return new Date(0).toISOString()
 }
 
 /**
@@ -53,46 +54,12 @@ function cutoffIso() {
  * اگر SERVICE_ROLE_KEY نباشد، حذف ممکن است به‌خاطر RLS شکست بخورد.
  */
 async function purgeOld(): Promise<{ ok: boolean; deleted: number; error?: string; usedService: boolean }> {
-  const { url, service, anon } = env()
-  if (!url) return { ok: false, deleted: 0, error: 'no url', usedService: false }
-
-  const usedService = Boolean(service)
-  const key = service || anon
-  if (!key) return { ok: false, deleted: 0, error: 'no key', usedService: false }
-
-  const db = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-  const cutoff = cutoffIso()
-
-  // ابتدا شمارش
-  const { count } = await db
-    .from('global_messages')
-    .select('id', { count: 'exact', head: true })
-    .lt('created_at', cutoff)
-
-  const { error, data } = await db
-    .from('global_messages')
-    .delete()
-    .lt('created_at', cutoff)
-    .select('id')
-
-  if (error) {
-    return { ok: false, deleted: 0, error: error.message, usedService }
-  }
-  return {
-    ok: true,
-    deleted: Array.isArray(data) ? data.length : count || 0,
-    usedService,
-  }
+  // عمداً غیرفعال: پیام‌های گفتگوی جهانی دیگر خودکار حذف نمی‌شوند
+  return { ok: true, deleted: 0, usedService: false }
 }
 
 function filterFresh<T extends { created_at?: string }>(rows: T[] | null | undefined): T[] {
-  const cut = Date.now() - WINDOW_MS
-  return (rows || []).filter((m) => {
-    const t = m.created_at ? new Date(m.created_at).getTime() : 0
-    return Number.isFinite(t) && t > cut
-  })
+  return Array.isArray(rows) ? rows : []
 }
 
 export async function GET() {
@@ -106,15 +73,14 @@ export async function GET() {
     )
   }
 
-  const cutoff = cutoffIso()
+  const cutoff = new Date(0).toISOString() // unused
   let rows: any[] = []
 
   const first = await db
     .from('global_messages')
     .select('id, username, body, created_at, user_id, avatar_url')
-    .gt('created_at', cutoff)
-    .order('created_at', { ascending: true })
-    .limit(200)
+        .order('created_at', { ascending: true })
+    .limit(MESSAGE_LIMIT)
 
   if (!first.error) {
     rows = first.data || []
@@ -122,9 +88,8 @@ export async function GET() {
     const retry = await db
       .from('global_messages')
       .select('id, username, body, created_at, user_id')
-      .gt('created_at', cutoff)
-      .order('created_at', { ascending: true })
-      .limit(200)
+            .order('created_at', { ascending: true })
+      .limit(MESSAGE_LIMIT)
     if (retry.error) {
       return NextResponse.json({ error: retry.error.message, purge }, { status: 500 })
     }
