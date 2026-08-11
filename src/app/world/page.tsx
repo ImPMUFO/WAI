@@ -508,7 +508,7 @@ export default function WorldChatPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         <div className="max-w-2xl mx-auto px-3 py-3 min-h-[45vh] flex flex-col gap-2">
           {loading && <p className="text-xs text-[var(--muted)] text-center py-6">…</p>}
           {!loading && messages.length === 0 && (
