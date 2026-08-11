@@ -2151,3 +2151,59 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
 .theme-atmosphere .ta-layer[style*="opacity: 0"] {
   visibility: hidden;
 }
+
+
+/* ——— اشیا فقط صفحه اول؛ تم رنگ‌ها همه‌جا ——— */
+.theme-atmosphere-fg[data-objects='0'] {
+  display: none !important;
+}
+.theme-atmosphere-bg[data-objects='0'] .ta-cottage,
+.theme-atmosphere-bg[data-objects='0'] .ta-grass,
+.theme-atmosphere-bg[data-objects='0'] .ta-seaweed,
+.theme-atmosphere-bg[data-objects='0'] .ta-bubble,
+.theme-atmosphere-bg[data-objects='0'] .ta-star-dot,
+.theme-atmosphere-bg[data-objects='0'] .ta-smoke,
+.theme-atmosphere-bg[data-objects='0'] .ta-wave {
+  display: none !important;
+}
+
+/* اشیای تزئینی: گوشه‌ها و پایین، دور از محتوا */
+.theme-atmosphere-fg .ta-drag {
+  z-index: 2 !important;
+}
+.ta-pos-cloud-1 { left: 2% !important; top: 6% !important; }
+.ta-pos-cloud-2 { left: auto !important; right: 4% !important; top: 8% !important; }
+.ta-pos-cloud-3 { left: 18% !important; top: 4% !important; opacity: 0.7; }
+.ta-pos-f1 { left: 2% !important; top: auto !important; bottom: 12% !important; }
+.ta-pos-f2 { left: auto !important; right: 3% !important; top: auto !important; bottom: 18% !important; }
+.ta-pos-f3 { left: 8% !important; top: auto !important; bottom: 22% !important; }
+.ta-pos-j1 { left: auto !important; right: 8% !important; bottom: 28% !important; top: auto !important; }
+.ta-pos-j2 { left: 5% !important; bottom: 30% !important; top: auto !important; }
+.ta-pos-l1 { left: 2% !important; top: 10% !important; }
+.ta-pos-l2 { left: auto !important; right: 3% !important; top: 12% !important; }
+.ta-pos-l3 { left: 4% !important; top: 18% !important; }
+.ta-pos-l4 { left: auto !important; right: 6% !important; top: 20% !important; }
+.ta-cottage { right: 2% !important; bottom: 8% !important; left: auto !important; opacity: 0.85 !important; }
+.ta-grass { height: 12% !important; opacity: 0.9 !important; }
+
+@media (max-width: 640px) {
+  .ta-pos-cloud-3,
+  .ta-pos-j2,
+  .ta-pos-l3,
+  .ta-pos-l4,
+  .ta-pos-f3 {
+    display: none !important;
+  }
+  .ta-fish { transform: scale(0.85); }
+  .ta-cottage { transform: scale(0.7) !important; transform-origin: bottom right !important; }
+  /* وسط صفحه برای لمس آزاد بماند */
+  .theme-atmosphere-fg .ta-drag {
+    max-width: 20vw;
+  }
+}
+
+/* مرکز صفحه (محتوا) اولویت لمس دارد */
+main, header, nav, .card, footer {
+  position: relative;
+  z-index: 10;
+}
