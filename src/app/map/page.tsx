@@ -13,6 +13,12 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/LocaleProvider'
+import {
+  enrichNode,
+  suggestNextStep,
+  defaultBreakdown,
+  pushJourney,
+} from '@/lib/knowledge-graph'
 import { loadMindMapFromServer, saveMindMapToServer } from '@/lib/sync'
 
 type NodeStatus = 'known' | 'near' | 'far'
@@ -736,7 +742,34 @@ export default function KnowledgeMapPage() {
         className="sticky top-0 z-30 border-b border-[var(--border)]"
         style={{ background: 'var(--bg0)' }}
       >
-        <div className="max-w-5xl mx-auto px-3 py-2.5 flex items-center justify-between gap-2">
+        
+      {(() => {
+        const step = suggestNextStep(map as any)
+        if (!step) return null
+        return (
+          <div className="max-w-3xl mx-auto px-4 mb-3">
+            <div className="rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-[var(--accent)]">
+                  {locale === 'en' ? 'What’s my next step?' : 'قدم بعدی من چیست؟'}
+                </p>
+                <p className="text-sm font-medium mt-0.5">{step.title}</p>
+                <p className="text-[11px] text-[var(--muted)] mt-1 leading-relaxed">{step.reason}</p>
+              </div>
+              <a
+                href={step.action === 'quiz' ? '/play' : `/assessment/${encodeURIComponent(step.nodeId)}`}
+                className="btn-primary shrink-0 text-sm px-4 py-2 text-center"
+              >
+                {step.action === 'quiz'
+                  ? (locale === 'en' ? 'Practice' : 'تمرین')
+                  : (locale === 'en' ? 'Start' : 'شروع')}
+              </a>
+            </div>
+          </div>
+        )
+      })()}
+
+      <div className="max-w-5xl mx-auto px-3 py-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-sm sm:text-base font-semibold truncate">
               {map?.domainTitle || dict.mapTitle}
@@ -948,34 +981,92 @@ export default function KnowledgeMapPage() {
         </div>
       </div>
 
-      {selected && (
+      {selected && (() => {
+        const en = enrichNode({
+          id: selected.id,
+          title: selected.title,
+          status: selected.status as any,
+          mastery: selected.mastery,
+          note: selected.note,
+        })
+        const bd = en.breakdown || defaultBreakdown(en.mastery || 0)
+        const domainHref = `/assessment/${encodeURIComponent(selected.id === 'mind' ? 'general' : selected.id)}`
+        return (
         <div className="fixed bottom-0 inset-x-0 z-40 p-3 pointer-events-none">
           <div
-            className="pointer-events-auto max-w-md mx-auto rounded-2xl border border-[var(--border)] p-4 shadow-2xl"
+            className="pointer-events-auto max-w-lg mx-auto rounded-2xl border border-[var(--border)] p-4 shadow-2xl space-y-3"
             style={{ background: 'var(--card-solid)' }}
           >
             <div className="flex justify-between gap-3">
               <div>
-                <h2 className="font-semibold text-sm">{selected.title}</h2>
+                <h2 className="font-semibold text-sm">{en.title}</h2>
                 <p className="text-[11px] text-[var(--accent)] mt-0.5">
-                  {selected.status === 'known'
+                  {en.status === 'known'
                     ? dict.mapKnown
-                    : selected.status === 'near'
+                    : en.status === 'near'
                       ? dict.mapNear
-                      : dict.mapFar}{' '}
-                  · {Math.round(selected.mastery)}%
+                      : en.status === 'misconception'
+                        ? (locale === 'en' ? 'Possible misconception' : 'سوءبرداشت احتمالی')
+                        : dict.mapFar}{' '}
+                  · {Math.round(en.mastery)}%
                 </p>
               </div>
               <button type="button" className="text-[var(--muted)] text-sm" onClick={() => setSelected(null)}>
                 ✕
               </button>
             </div>
-            {selected.note ? (
-              <p className="text-sm text-[var(--muted)] mt-2 leading-relaxed">{selected.note}</p>
+            {en.misconception ? (
+              <p className="text-xs text-amber-300/90 leading-relaxed">⚠️ {en.misconception}</p>
             ) : null}
+            {en.note ? (
+              <p className="text-sm text-[var(--muted)] leading-relaxed">{en.note}</p>
+            ) : null}
+            <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-xs">
+              {[
+                [locale === 'en' ? 'Definition' : 'تعریف', bd.definition],
+                [locale === 'en' ? 'Depth' : 'درک عمیق', bd.depth],
+                [locale === 'en' ? 'Compare' : 'مقایسه', bd.comparison],
+                [locale === 'en' ? 'Reasoning' : 'استدلال', bd.reasoning],
+              ].map(([label, val]) => (
+                <div key={String(label)} className="rounded-lg border border-[var(--border)] px-2 py-1.5">
+                  <div className="flex justify-between text-[var(--muted)] mb-1">
+                    <span>{label}</span>
+                    <span>{val}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+                    <div className="h-full bg-[var(--accent)]" style={{ width: `${val}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {bd.note ? <p className="text-[11px] text-[var(--muted)]">{bd.note}</p> : null}
+            {(en.prereqs?.length || en.links?.length) ? (
+              <p className="text-[11px] text-[var(--muted)]">
+                {en.prereqs?.length ? (
+                  <span>{locale === 'en' ? 'Prereqs: ' : 'پیش‌نیاز: '}{en.prereqs.join('، ')} · </span>
+                ) : null}
+                {en.links?.length ? (
+                  <span>{locale === 'en' ? 'Related: ' : 'مرتبط: '}{en.links.join('، ')}</span>
+                ) : null}
+              </p>
+            ) : null}
+            {en.resources?.length ? (
+              <ul className="text-[11px] text-[var(--muted)] space-y-0.5">
+                {en.resources.slice(0, 3).map((r, i) => (
+                  <li key={i}>📚 {r.title}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <a href={domainHref} className="btn-primary text-center text-[11px] py-2 px-1">💬 {locale === 'en' ? 'Chat' : 'گفتگو'}</a>
+              <a href="/play" className="btn-primary text-center text-[11px] py-2 px-1">🧪 {locale === 'en' ? 'Quiz' : 'آزمون'}</a>
+              <a href={domainHref} className="rounded-xl border border-[var(--border)] text-center text-[11px] py-2 px-1">📚 {locale === 'en' ? 'Sources' : 'منابع'}</a>
+              <a href="/journey" className="rounded-xl border border-[var(--border)] text-center text-[11px] py-2 px-1">🧭 {locale === 'en' ? 'Path' : 'مسیر'}</a>
+            </div>
           </div>
         </div>
-      )}
+        )
+      })()}
     </main>
   )
 }
