@@ -240,35 +240,70 @@ function jpegToPdf(jpegBase64: string, imgW: number, imgH: number): Blob {
 }
 
 
-function buildMapInterpretation(map: MapData | null, dict: any): string {
+function humanLevelLabel(mastery: number, locale: string) {
+  if (mastery >= 75) return locale === 'en' ? 'solid' : 'قوی'
+  if (mastery >= 50) return locale === 'en' ? 'growing' : 'رو به رشد'
+  if (mastery >= 25) return locale === 'en' ? 'early' : 'تازه شروع‌شده'
+  return locale === 'en' ? 'foggy' : 'هنوز مه‌آلود'
+}
+
+function buildMapInterpretation(map: MapData | null, dict: any, locale = 'fa'): string {
   if (!map?.nodes?.length) {
-    return dict.mapEmptyHint || 'هنوز گره‌ای کشف نشده. با گفتگو، بازی و فعالیت در سایت نقشه شکل می‌گیرد.'
+    return locale === 'en'
+      ? 'Your map is still blank — a short chat or a quiz will light the first dots ✨'
+      : 'نقشه‌ات هنوز سفیده — یه گفتگوی کوتاه یا یه چالش بازی اولین نقطه‌ها رو روشن می‌کنه ✨'
   }
-  const known = map.nodes.filter((n) => n.status === 'known')
-  const near = map.nodes.filter((n) => n.status === 'near')
-  const far = map.nodes.filter((n) => n.status === 'far')
-  const avgAll =
-    map.nodes.length > 0
-      ? Math.round(map.nodes.reduce((s, n) => s + (n.mastery || 0), 0) / map.nodes.length)
-      : 0
-  const avgKnown =
-    known.length > 0
-      ? Math.round(known.reduce((s, n) => s + (n.mastery || 0), 0) / known.length)
-      : 0
+  const nodes = map.nodes.filter((n) => n.id !== 'mind')
+  const known = nodes.filter((n) => n.status === 'known')
+  const near = nodes.filter((n) => n.status === 'near')
+  const far = nodes.filter((n) => n.status === 'far')
   const top = [...known].sort((a, b) => (b.mastery || 0) - (a.mastery || 0)).slice(0, 3)
-  const weak = [...near, ...far].sort((a, b) => (a.mastery || 0) - (b.mastery || 0)).slice(0, 2)
-  const names = top.map((n) => n.title).join('، ')
-  const weakNames = weak.map((n) => n.title).join('، ')
-  const coverage = Math.round((known.length / Math.max(1, map.nodes.length)) * 100)
-  return (
-    `تفسیر نقشه ذهنی: ${map.nodes.length} گره — ${known.length} معلوم، ${near.length} نزدیک یادگیری، ${far.length} در مه. ` +
-    `پوشش کشف‌شده حدود ${coverage}٪ و میانگین تسلط کلی ${avgAll}٪` +
-    (avgKnown ? ` (میانگین معلوم‌ها ${avgKnown}٪)` : '') +
-    '. ' +
-    (names ? `نقاط قوت: ${names}. ` : '') +
-    (weakNames ? `پیشنهاد تمرکز بعدی: ${weakNames}. ` : '') +
-    'گفتگو با WAIMA، بازی‌ها و توجه به پوسته‌ها این نقشه را رشد می‌دهند؛ گفتگوی جهانی روی آن اثر ندارد.'
+  const weak = [...near, ...far].sort((a, b) => (a.mastery || 0) - (b.mastery || 0)).slice(0, 3)
+  const strongest = top[0]
+  const softest = weak[0]
+
+  if (locale === 'en') {
+    const bits: string[] = []
+    bits.push(
+      `Your mind map has ${nodes.length || map.nodes.length} areas: ${known.length} clear, ${near.length} almost there, ${far.length} still in the fog.`
+    )
+    if (strongest) {
+      bits.push(
+        `You’re strongest in «${strongest.title}» (${humanLevelLabel(strongest.mastery || 0, 'en')}).`
+      )
+    }
+    if (softest) {
+      bits.push(
+        `Worth exploring next: «${softest.title}» — a chat or a quiz there will thicken that region.`
+      )
+    }
+    if (top.length > 1) bits.push(`Other bright spots: ${top.slice(1).map((n) => n.title).join(', ')}.`)
+    bits.push('Chats with WAIMA and games grow this map; world chat doesn’t change it.')
+    return bits.join(' ')
+  }
+
+  const bits: string[] = []
+  bits.push(
+    `نقشهٔ ذهنت ${nodes.length || map.nodes.length} ناحیه دارد: ${known.length} تا روشن، ${near.length} تا نزدیک کشف، ${far.length} تا هنوز تو مه.`
   )
+  if (strongest) {
+    bits.push(
+      `قوی‌ترین جایت «${strongest.title}» است — سطحش ${humanLevelLabel(strongest.mastery || 0, 'fa')} به نظر می‌رسد.`
+    )
+  }
+  if (softest) {
+    bits.push(
+      `پیشنهاد بعدی: سری به «${softest.title}» بزن؛ یه گفتگو یا یه دور بازی اونجا، اون تکه رو پررنگ‌تر می‌کنه.`
+    )
+  }
+  if (top.length > 1) {
+    bits.push(`نقاط روشن دیگر: ${top.slice(1).map((n) => n.title).join('، ')}.`)
+  }
+  if (!known.length) {
+    bits.push('هنوز نقطهٔ «معلوم» نداری — نترس، با اولین گفتگوی جدی جرقه می‌خورد.')
+  }
+  bits.push('گفتگو با WAIMA و بازی‌ها این نقشه را زنده می‌کنند؛ گفتگوی جهانی روی آن اثر ندارد.')
+  return bits.join(' ')
 }
 
 export default function KnowledgeMapPage() {
@@ -577,7 +612,7 @@ export default function KnowledgeMapPage() {
     ctx.fillText(title, size / 2, size - 24 * scale)
 
     // تفسیر نقشه در خروجی
-    const interpretation = buildMapInterpretation(map, dict)
+    const interpretation = buildMapInterpretation(map, dict, locale)
     ctx.font = `500 ${Math.round(13 * scale)}px ${fontFamily}`
     ctx.fillStyle = text
     ctx.globalAlpha = 0.9
@@ -903,7 +938,7 @@ export default function KnowledgeMapPage() {
           </div>
 
           <div className="map-interpretation absolute bottom-10 inset-x-3 sm:inset-x-8 rounded-xl border border-[var(--border)] px-3 py-2 text-[11px] sm:text-xs leading-relaxed pointer-events-none" style={{ background: 'color-mix(in srgb, var(--card-solid) 92%, transparent)', color: 'var(--text)' }}>
-            {buildMapInterpretation(map, dict)}
+            {buildMapInterpretation(map, dict, locale)}
           </div>
           <p className="absolute bottom-2 inset-x-0 text-center text-[10px] text-[var(--muted)] pointer-events-none">
             {dir === 'ltr'
