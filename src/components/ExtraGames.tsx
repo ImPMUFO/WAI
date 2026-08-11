@@ -53,7 +53,7 @@ export default function ExtraGames() {
     const ok = pickedLeft === rightId
     const key = `match-${pickedLeft}`
     if (matched[key]) return
-    const res = onQuizQuestionAnswered(key, ok, { xpCorrect: 5, xpWrong: 0 })
+    const res = onQuizQuestionAnswered(key, ok, { xpCorrect: 5, xpWrong: 1, domain: 'general' })
     setMatched((m) => ({ ...m, [key]: ok }))
     setFeedback(ok ? `درست! +${res.gainedXp} XP` : 'نادرست')
     setPickedLeft(null)
@@ -63,7 +63,7 @@ export default function ExtraGames() {
   const answerTf = (val: boolean) => {
     if (!currentTf || tfDone[currentTf.id]) return
     const ok = currentTf.truth === val
-    const res = onQuizQuestionAnswered(`tf-${currentTf.id}`, ok, { xpCorrect: 5, xpWrong: 0 })
+    const res = onQuizQuestionAnswered(`tf-${currentTf.id}`, ok, { xpCorrect: 5, xpWrong: 1, domain: 'general' })
     setTfDone((d) => ({ ...d, [currentTf.id]: true }))
     setFeedback(ok ? `درست! +${res.gainedXp} XP — ${currentTf.explain}` : `نادرست — ${currentTf.explain}`)
   }
