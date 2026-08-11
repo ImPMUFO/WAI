@@ -1,5 +1,7 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
+
 import {
   useCallback,
   useEffect,
@@ -824,6 +826,8 @@ function OceanTreasure() {
 }
 
 export default function ThemeAtmosphere() {
+  const pathname = usePathname() || '/'
+  const showObjects = pathname === '/'
   const [theme, setTheme] = useState<ThemeId>('main')
   const [firePatches, setFirePatches] = useState(() => Array.from({ length: 16 }, () => true))
   const [pearls, setPearls] = useState<Record<string, boolean>>({})
@@ -858,7 +862,7 @@ export default function ThemeAtmosphere() {
 
   return (
     <>
-      <div className="theme-atmosphere theme-atmosphere-bg" data-active={theme} aria-hidden>
+      <div className="theme-atmosphere theme-atmosphere-bg" data-active={theme} data-objects={showObjects ? '1' : '0'} aria-hidden>
         <div className="ta-layer ta-day">
           <div className="ta-grass" />
           <div className="ta-cottage" />
@@ -894,7 +898,9 @@ export default function ThemeAtmosphere() {
         </div>
       </div>
 
-      <div className="theme-atmosphere theme-atmosphere-fg" data-active={theme} aria-hidden>
+      <div className="theme-atmosphere theme-atmosphere-fg" data-active={theme} data-objects={showObjects ? '1' : '0'} aria-hidden>
+        {showObjects ? (
+        <>
         <div className="ta-layer ta-day">
           {theme === 'day' && (
             <>
@@ -979,6 +985,8 @@ export default function ThemeAtmosphere() {
             </>
           )}
         </div>
+        </>
+        ) : null}
       </div>
     </>
   )
