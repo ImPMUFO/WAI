@@ -105,9 +105,26 @@ export function bumpFromQuiz(domain: string, correct: boolean) {
     math: 'ریاضی',
     language: 'زبان',
     religion: 'دین',
+    psychology: 'روان‌شناسی',
+    economics: 'اقتصاد',
+    tech: 'فناوری',
     general: 'دانش عمومی',
   }
-  bumpMindNode(id, titles[id] || domain || 'دانش', correct ? 6 : 2, correct ? 'از بازی تقویت شد' : 'تمرین بازی')
+  // پاسخ درست رشد بیشتر؛ غلط هم مسیر نزدیک را کمی روشن می‌کند
+  const amount = correct ? 8 : 3
+  const note = correct ? 'از بازی/کوئیز تقویت شد' : 'تمرین بازی — هنوز جا برای رشد'
+  bumpMindNode(id, titles[id] || domain || 'دانش', amount, note)
+  // مهارت‌های عرضی
+  bumpMindNode(
+    correct ? 'recall' : 'focus',
+    correct ? 'یادآوری' : 'تمرکز',
+    correct ? 3 : 2,
+    correct ? 'پاسخ درست در بازی' : 'تلاش در بازی',
+    'mind'
+  )
+  if (correct) {
+    bumpMindNode('logic', 'منطق و استدلال', 2, 'از چالش بازی', 'mind')
+  }
 }
 
 export function bumpFromTheme(themeId: string) {
