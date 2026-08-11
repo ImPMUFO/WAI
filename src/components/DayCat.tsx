@@ -149,31 +149,47 @@ export default function DayCat() {
       onPointerDown={(e) => e.stopPropagation()}
     >
       <span className="ta-cat-shadow" />
-      <span className="ta-cat-leg back-l" />
-      <span className="ta-cat-leg back-r" />
+      <span className="ta-cat-leg back-l">
+        <span className="ta-cat-paw" />
+      </span>
+      <span className="ta-cat-leg back-r">
+        <span className="ta-cat-paw" />
+      </span>
       <span className="ta-cat-body">
         <span className="ta-cat-fur f1" />
         <span className="ta-cat-fur f2" />
         <span className="ta-cat-fur f3" />
+        <span className="ta-cat-fur f4" />
         <span className="ta-cat-chest" />
+        <span className="ta-cat-belly" />
       </span>
-      <span className="ta-cat-leg front-l" />
-      <span className="ta-cat-leg front-r" />
+      <span className="ta-cat-leg front-l">
+        <span className="ta-cat-paw" />
+      </span>
+      <span className="ta-cat-leg front-r">
+        <span className="ta-cat-paw" />
+      </span>
       <span className="ta-cat-head">
         <span className="ta-cat-ear l">
           <span className="inner" />
+          <span className="tuft" />
         </span>
         <span className="ta-cat-ear r">
           <span className="inner" />
+          <span className="tuft" />
         </span>
+        <span className="ta-cat-cheek l" />
+        <span className="ta-cat-cheek r" />
         <span className="ta-cat-mask" />
         <span className="ta-cat-eye l">
           <span className="pupil" />
           <span className="shine" />
+          <span className="shine2" />
         </span>
         <span className="ta-cat-eye r">
           <span className="pupil" />
           <span className="shine" />
+          <span className="shine2" />
         </span>
         <span className="ta-cat-nose" />
         <span className="ta-cat-mouth" />
@@ -184,7 +200,11 @@ export default function DayCat() {
         <span className="ta-cat-whisker w5" />
         <span className="ta-cat-whisker w6" />
       </span>
-      <span className="ta-cat-tail" />
+      <span className="ta-cat-tail">
+        <span className="ta-cat-tail-fluff a" />
+        <span className="ta-cat-tail-fluff b" />
+        <span className="ta-cat-tail-tip" />
+      </span>
     </div>
   )
 }
