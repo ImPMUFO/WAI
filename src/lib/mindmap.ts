@@ -1,3 +1,4 @@
+import { pushJourney } from '@/lib/knowledge-graph'
 /** به‌روزرسانی سبک نقشه ذهنی از فعالیت‌های سایت (غیر از گفتگوی جهانی) */
 
 export const MAP_KEY = 'wai_map_unified'
@@ -114,6 +115,14 @@ export function bumpFromQuiz(domain: string, correct: boolean) {
   const amount = correct ? 8 : 3
   const note = correct ? 'از بازی/کوئیز تقویت شد' : 'تمرین بازی — هنوز جا برای رشد'
   bumpMindNode(id, titles[id] || domain || 'دانش', amount, note)
+  try {
+    pushJourney({
+      type: 'quiz',
+      label: correct ? `پاسخ درست در ${titles[id] || domain}` : `تمرین در ${titles[id] || domain}`,
+      nodeId: id,
+      delta: amount,
+    })
+  } catch { /* */ }
   // مهارت‌های عرضی
   bumpMindNode(
     correct ? 'recall' : 'focus',
