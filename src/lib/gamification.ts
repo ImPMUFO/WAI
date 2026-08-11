@@ -33,6 +33,9 @@ export type GameState = {
   history: { ts: number; reason: string; xp: number }[]
   /** id سؤالاتی که یک‌بار پاسخ داده شده‌اند (XP تکراری ممنوع) */
   answeredQuestions: string[]
+  /** XP کسب‌شده از بازی در روز جاری */
+  xpFromGamesToday: number
+  xpGamesDate: string
 }
 
 /** حداکثر سطح فعلی */
@@ -140,6 +143,8 @@ export function defaultGameState(): GameState {
     missions: defaultMissions(),
     history: [],
     answeredQuestions: [],
+    xpFromGamesToday: 0,
+    xpGamesDate: today(),
   }
 }
 
@@ -179,6 +184,8 @@ function normalizeGame(g: GameState): GameState {
     achievements: Array.isArray(g.achievements) ? g.achievements : [],
     history: Array.isArray(g.history) ? g.history.slice(-40) : [],
     answeredQuestions: Array.isArray(g.answeredQuestions) ? g.answeredQuestions : [],
+    xpFromGamesToday: typeof g.xpFromGamesToday === 'number' ? g.xpFromGamesToday : 0,
+    xpGamesDate: typeof g.xpGamesDate === 'string' ? g.xpGamesDate : today(),
   }
 }
 
@@ -379,65 +386,98 @@ export function hasAnsweredQuestion(g: GameState, id: string) {
 }
 
 /** ثبت پاسخ یک سؤال؛ فقط بار اول XP می‌دهد */
+
+/** سقف نرم XP روزانه از بازی‌ها — بعد از آن XP خیلی کم می‌شود */
+export const DAILY_GAME_XP_CAP = 50
+
+export function gameXpStatus(g?: GameState | null) {
+  const state = g || loadGame()
+  const t = today()
+  let from = state.xpFromGamesToday || 0
+  if (state.xpGamesDate !== t) from = 0
+  return {
+    fromToday: from,
+    cap: DAILY_GAME_XP_CAP,
+    remaining: Math.max(0, DAILY_GAME_XP_CAP - from),
+    atCap: from >= DAILY_GAME_XP_CAP,
+  }
+}
+
 export function onQuizQuestionAnswered(
   questionId: string,
   correct: boolean,
-  opts?: { xpCorrect?: number; xpWrong?: number; domain?: string }
-): { state: GameState; alreadyAnswered: boolean; gainedXp: number } {
-  let g = loadGame()
-  g = touchStreak(g)
-  if (!g.answeredQuestions) g.answeredQuestions = []
-  if (g.answeredQuestions.includes(questionId)) {
-    return { state: g, alreadyAnswered: true, gainedXp: 0 }
+  opts?: { domain?: string; xpCorrect?: number; xpWrong?: number }
+) {
+  const g = loadGame()
+  const t = today()
+  if (g.xpGamesDate !== t) {
+    g.xpGamesDate = t
+    g.xpFromGamesToday = 0
   }
-  const before = Number(g.xp) || 0
-  g.answeredQuestions = [...g.answeredQuestions, questionId]
-  g.totalQuizzes = (g.totalQuizzes || 0) + 1
-  const xpC = Math.max(1, opts?.xpCorrect ?? 5)
-  const xpW = Math.max(0, opts?.xpWrong ?? 1)
-  const gain = correct ? xpC : xpW
-  if (gain > 0) {
-    g = addXp(g, gain, correct ? 'پاسخ درست بازی' : 'تلاش در بازی')
+  if (g.answeredQuestions.includes(questionId)) {
+    return {
+      ok: false as const,
+      reason: 'already' as const,
+      xp: 0,
+      gainedXp: 0,
+      alreadyAnswered: true,
+      atCap: gameXpStatus(g).atCap,
+    }
+  }
+  g.answeredQuestions = [...g.answeredQuestions, questionId].slice(-500)
+
+  let gain = correct ? (opts?.xpCorrect ?? 5) : (opts?.xpWrong ?? 1)
+  const atCapBefore = (g.xpFromGamesToday || 0) >= DAILY_GAME_XP_CAP
+  if (atCapBefore) {
+    // بعد از سقف: هنوز می‌شود بازی کرد ولی XP ناچیز
+    gain = correct ? 1 : 0
+  } else if ((g.xpFromGamesToday || 0) + gain > DAILY_GAME_XP_CAP) {
+    gain = Math.max(0, DAILY_GAME_XP_CAP - (g.xpFromGamesToday || 0))
+  }
+
+  g.xp = (g.xp || 0) + gain
+  g.xpFromGamesToday = (g.xpFromGamesToday || 0) + gain
+  const prog = levelFromXp(g.xp)
+  g.level = prog.level
+
+  // مأموریت روزانه کوئیز
+  try {
+    g.missions.daily_quiz.progress = Math.min(
+      g.missions.daily_quiz.target,
+      g.missions.daily_quiz.progress + 1
+    )
+    if (g.missions.daily_quiz.progress >= g.missions.daily_quiz.target && !g.missions.daily_quiz.claimed) {
+      g.missions.daily_quiz.claimed = true
+      g.xp += 10
+      g.xpFromGamesToday += 10
+    }
+  } catch {
+    /* */
+  }
+
+  saveGame(g)
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('wai-game-updated'))
+    }
+  } catch {
+    /* */
   }
   try {
     bumpFromQuiz(opts?.domain || 'general', correct)
   } catch {
-    /* ignore */
+    /* */
   }
-  if (g.totalQuizzes >= 10) g = grantAchievement(g, 'quiz_master')
-  const m = { ...g.missions }
-  if (m.daily_quiz && !m.daily_quiz.claimed) {
-    m.daily_quiz = {
-      ...m.daily_quiz,
-      progress: Math.min(m.daily_quiz.target, m.daily_quiz.progress + 1),
-    }
-    if (m.daily_quiz.progress >= m.daily_quiz.target) {
-      m.daily_quiz.claimed = true
-      g = addXp(g, 20, 'مأموریت روزانه آزمون')
-    }
+  return {
+    ok: true as const,
+    xp: gain,
+    gainedXp: gain,
+    alreadyAnswered: false,
+    correct,
+    atCap: (g.xpFromGamesToday || 0) >= DAILY_GAME_XP_CAP,
+    fromToday: g.xpFromGamesToday || 0,
+    cap: DAILY_GAME_XP_CAP,
   }
-  g.missions = m
-  // level از xp
-  const prevLevel = g.level || 1
-  const lv = levelFromXp(g.xp)
-  g.level = lv.level
-  if (g.level > prevLevel) {
-    try {
-      localStorage.setItem(PENDING_LEVEL_UP_KEY, String(g.level))
-      window.dispatchEvent(new Event('waima-level-up'))
-    } catch {
-      /* ignore */
-    }
-  }
-  saveGame(g)
-  try {
-    window.dispatchEvent(new Event('wai-game-updated'))
-    window.dispatchEvent(new Event('waima-map-updated'))
-  } catch {
-    /* ignore */
-  }
-  const gainedXp = Math.max(0, (Number(g.xp) || 0) - before)
-  return { state: g, alreadyAnswered: false, gainedXp }
 }
 
 
