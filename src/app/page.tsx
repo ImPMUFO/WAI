@@ -70,20 +70,52 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
           <motion.div
-            className="text-center space-y-4 sm:space-y-5 mb-10 sm:mb-12"
+            className="text-center space-y-4 sm:space-y-5 mb-8 sm:mb-10"
             initial="initial"
             animate="animate"
             variants={staggerContainer}
           >
-            <motion.p variants={fadeInUp} className="text-sm text-[var(--accent)]">
-              {dict.brandTag}
+            <motion.p variants={fadeInUp} className="text-sm text-[var(--accent)] font-medium">
+              {dict.brandTag} · {dict.brandSub}
             </motion.p>
-            <motion.h2 variants={fadeInUp} className="text-2xl sm:text-4xl font-bold leading-tight">
+            <motion.h2 variants={fadeInUp} className="text-3xl sm:text-5xl font-bold leading-tight tracking-tight">
               {dict.brandName}
             </motion.h2>
-            <motion.p variants={fadeInUp} className="text-sm sm:text-base text-[var(--muted)] max-w-xl mx-auto leading-relaxed">
+            <motion.p variants={fadeInUp} className="text-sm sm:text-lg text-[var(--muted)] max-w-2xl mx-auto leading-relaxed">
               {dict.homeLead}
             </motion.p>
+            <motion.div variants={fadeInUp} className="flex flex-col items-center gap-2 pt-1">
+              <Link
+                href="/start"
+                className="btn-primary px-8 py-3.5 text-base sm:text-lg font-bold shadow-lg shadow-[var(--accent)]/20 hover:scale-[1.02] active:scale-[0.98] transition"
+              >
+                {(dict as any).primaryCta || dict.start}
+              </Link>
+              <p className="text-[11px] sm:text-xs text-[var(--muted)]">
+                {(dict as any).primaryCtaHint || dict.ctaBody}
+              </p>
+            </motion.div>
+            <motion.div
+              variants={fadeInUp}
+              className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-[var(--muted)] pt-2"
+            >
+              <span className="opacity-70">{(dict as any).journeyLabel || 'مسیرت'}</span>
+              <span className="px-2 py-1 rounded-full border border-[var(--border)] bg-[var(--card)]">
+                💬 {(dict as any).journeyStep1 || 'گفتگو'}
+              </span>
+              <span className="opacity-40">→</span>
+              <span className="px-2 py-1 rounded-full border border-[var(--border)] bg-[var(--card)]">
+                🔍 {(dict as any).journeyStep2 || 'کشف'}
+              </span>
+              <span className="opacity-40">→</span>
+              <span className="px-2 py-1 rounded-full border border-[var(--border)] bg-[var(--card)]">
+                🗺️ {(dict as any).journeyStep3 || 'نقشه'}
+              </span>
+              <span className="opacity-40">→</span>
+              <span className="px-2 py-1 rounded-full border border-[var(--border)] bg-[var(--card)]">
+                ⬆️ {(dict as any).journeyStep4 || 'پیشرفت'}
+              </span>
+            </motion.div>
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-3xl mx-auto">
