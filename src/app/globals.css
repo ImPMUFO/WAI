@@ -2113,3 +2113,41 @@ main, nav, header, footer, [data-site-menu], .site-menu-root {
 .theme-atmosphere-fg .ta-leaf-drag {
   pointer-events: auto !important;
 }
+
+
+/* ——— موبایل ضعیف: انیمیشن کمتر، paint کمتر ——— */
+@media (max-width: 640px) {
+  .theme-atmosphere .ta-star-dot,
+  .theme-atmosphere .ta-bubble:nth-child(n+3),
+  .theme-atmosphere .ta-smoke.s2 {
+    display: none !important;
+  }
+  .ta-fish-bubble.b-b {
+    display: none !important;
+  }
+  .ta-fish {
+    animation-duration: 12s !important;
+  }
+  .ta-cloud {
+    animation-duration: 10s !important;
+  }
+  .theme-atmosphere-bg {
+    contain: strict;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-atmosphere * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .ta-fish-bubble {
+    display: none !important;
+  }
+}
+
+/* وقتی تب مخفی است — مرورگر خودش throttle می‌کند؛ لایه غیرفعال pointer خاموش */
+.theme-atmosphere .ta-layer[style*="opacity: 0"] {
+  visibility: hidden;
+}
