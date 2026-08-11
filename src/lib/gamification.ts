@@ -57,6 +57,42 @@ export function totalXpForLevel(level: number) {
   return (50 * (L - 1) * L) / 2
 }
 
+
+/** عنوان انسانی سطح */
+export function levelTitle(level: number, locale: string = 'fa'): string {
+  const L = Math.max(1, Math.min(level || 1, MAX_LEVEL))
+  const fa = [
+    '',
+    '🌱 تازه‌وارد',
+    '🧭 کاوشگر',
+    '🔍 جست‌وجوگر',
+    '📘 دانش‌جو',
+    '📚 دانشیار',
+    '🧠 اندیشه‌ور',
+    '🔭 اندیشمند',
+    '🌟 راهبر ذهن',
+    '🏛️ استاد',
+    '👑 حکیم',
+  ]
+  const en = [
+    '',
+    '🌱 Newcomer',
+    '🧭 Explorer',
+    '🔍 Seeker',
+    '📘 Learner',
+    '📚 Scholar',
+    '🧠 Thinker',
+    '🔭 Sage',
+    '🌟 Mind guide',
+    '🏛️ Master',
+    '👑 Sage+',
+  ]
+  const table = locale === 'en' ? en : fa
+  if (L < table.length) return table[L]
+  if (L <= 15) return locale === 'en' ? `✨ Adept ${L}` : `✨ خبره ${L}`
+  return locale === 'en' ? `👑 Legend ${L}` : `👑 افسانه ${L}`
+}
+
 export function levelFromXp(xp: number) {
   const safeXp = Math.max(0, Math.floor(xp || 0))
   let level = 1
