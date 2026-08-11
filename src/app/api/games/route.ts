@@ -118,11 +118,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const kind = String(body?.kind || 'match')
   const date = String(body?.date || dayKey())
+  const salt = String(body?.salt || body?.session || Date.now())
   const locale = String(body?.locale || 'fa')
   const seed = hash(`${date}|${kind}|waima`)
   const rand = mulberry32(seed)
 
-  const ai = await aiGames(kind, date, locale)
+  const ai = await aiGames(kind, `${date}:${salt}`, locale)
 
   if (kind === 'truefalse') {
     let items: TfItem[] = []
