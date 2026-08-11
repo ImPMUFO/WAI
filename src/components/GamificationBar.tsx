@@ -7,6 +7,7 @@ import { Trophy, Zap, Target, Flame } from 'lucide-react'
 import {
   loadGame,
   levelFromXp,
+  levelTitle,
   achievementList,
   MAX_LEVEL,
   type GameState,
@@ -43,7 +44,7 @@ export default function GamificationBar({ compact = false }: { compact?: boolean
         <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-[var(--muted)]">
           <span className="inline-flex items-center gap-1 text-[var(--accent)] font-semibold">
             <Zap className="w-3.5 h-3.5" />
-            {dict.levelWord} {level}
+            {levelTitle(level)} · {dict.levelWord} {level}
             {atMax ? ' (MAX)' : ''}
           </span>
           <span>
