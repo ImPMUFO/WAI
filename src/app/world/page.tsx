@@ -134,21 +134,14 @@ export default function WorldChatPage() {
       setLoading(false)
       return
     }
-    const cutMs = Date.now() - 24 * 60 * 60 * 1000
-    const onlyFresh = (list: Msg[]) =>
-      (list || []).filter((m) => {
-        const t = m.created_at ? new Date(m.created_at).getTime() : 0
-        return Number.isFinite(t) && t > cutMs
-      })
-
     try {
-      // ۱) API → پاکسازی سمت سرور + لیست تازه
+      // ۱) API — بدون فیلتر بدون پاکسازی روزانه
       try {
         const apiRes = await fetch('/api/world', { cache: 'no-store' })
         if (apiRes.ok) {
           const data = await apiRes.json()
           if (Array.isArray(data.messages)) {
-            setMessages(onlyFresh(data.messages as Msg[]))
+            setMessages(data.messages as Msg[])
             setError('')
             return
           }
@@ -157,26 +150,23 @@ export default function WorldChatPage() {
         /* fallback below */
       }
 
-      // ۲) کلاینت با فیلتر ۲۴ ساعته
+      // ۲) کلاینت — آخرین پیام‌ها (بدون حذف روزانه)
       const supabase = createClient()
-      const cutoff = new Date(cutMs).toISOString()
       let res = await supabase
         .from('global_messages')
         .select('id, username, body, created_at, user_id, avatar_url')
-        .gt('created_at', cutoff)
         .order('created_at', { ascending: true })
-        .limit(150)
+        .limit(400)
 
       if (res.error) {
         res = (await supabase
           .from('global_messages')
           .select('id, username, body, created_at, user_id')
-          .gt('created_at', cutoff)
           .order('created_at', { ascending: true })
-          .limit(150)) as any
+          .limit(400)) as any
       }
       if (res.error) throw new Error(res.error.message)
-      setMessages(onlyFresh((res.data as Msg[]) || []))
+      setMessages((res.data as Msg[]) || [])
       setError('')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'بارگذاری نشد')
