@@ -5,8 +5,12 @@ import { LocaleProvider } from '@/lib/i18n/LocaleProvider'
 import GlobalWheelHost from '@/components/GlobalWheelHost'
 
 export const metadata: Metadata = {
-  title: 'WAIMA | من کیستم؟ | ترسیم‌گر ذهنی',
-  description: 'WAIMA – ترسیم‌گر ذهنی. گفتگوی هوشمند، نقشه ذهن، یادگیری و پیشرفت.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://waima.vercel.app'),
+  title: {
+    default: 'WAIMA | من کیستم؟ | ترسیم‌گر ذهنی',
+    template: '%s | WAIMA',
+  },
+  description: 'WAIMA همراه شناخت و رشد دانش: گفتگو، نقشه دانش زنده، بازی و قدم بعدی شخصی.',
   keywords: ['WAIMA', 'من کیستم', 'ترسیم‌گر ذهنی', 'mind map', 'learning'],
   authors: [{ name: 'WAIMA' }],
   openGraph: {
@@ -15,6 +19,12 @@ export const metadata: Metadata = {
     title: 'WAIMA | من کیستم؟',
     description: 'ترسیم‌گر ذهنی – یادگیری گفتگویی و نقشه دانش شخصی',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'WAIMA | من کیستم؟',
+    description: 'ترسیم‌گر ذهنی و نقشه دانش شخصی',
+  },
+  robots: { index: true, follow: true },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
