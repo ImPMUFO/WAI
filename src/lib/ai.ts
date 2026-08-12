@@ -98,7 +98,6 @@ export async function waimaChat(opts: {
         messages: opts.messages,
         temperature: opts.temperature ?? 0.7,
         max_tokens: opts.max_tokens ?? 4096,
-        max_completion_tokens: opts.max_tokens ?? 4096,
       }),
     })
     const textBody = await resp.text()
