@@ -16,7 +16,7 @@ export function getAIConfig(_feature: AIFeature = 'default') {
   const baseUrl = (process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai')
     .trim()
     .replace(/\/+$/, '')
-  const model = (process.env.GEMINI_MODEL || 'gemini-2.0-flash').trim()
+  const model = (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim()
   const keys = apiKey ? [apiKey] : []
   return { apiKey, baseUrl, model, keys }
 }
@@ -97,7 +97,7 @@ export async function waimaChat(opts: {
         model: cfg.model,
         messages: opts.messages,
         temperature: opts.temperature ?? 0.7,
-        max_tokens: opts.max_tokens ?? 400,
+        max_tokens: opts.max_tokens ?? 1024,
       }),
     })
     const textBody = await resp.text()
