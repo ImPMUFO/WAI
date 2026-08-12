@@ -89,7 +89,7 @@ npm run dev
 | متغیر | نقش |
 |--------|------|
 | `GEMINI_API_KEY` | کلید Google Gemini از AI Studio (الزامی) |
-| `GEMINI_MODEL` | پیش‌فرض: `gemini-2.0-flash` |
+| `GEMINI_MODEL` | پیش‌فرض: `gemini-3.6-flash` |
 
 ---
 
