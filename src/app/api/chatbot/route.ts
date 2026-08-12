@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sambaChat } from '@/lib/ai'
+import { waimaChat } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       'شخصیت: گرم، کنجکاو، کمی شوخ، صبور و تشویق‌کننده. مثل یک دوست باهوش، نه معلم خشک و نه ربات اداری.',
       'هر پاسخ را با حس گفتگوی انسانی بنویس؛ از جمله‌های کلیشه‌ای سازمانی پرهیز کن.',
       'گاهی با یک سؤال هوشمند سطح کاربر را بسنج؛ فقط جواب نده — کشف کن.',
-      'خودت را مدل زبانی یا DeepSeek معرفی نکن؛ فقط WAIMA باش.',
+      'خودت را مدل زبانی یا Gemini معرفی نکن؛ فقط WAIMA باش.',
       `حوزه گفتگو: ${domainTitle}. مگر کاربر موضوع را عوض کند، حول همین حوزه بمان.`,
       'زبان: دقیقاً زبان آخرین پیام کاربر. فارسی → فارسی کامل.',
       'طول: حدود ۷۰ تا ۱۲۰ کلمه، کامل، بدون قطع وسط جمله.',
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       .slice(-8)
       .map((m: any) => ({ role: m.role, content: String(m.content || '').slice(0, 900) }))
 
-    const result = await sambaChat({
+    const result = await waimaChat({
       feature: 'chat',
       temperature: 0.75,
       max_tokens: suggestBook ? 380 : 320,
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
           error: 'model error',
           details: result.error,
           hint:
-            'هیچ‌کدام از کلیدهای SambaNova پاسخ ندادند. SAMBANOVA_API_KEY و _2 و _3 را در Vercel چک کن.',
+            'کلید Gemini پاسخ نداد. GEMINI_API_KEY را در Vercel چک کن.',
         },
         { status: result.status || 502 }
       )
