@@ -3,6 +3,7 @@ import { sambaChat } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 const SITE = (process.env.NEXT_PUBLIC_APP_URL || 'https://waima.vercel.app').replace(/\/$/, '')
 
@@ -18,35 +19,31 @@ async function tg(method: string, body: Record<string, unknown>) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  const data = await res.json().catch(() => ({}))
-  return data
+  return res.json().catch(() => ({}))
 }
 
-async function sendMessage(chatId: number | string, text: string, extra?: Record<string, unknown>) {
-  // تلگرام سقف حدود ۴۰۹۶ کاراکتر دارد
-  const chunks: string[] = []
-  let rest = text
+async function sendMessage(chatId: number | string, text: string) {
+  const clean = (text || '').trim() || '…'
+  let rest = clean
   while (rest.length > 0) {
-    chunks.push(rest.slice(0, 4000))
+    const part = rest.slice(0, 4000)
     rest = rest.slice(4000)
-  }
-  for (const part of chunks) {
-    await tg('sendMessage', {
+    const data = await tg('sendMessage', {
       chat_id: chatId,
       text: part,
-      disable_web_page_preview: false,
-      ...extra,
+      disable_web_page_preview: true,
     })
+    if (data?.ok === false) console.error('sendMessage fail', data)
   }
 }
 
 const SYSTEM = [
-  'تو WAIMA هستی — «من کیستم؟» همراه یادگیری در تلگرام.',
-  'گرم، خودمونی، کوتاه و مفید جواب بده (حدود ۴۰ تا ۱۰۰ کلمه).',
-  'زبان جواب = زبان پیام کاربر. فارسی → فارسی.',
-  'در پایان یک سؤال کوتاه برای ادامه بپرس.',
-  'خودت را مدل یا API معرفی نکن.',
-  `اگر خواستند سایت کامل (نقشه ذهنی، بازی) را ببینند لینک بده: ${SITE}`,
+  'تو WAIMA هستی — همراه یادگیری در تلگرام.',
+  'جواب کوتاه، خودمونی و مفید (۴۰ تا ۹۰ کلمه).',
+  'زبان = زبان کاربر. فارسی → فارسی کامل.',
+  'یک سؤال کوتاه در پایان بپرس.',
+  'خودت را مدل معرفی نکن.',
+  `سایت کامل: ${SITE}`,
 ].join('\n')
 
 export async function POST(req: NextRequest) {
@@ -60,21 +57,22 @@ export async function POST(req: NextRequest) {
     if (!message?.chat?.id) {
       return NextResponse.json({ ok: true, skipped: true })
     }
+    if (message.from?.is_bot) {
+      return NextResponse.json({ ok: true, skipped: 'bot' })
+    }
 
     const chatId = message.chat.id
     const text = String(message.text || message.caption || '').trim()
 
-    // فقط پیام متنی
     if (!text) {
-      await sendMessage(chatId, 'فعلاً فقط پیام متنی را می‌فهمم 😊\nبرای سایت کامل:\n' + SITE)
+      await sendMessage(chatId, `فعلاً فقط متن پشتیبانی می‌شود.\nسایت: ${SITE}`)
       return NextResponse.json({ ok: true })
     }
 
-    // دستورات
     if (text.startsWith('/start')) {
       await sendMessage(
         chatId,
-        `سلام! من WAIMA هستم 🧠\n\nاینجا می‌تونی کوتاه بپرسی و یاد بگیری.\nبرای نقشه ذهنی، بازی و امکانات کامل برو:\n${SITE}\n\nهر سؤالی داری همین‌جا بنویس.`
+        `سلام! من WAIMA هستم 🧠\n\nهر سؤالی داری همین‌جا بنویس.\nسایت کامل (نقشه و بازی):\n${SITE}`
       )
       return NextResponse.json({ ok: true })
     }
@@ -85,45 +83,55 @@ export async function POST(req: NextRequest) {
     if (text.startsWith('/help')) {
       await sendMessage(
         chatId,
-        `دستورها:\n/start — شروع\n/site — لینک سایت\n/help — راهنما\n\nهر متن دیگری را با هوش مصنوعی جواب می‌دهم.`
+        `دستورها:\n/start\n/site\n/help\n\nهر متن دیگر را با هوش مصنوعی جواب می‌دهم.`
       )
       return NextResponse.json({ ok: true })
     }
+    if (text.startsWith('/')) {
+      await sendMessage(chatId, `دستور ناشناخته. /help را ببین یا سؤال عادی بپرس.`)
+      return NextResponse.json({ ok: true })
+    }
 
-    // نشان بده دارد فکر می‌کند (اختیاری)
     try {
       await tg('sendChatAction', { chat_id: chatId, action: 'typing' })
     } catch {
       /* ignore */
     }
 
-    const result = await sambaChat({
-      feature: 'chat',
-      temperature: 0.7,
-      max_tokens: 280,
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: text.slice(0, 2000) },
-      ],
-    })
-
-    if (!result.ok) {
-      await sendMessage(
-        chatId,
-        `الان نتونستم جواب بدم. کمی بعد دوباره بفرست.\nسایت: ${SITE}`
-      )
-      return NextResponse.json({ ok: true, ai: false })
+    let reply = ''
+    try {
+      const result = await sambaChat({
+        feature: 'chat',
+        temperature: 0.7,
+        max_tokens: 220,
+        messages: [
+          { role: 'system', content: SYSTEM },
+          { role: 'user', content: text.slice(0, 1500) },
+        ],
+      })
+      if (result.ok) {
+        reply = result.content
+      } else {
+        console.error('sambaChat fail', result.error)
+        reply =
+          `الان هوش مصنوعی جواب نداد.\n` +
+          `یک‌بار دیگر کوتاه‌تر بپرس.\n` +
+          `سایت: ${SITE}\n` +
+          `(${String(result.error).slice(0, 120)})`
+      }
+    } catch (e: unknown) {
+      console.error('ai exception', e)
+      reply = `خطا در پاسخ‌دهی. دوباره تلاش کن.\n${SITE}`
     }
 
-    await sendMessage(chatId, result.content)
-    return NextResponse.json({ ok: true, ai: true })
+    await sendMessage(chatId, reply)
+    return NextResponse.json({ ok: true })
   } catch (e: unknown) {
-    console.error('telegram webhook', e)
+    console.error('telegram webhook fatal', e)
     return NextResponse.json({ ok: true, error: 'handled' })
   }
 }
 
-/** وضعیت و راهنمای ست‌کردن وب‌هوک */
 export async function GET(req: NextRequest) {
   const token = botToken()
   const url = new URL(req.url)
@@ -144,7 +152,21 @@ export async function GET(req: NextRequest) {
       allowed_updates: ['message'],
       drop_pending_updates: true,
     })
-    return NextResponse.json({ ok: true, webhookUrl, telegram: data })
+    const info = await tg('getWebhookInfo', {})
+    return NextResponse.json({ ok: true, webhookUrl, setWebhook: data, info })
+  }
+
+  if (url.searchParams.get('test') === '1') {
+    const q = url.searchParams.get('q') || 'سلام، یک جمله درباره یادگیری بگو'
+    const result = await sambaChat({
+      feature: 'chat',
+      max_tokens: 150,
+      messages: [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content: q },
+      ],
+    })
+    return NextResponse.json({ ok: result.ok, result })
   }
 
   return NextResponse.json({
@@ -152,7 +174,9 @@ export async function GET(req: NextRequest) {
     service: 'telegram-waima',
     bot: '@WAIMATGbot',
     hasToken: Boolean(token),
+    hasSamba: Boolean(process.env.SAMBANOVA_API_KEY),
     site: SITE,
-    setupHint: `بعد از Deploy باز کن: ${SITE}/api/telegram?setup=1`,
+    setup: `${SITE}/api/telegram?setup=1`,
+    testAi: `${SITE}/api/telegram?test=1&q=سلام`,
   })
 }
