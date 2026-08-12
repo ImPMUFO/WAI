@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     note: 'Connect Supabase service role here for live user metrics when ready.',
     env: {
       hasSupabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-      hasSamba: Boolean(process.env.SAMBANOVA_API_KEY),
+      hasGemini: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
     },
   })
 }
