@@ -88,18 +88,8 @@ npm run dev
 
 | متغیر | نقش |
 |--------|------|
-| `SAMBANOVA_API_KEY` | کلید اصلی هوش مصنوعی (الزامی) |
-| `SAMBANOVA_API_KEY_2` | کلید دوم برای چرخش هنگام خطا (اختیاری) |
-| `SAMBANOVA_API_KEY_3` | کلید سوم (اختیاری) |
-| `SAMBANOVA_BASE_URL` | پیش‌فرض: `https://api.sambanova.ai/v1` |
-| `SAMBANOVA_MODEL` | پیش‌فرض: `DeepSeek-V3.1` |
-| `NEXT_PUBLIC_SUPABASE_URL` | آدرس پروژه Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | کلید anon عمومی |
-| `NEXT_PUBLIC_APP_URL` | آدرس نهایی سایت (مثلاً `https://waima.vercel.app`) |
-
-کلیدهای جدا برای بخش‌های خاص (اختیاری):
-
-`SAMBANOVA_API_KEY_CHAT` · `SAMBANOVA_API_KEY_ANALYZER` · `SAMBANOVA_API_KEY_GAMES`
+| `GEMINI_API_KEY` | کلید Google Gemini از AI Studio (الزامی) |
+| `GEMINI_MODEL` | پیش‌فرض: `gemini-2.0-flash` |
 
 ---
 
@@ -176,4 +166,4 @@ supabase/             اسکیمای پایگاه داده
 
 ---
 
-ساخته شده با Next.js · React · Supabase · SambaNova  
+ساخته شده با Next.js · React · Supabase · Gemini  
