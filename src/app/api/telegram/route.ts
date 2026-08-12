@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sambaChat } from '@/lib/ai'
+import { waimaChat } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
     let reply = ''
     try {
-      const result = await sambaChat({
+      const result = await waimaChat({
         feature: 'chat',
         temperature: 0.7,
         max_tokens: 220,
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
       if (result.ok) {
         reply = result.content
       } else {
-        console.error('sambaChat fail', result.error)
+        console.error('waimaChat fail', result.error)
         reply =
           `الان هوش مصنوعی جواب نداد.\n` +
           `یک‌بار دیگر کوتاه‌تر بپرس.\n` +
@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
 
   if (url.searchParams.get('test') === '1') {
     const q = url.searchParams.get('q') || 'سلام، یک جمله درباره یادگیری بگو'
-    const result = await sambaChat({
+    const result = await waimaChat({
       feature: 'chat',
       max_tokens: 150,
       messages: [
@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
     service: 'telegram-waima',
     bot: '@WAIMATGbot',
     hasToken: Boolean(token),
-    hasSamba: Boolean(process.env.SAMBANOVA_API_KEY),
+    hasGemini: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
     site: SITE,
     setup: `${SITE}/api/telegram?setup=1`,
     testAi: `${SITE}/api/telegram?test=1&q=سلام`,
