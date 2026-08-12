@@ -1,14 +1,11 @@
 /**
  * هوش مصنوعی WAIMA
- * اولویت: Gemini → در صورت خطا/سقف: Groq
+ * اولویت: Gemini → در صورت خطا: Groq (مدل مناسب فارسی)
  *
  * Vercel:
- *   GEMINI_API_KEY     اصلی (الزامی پیشنهادی)
- *   GEMINI_MODEL       پیش‌فرض gemini-3.6-flash
- *   GEMINI_BASE_URL    اختیاری
- *
- *   GROQ_API_KEY       پشتیبان
- *   GROQ_MODEL         پیش‌فرض llama-3.3-70b-versatile
+ *   GEMINI_API_KEY / GEMINI_MODEL (پیش‌فرض gemini-3.6-flash)
+ *   GROQ_API_KEY
+ *   GROQ_MODEL  پیش‌فرض: openai/gpt-oss-120b
  */
 
 export type AIFeature = 'chat' | 'analyzer' | 'games' | 'default'
@@ -88,6 +85,17 @@ type Provider = {
   model: string
 }
 
+/** مدل‌های Groq به‌ترتیب ترجیح برای فارسی */
+function groqModels(): string[] {
+  const primary = (process.env.GROQ_MODEL || 'openai/gpt-oss-120b').trim()
+  const extras = [
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b', // سریع‌تر و سبک‌تر
+    'llama-3.3-70b-versatile',
+  ]
+  return [...new Set([primary, ...extras].filter(Boolean))]
+}
+
 function listProviders(): Provider[] {
   const list: Provider[] = []
 
@@ -105,12 +113,15 @@ function listProviders(): Provider[] {
 
   const groqKey = (process.env.GROQ_API_KEY || '').trim()
   if (groqKey) {
-    list.push({
-      name: 'groq',
-      apiKey: groqKey,
-      baseUrl: (process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1').trim().replace(/\/+$/, ''),
-      model: (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile').trim(),
-    })
+    const base = (process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1').trim().replace(/\/+$/, '')
+    for (const model of groqModels()) {
+      list.push({
+        name: `groq:${model}`,
+        apiKey: groqKey,
+        baseUrl: base,
+        model,
+      })
+    }
   }
 
   return list
@@ -157,7 +168,7 @@ async function callProvider(
   }
 }
 
-/** Gemini اول، بعد Groq */
+/** Gemini اول؛ بعد Groq با مدل‌های مناسب‌تر فارسی */
 export async function waimaChat(opts: {
   messages: { role: string; content: string }[]
   temperature?: number
@@ -178,12 +189,11 @@ export async function waimaChat(opts: {
     const result = await callProvider(p, opts)
     if (result.ok) return result
     errors.push(result.error)
-    // 429 / 5xx / timeout → برو سراغ بعدی
   }
 
   return {
     ok: false,
     status: 502,
-    error: errors.join(' | ') || 'all providers failed',
+    error: errors.slice(0, 4).join(' | ') || 'all providers failed',
   }
 }
