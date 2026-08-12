@@ -3,7 +3,7 @@
  *
  * Vercel:
  *   GEMINI_API_KEY   الزامی — از Google AI Studio
- *   GEMINI_MODEL     اختیاری — پیش‌فرض gemini-2.0-flash
+ *   GEMINI_MODEL     اختیاری — پیش‌فرض gemini-3.6-flash
  *   GEMINI_BASE_URL  اختیاری — پیش‌فرض OpenAI-compatible گوگل
  */
 
