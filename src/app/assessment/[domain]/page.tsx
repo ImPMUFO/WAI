@@ -335,28 +335,40 @@ export default function AssessmentPage() {
   }
 
   const callAI = async (allMessages: Message[], suggestBook = false) => {
-    const res = await fetch('/api/chatbot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        domain,
-        suggestBook,
-        lastBook,
-        messages: [
-          { role: 'user', content: `نام کاربر: ${userName || nameInput || 'کاربر'}` },
-          ...allMessages.map((m) => ({ role: m.role, content: m.content })),
-        ],
-      }),
-    })
-    const data = await res.json().catch(() => null)
-    if (!res.ok || !data?.success || typeof data.content !== 'string' || !data.content.trim()) {
-      const detail =
-        (typeof data?.details === 'string' && data.details.slice(0, 180)) ||
-        (typeof data?.error === 'string' && data.error) ||
-        `HTTP ${res.status}`
-      throw new Error(detail)
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), 45000)
+    try {
+      const res = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain,
+          suggestBook,
+          lastBook,
+          messages: [
+            { role: 'user', content: `نام کاربر: ${userName || nameInput || 'کاربر'}` },
+            ...allMessages.map((m) => ({ role: m.role, content: m.content })),
+          ],
+        }),
+        signal: controller.signal,
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success || typeof data.content !== 'string' || !data.content.trim()) {
+        const detail =
+          (typeof data?.details === 'string' && data.details.slice(0, 180)) ||
+          (typeof data?.error === 'string' && data.error) ||
+          `HTTP ${res.status}`
+        throw new Error(detail)
+      }
+      return data.content as string
+    } catch (e: unknown) {
+      if (e instanceof Error && /abort/i.test(e.message)) {
+        throw new Error('پاسخ طولانی شد — دوباره تلاش کن')
+      }
+      throw e
+    } finally {
+      window.clearTimeout(timer)
     }
-    return data.content as string
   }
 
   const updateMapFromChat = async (allMessages: Message[]) => {
@@ -509,7 +521,6 @@ export default function AssessmentPage() {
     }
   }
 
-
   const copyMessage = async (content: string) => {
     try {
       await navigator.clipboard.writeText(content)
@@ -617,8 +628,7 @@ export default function AssessmentPage() {
         computeInsight(withReply)
       }
       try { onChatMessage(domain) } catch {}
-      setIsTyping(false)
-      // نقشه فقط هر ۵ پیام کاربر (کاهش فشار + اطلاع به کاربر)
+      // نقشه فقط هر ۵ پیام کاربر
       if (userCount > 0 && userCount % 5 === 0) {
         void updateMapFromChat(withReply)
       }
@@ -644,6 +654,7 @@ export default function AssessmentPage() {
 ${localInsight.question}` : ''),
         },
       ])
+    } finally {
       setIsTyping(false)
     }
   }
