@@ -97,7 +97,8 @@ export async function waimaChat(opts: {
         model: cfg.model,
         messages: opts.messages,
         temperature: opts.temperature ?? 0.7,
-        max_tokens: opts.max_tokens ?? 1024,
+        max_tokens: opts.max_tokens ?? 4096,
+        max_completion_tokens: opts.max_tokens ?? 4096,
       }),
     })
     const textBody = await resp.text()
