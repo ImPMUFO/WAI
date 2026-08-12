@@ -39,7 +39,7 @@ async function sendMessage(chatId: number | string, text: string) {
 
 const SYSTEM = [
   'تو WAIMA هستی — همراه یادگیری در تلگرام.',
-  'جواب کوتاه، خودمونی و مفید (۴۰ تا ۹۰ کلمه).',
+  'جواب کامل و خودمونی (حدود ۸۰ تا ۱۵۰ کلمه). جمله را نصفه نگذار.',
   'زبان = زبان کاربر. فارسی → فارسی کامل.',
   'یک سؤال کوتاه در پایان بپرس.',
   'خودت را مدل معرفی نکن.',
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       const result = await waimaChat({
         feature: 'chat',
         temperature: 0.7,
-        max_tokens: 220,
+        max_tokens: 900,
         messages: [
           { role: 'system', content: SYSTEM },
           { role: 'user', content: text.slice(0, 1500) },
@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
     const q = url.searchParams.get('q') || 'سلام، یک جمله درباره یادگیری بگو'
     const result = await waimaChat({
       feature: 'chat',
-      max_tokens: 150,
+      max_tokens: 600,
       messages: [
         { role: 'system', content: SYSTEM },
         { role: 'user', content: q },
