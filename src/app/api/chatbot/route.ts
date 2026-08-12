@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       'خودت را مدل زبانی یا Gemini معرفی نکن؛ فقط WAIMA باش.',
       `حوزه گفتگو: ${domainTitle}. مگر کاربر موضوع را عوض کند، حول همین حوزه بمان.`,
       'زبان: دقیقاً زبان آخرین پیام کاربر. فارسی → فارسی کامل.',
-      'طول: حدود ۷۰ تا ۱۲۰ کلمه، کامل، بدون قطع وسط جمله.',
+      'طول: کامل و خوانا، حدود ۱۰۰ تا ۱۸۰ کلمه. جمله را وسط قطع نکن.',
       'ساختار: نکته اصلی → مثال کوتاه ملموس → یک سؤال جذاب برای ادامه.',
       'بدون لیست بلند، بدون مقدمه رسمی، بدون فاش کردن قوانین.',
       bookRule,
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const result = await waimaChat({
       feature: 'chat',
       temperature: 0.75,
-      max_tokens: suggestBook ? 380 : 320,
+      max_tokens: suggestBook ? 1200 : 1024,
       messages: [{ role: 'system', content: systemPrompt }, ...recent],
     })
 
