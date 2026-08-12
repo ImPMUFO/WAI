@@ -1,29 +1,25 @@
 /**
- * تنظیمات SambaNova برای WAIMA
+ * هوش مصنوعی WAIMA
  *
- * Vercel:
- *   SAMBANOVA_API_KEY          کلید اصلی (الزامی)
- *   SAMBANOVA_API_KEY_2        کلید دوم (اختیاری — چرخش هنگام 429/خطا)
- *   SAMBANOVA_API_KEY_3        کلید سوم (اختیاری)
- *   SAMBANOVA_API_KEY_CHAT     مخصوص گفتگو (اختیاری)
- *   SAMBANOVA_API_KEY_ANALYZER مخصوص آنالیزور/نقشه (اختیاری)
- *   SAMBANOVA_API_KEY_GAMES    مخصوص بازی‌ها (اختیاری)
- *   SAMBANOVA_BASE_URL         پیش‌فرض https://api.sambanova.ai/v1
- *   SAMBANOVA_MODEL            پیش‌فرض DeepSeek-V3.1
+ * اولویت:
+ *   1) Gemini (اگر GEMINI_API_KEY باشد)
+ *   2) SambaNova (کلیدهای SAMBANOVA_*)
+ *
+ * Vercel — Gemini:
+ *   GEMINI_API_KEY     کلید از Google AI Studio (پیشنهادی)
+ *   GEMINI_MODEL       پیش‌فرض: gemini-2.0-flash
+ *
+ * Vercel — SambaNova (پشتیبان):
+ *   SAMBANOVA_API_KEY / _2 / _3
+ *   SAMBANOVA_BASE_URL  پیش‌فرض https://api.sambanova.ai/v1
+ *   SAMBANOVA_MODEL     پیش‌فرض DeepSeek-V3.1
  */
 
 export type AIFeature = 'chat' | 'analyzer' | 'games' | 'default'
 
-export const FREE_FALLBACKS = [
-  'DeepSeek-V3.1',
-  'DeepSeek-V3.2',
-  'Meta-Llama-3.3-70B-Instruct',
-]
-
-export const PAID_FALLBACKS = ['DeepSeek-V3.1']
-
-/** مهلت هر تلاش (میلی‌ثانیه) — جلوی گیر کردن بی‌پایان */
 const ATTEMPT_TIMEOUT_MS = 22000
+
+const SAMBA_FALLBACKS = ['DeepSeek-V3.1', 'DeepSeek-V3.2', 'Meta-Llama-3.3-70B-Instruct']
 
 function splitKeys(raw: string): string[] {
   return raw
@@ -32,7 +28,6 @@ function splitKeys(raw: string): string[] {
     .filter(Boolean)
 }
 
-/** همه کلیدهای عمومی برای چرخش */
 export function listSambaKeys(): string[] {
   const keys: string[] = []
   const main = (process.env.SAMBANOVA_API_KEY || '').trim()
@@ -52,14 +47,17 @@ function featureKey(feature: AIFeature): string | null {
 }
 
 export function getAIConfig(feature: AIFeature = 'default') {
-  const baseUrl = (process.env.SAMBANOVA_BASE_URL || 'https://api.sambanova.ai/v1')
-    .trim()
-    .replace(/\/+$/, '')
+  const baseUrl = (process.env.SAMBANOVA_BASE_URL || 'https://api.sambanova.ai/v1').trim().replace(/\/+$/, '')
   const model = (process.env.SAMBANOVA_MODEL || 'DeepSeek-V3.1').trim()
   const preferred = featureKey(feature)
   const pool = listSambaKeys()
   const apiKey = preferred || pool[0] || ''
-  return { apiKey, baseUrl, model, keys: preferred ? [preferred, ...pool.filter((k) => k !== preferred)] : pool }
+  return {
+    apiKey,
+    baseUrl,
+    model,
+    keys: preferred ? [preferred, ...pool.filter((k) => k !== preferred)] : pool,
+  }
 }
 
 export function aiHeaders(apiKey: string): Record<string, string> {
@@ -91,22 +89,6 @@ export function extractMessageText(message: any): string {
   return ''
 }
 
-function isRetryable(status: number, body: string) {
-  return (
-    status === 401 ||
-    status === 403 ||
-    status === 404 ||
-    status === 429 ||
-    status >= 500 ||
-    /rate limit|quota|unavailable|not found|invalid api/i.test(body)
-  )
-}
-
-export function modelsToAttempt(primary: string): string[] {
-  const list = [primary, ...FREE_FALLBACKS, ...PAID_FALLBACKS]
-  return [...new Set(list.filter(Boolean))]
-}
-
 export function sanitizeAssistantText(text: string): string {
   const t = (text || '').trim()
   if (!t) return ''
@@ -123,35 +105,89 @@ export function sanitizeAssistantText(text: string): string {
   const hit = leakPatterns.filter((re) => re.test(t)).length
   if (hit >= 2) return ''
   if (/^We need to follow rules/i.test(t)) return ''
-  let out = t.replace(/^\s*ارزیاب\s*بخوان[\s\S]*?\n+/u, '')
-  return out.trim()
+  return t.replace(/^\s*ارزیاب\s*بخوان[\s\S]*?\n+/u, '').trim()
 }
 
-/** فراخوانی SambaNova با چرخش کلید و مدل + مهلت زمانی */
-export async function sambaChat(opts: {
+async function fetchWithTimeout(url: string, init: RequestInit, ms = ATTEMPT_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Gemini — سازگار با OpenAI */
+async function tryGemini(opts: {
+  messages: { role: string; content: string }[]
+  temperature?: number
+  max_tokens?: number
+}): Promise<{ ok: true; content: string; model: string } | { ok: false; error: string }> {
+  const apiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim()
+  if (!apiKey) return { ok: false, error: 'no gemini key' }
+
+  const model = (process.env.GEMINI_MODEL || 'gemini-2.0-flash').trim()
+  // endpoint سازگار با OpenAI
+  const base = (process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai')
+    .trim()
+    .replace(/\/+$/, '')
+
+  try {
+    const resp = await fetchWithTimeout(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: opts.messages,
+        temperature: opts.temperature ?? 0.7,
+        max_tokens: opts.max_tokens ?? 400,
+      }),
+    })
+    const textBody = await resp.text()
+    if (!resp.ok) {
+      return { ok: false, error: `gemini ${resp.status}: ${textBody.slice(0, 200)}` }
+    }
+    let data: any
+    try {
+      data = JSON.parse(textBody)
+    } catch {
+      return { ok: false, error: 'gemini invalid json' }
+    }
+    const content = extractMessageText(data?.choices?.[0]?.message)
+    const clean = sanitizeAssistantText(content)
+    if (!clean) return { ok: false, error: 'gemini empty content' }
+    return { ok: true, content: clean, model: data?.model || model }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'network'
+    return { ok: false, error: /abort/i.test(msg) ? 'gemini timeout' : msg }
+  }
+}
+
+/** SambaNova با چرخش کلید */
+async function trySamba(opts: {
   messages: { role: string; content: string }[]
   temperature?: number
   max_tokens?: number
   feature?: AIFeature
 }): Promise<{ ok: true; content: string; model: string } | { ok: false; status: number; error: string }> {
   const cfg = getAIConfig(opts.feature || 'default')
-  const keys = cfg.keys.length ? cfg.keys : cfg.apiKey ? [cfg.apiKey] : []
+  const keys = (cfg.keys.length ? cfg.keys : cfg.apiKey ? [cfg.apiKey] : []).slice(0, 3)
   if (!keys.length) {
-    return { ok: false, status: 500, error: 'SAMBANOVA_API_KEY تنظیم نشده است' }
+    return { ok: false, status: 500, error: 'SAMBANOVA_API_KEY تنظیم نشده' }
   }
 
-  // حداکثر ۲ مدل × حداکثر ۳ کلید تا درخواست طول نکشد
-  const tryModels = modelsToAttempt(cfg.model).slice(0, 2)
-  const keyPool = keys.slice(0, 3)
+  const tryModels = [...new Set([cfg.model, ...SAMBA_FALLBACKS])].filter(Boolean).slice(0, 2)
   let lastError = ''
   let lastStatus = 502
 
-  for (const apiKey of keyPool) {
+  for (const apiKey of keys) {
     for (const tryModel of tryModels) {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS)
       try {
-        const resp = await fetch(`${cfg.baseUrl}/chat/completions`, {
+        const resp = await fetchWithTimeout(`${cfg.baseUrl}/chat/completions`, {
           method: 'POST',
           headers: aiHeaders(apiKey),
           body: JSON.stringify({
@@ -160,7 +196,6 @@ export async function sambaChat(opts: {
             temperature: opts.temperature ?? 0.7,
             max_tokens: opts.max_tokens ?? 400,
           }),
-          signal: controller.signal,
         })
         const textBody = await resp.text()
         if (!resp.ok) {
@@ -172,7 +207,7 @@ export async function sambaChat(opts: {
         try {
           data = JSON.parse(textBody)
         } catch {
-          lastError = 'invalid json from ' + tryModel
+          lastError = 'invalid json'
           continue
         }
         const content = extractMessageText(data?.choices?.[0]?.message)
@@ -184,13 +219,37 @@ export async function sambaChat(opts: {
         return { ok: true, content: clean, model: data?.model || tryModel }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'network'
-        lastError = /abort/i.test(msg) ? `timeout ${ATTEMPT_TIMEOUT_MS}ms on ${tryModel}` : msg
+        lastError = /abort/i.test(msg) ? `timeout on ${tryModel}` : msg
         lastStatus = 504
-      } finally {
-        clearTimeout(timer)
       }
     }
   }
+  return { ok: false, status: lastStatus, error: lastError || 'samba failed' }
+}
 
-  return { ok: false, status: lastStatus, error: lastError || 'هیچ کلید/مدلی پاسخ نداد' }
+/**
+ * فراخوانی اصلی: اول Gemini، بعد SambaNova
+ * نام تابع برای سازگاری با بقیه پروژه sambaChat مانده است.
+ */
+export async function sambaChat(opts: {
+  messages: { role: string; content: string }[]
+  temperature?: number
+  max_tokens?: number
+  feature?: AIFeature
+}): Promise<{ ok: true; content: string; model: string } | { ok: false; status: number; error: string }> {
+  const gem = await tryGemini(opts)
+  if (gem.ok) return gem
+
+  const samba = await trySamba(opts)
+  if (samba.ok) return samba
+
+  return {
+    ok: false,
+    status: samba.status || 502,
+    error: [gem.ok === false ? gem.error : '', samba.error].filter(Boolean).join(' | ') || 'no provider',
+  }
+}
+
+export function modelsToAttempt(primary: string): string[] {
+  return [...new Set([primary, ...SAMBA_FALLBACKS].filter(Boolean))]
 }
