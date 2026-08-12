@@ -18,10 +18,12 @@ export const FREE_FALLBACKS = [
   'DeepSeek-V3.1',
   'DeepSeek-V3.2',
   'Meta-Llama-3.3-70B-Instruct',
-  'MiniMax-M2.7',
 ]
 
-export const PAID_FALLBACKS = ['DeepSeek-V3.1', 'DeepSeek-V3.2']
+export const PAID_FALLBACKS = ['DeepSeek-V3.1']
+
+/** مهلت هر تلاش (میلی‌ثانیه) — جلوی گیر کردن بی‌پایان */
+const ATTEMPT_TIMEOUT_MS = 22000
 
 function splitKeys(raw: string): string[] {
   return raw
@@ -125,7 +127,7 @@ export function sanitizeAssistantText(text: string): string {
   return out.trim()
 }
 
-/** فراخوانی SambaNova با چرخش کلید و مدل */
+/** فراخوانی SambaNova با چرخش کلید و مدل + مهلت زمانی */
 export async function sambaChat(opts: {
   messages: { role: string; content: string }[]
   temperature?: number
@@ -138,12 +140,16 @@ export async function sambaChat(opts: {
     return { ok: false, status: 500, error: 'SAMBANOVA_API_KEY تنظیم نشده است' }
   }
 
-  const tryModels = modelsToAttempt(cfg.model)
+  // حداکثر ۲ مدل × حداکثر ۳ کلید تا درخواست طول نکشد
+  const tryModels = modelsToAttempt(cfg.model).slice(0, 2)
+  const keyPool = keys.slice(0, 3)
   let lastError = ''
   let lastStatus = 502
 
-  for (const apiKey of keys) {
+  for (const apiKey of keyPool) {
     for (const tryModel of tryModels) {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS)
       try {
         const resp = await fetch(`${cfg.baseUrl}/chat/completions`, {
           method: 'POST',
@@ -152,21 +158,21 @@ export async function sambaChat(opts: {
             model: tryModel,
             messages: opts.messages,
             temperature: opts.temperature ?? 0.7,
-            max_tokens: opts.max_tokens,
+            max_tokens: opts.max_tokens ?? 400,
           }),
+          signal: controller.signal,
         })
         const textBody = await resp.text()
         if (!resp.ok) {
           lastStatus = resp.status
           lastError = textBody.slice(0, 400)
-          if (isRetryable(resp.status, textBody)) continue
           continue
         }
         let data: any
         try {
           data = JSON.parse(textBody)
         } catch {
-          lastError = 'invalid json'
+          lastError = 'invalid json from ' + tryModel
           continue
         }
         const content = extractMessageText(data?.choices?.[0]?.message)
@@ -177,7 +183,11 @@ export async function sambaChat(opts: {
         }
         return { ok: true, content: clean, model: data?.model || tryModel }
       } catch (e: unknown) {
-        lastError = e instanceof Error ? e.message : 'network'
+        const msg = e instanceof Error ? e.message : 'network'
+        lastError = /abort/i.test(msg) ? `timeout ${ATTEMPT_TIMEOUT_MS}ms on ${tryModel}` : msg
+        lastStatus = 504
+      } finally {
+        clearTimeout(timer)
       }
     }
   }
