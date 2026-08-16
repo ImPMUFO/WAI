@@ -3,6 +3,7 @@ import './globals.css'
 import ThemeProvider from '@/components/ThemeProvider'
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider'
 import GlobalWheelHost from '@/components/GlobalWheelHost'
+import VisualPolish from '@/components/VisualPolish'
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://waima.vercel.app'),
@@ -13,9 +14,7 @@ export const metadata: Metadata = {
   description: 'WAIMA همراه شناخت و رشد دانش: گفتگو، نقشه دانش زنده، بازی و قدم بعدی شخصی.',
   keywords: ['WAIMA', 'من کیستم', 'ترسیم‌گر ذهنی', 'mind map', 'learning'],
   authors: [{ name: 'WAIMA' }],
-  verification: {
-    google: 'OTuv6aZFdCqFsNVe9VyUzmLBOpTORUm0Bv9up6TK1gw',
-  },
+  verification: { google: 'OTuv6aZFdCqFsNVe9VyUzmLBOpTORUm0Bv9up6TK1gw' },
   openGraph: {
     type: 'website',
     locale: 'fa_IR',
@@ -46,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LocaleProvider>
             <div className="min-h-screen flex flex-col">{children}</div>
             <GlobalWheelHost />
+            <VisualPolish />
           </LocaleProvider>
         </ThemeProvider>
       </body>
