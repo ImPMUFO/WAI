@@ -1,10 +1,11 @@
 import { bumpFromQuiz } from '@/lib/mindmap'
-/** سیستم گیمیفیکیشن WAI – ذخیره در localStorage */
 
 export const GAME_KEY = 'wai_game_state_v1'
 export const ACTIVE_DOMAINS_KEY = 'wai_active_domains'
 export const PENDING_LEVEL_UP_KEY = 'waima_pending_level_up'
 export const WHEEL_CHANCES_KEY = 'waima_wheel_chances'
+export const WHEEL_EARNED_KEY = 'waima_wheel_earned_v2'
+export const WHEEL_SPENT_KEY = 'waima_wheel_spent_v2'
 
 export type AchievementId =
   | 'first_chat'
@@ -24,87 +25,53 @@ export type GameState = {
   totalMessages: number
   totalQuizzes: number
   streak: number
-  lastActiveDate: string // YYYY-MM-DD
+  lastActiveDate: string
   achievements: AchievementId[]
   missions: Record<
     MissionId,
     { progress: number; target: number; claimed: boolean; resetAt: string }
   >
   history: { ts: number; reason: string; xp: number }[]
-  /** id سؤالاتی که یک‌بار پاسخ داده شده‌اند (XP تکراری ممنوع) */
   answeredQuestions: string[]
-  /** XP کسب‌شده از بازی در روز جاری */
   xpFromGamesToday: number
   xpGamesDate: string
 }
 
-/** حداکثر سطح فعلی */
 export const MAX_LEVEL = 20
+export const DAILY_GAME_XP_CAP = 50
 
-/**
- * XP لازم برای رفتن از سطح `level` به سطح بعد.
- * الگو: سطح1→2 = 50، 2→3 = 100، 3→4 = 150، ... = 50 * level
- * مجموع برای رسیدن به سطح L: 50 * (L-1)*L/2
- * L2=50, L3=150, L4=300, L5=500, ...
- */
 export function xpForLevel(level: number) {
   if (level < 1) return 50
   if (level >= MAX_LEVEL) return 0
   return 50 * level
 }
 
-/** مجموع XP لازم برای رسیدن به ابتدای یک سطح (سطح 1 = 0) */
 export function totalXpForLevel(level: number) {
   const L = Math.max(1, Math.min(level, MAX_LEVEL))
-  // sum 50*k for k=1..L-1 = 50*(L-1)*L/2
   return (50 * (L - 1) * L) / 2
 }
 
-
-/** عنوان انسانی سطح */
-export function levelTitle(level: number, locale: string = 'fa'): string {
+export function levelTitle(level: number, locale = 'fa') {
   const L = Math.max(1, Math.min(level || 1, MAX_LEVEL))
   const fa = [
-    '',
-    '🌱 تازه‌وارد',
-    '🧭 کاوشگر',
-    '🔍 جست‌وجوگر',
-    '📘 دانش‌جو',
-    '📚 دانشیار',
-    '🧠 اندیشه‌ور',
-    '🔭 اندیشمند',
-    '🌟 راهبر ذهن',
-    '🏛️ استاد',
-    '👑 حکیم',
+    '', '🌱 تازه‌وارد', '🧭 کاوشگر', '🔍 جست‌وجوگر', '📘 دانش‌جو',
+    '📚 دانشیار', '🧠 اندیشه‌ور', '🔭 اندیشمند', '🌟 راهبر ذهن', '🏛️ استاد', '👑 حکیم',
   ]
   const en = [
-    '',
-    '🌱 Newcomer',
-    '🧭 Explorer',
-    '🔍 Seeker',
-    '📘 Learner',
-    '📚 Scholar',
-    '🧠 Thinker',
-    '🔭 Sage',
-    '🌟 Mind guide',
-    '🏛️ Master',
-    '👑 Sage+',
+    '', '🌱 Newcomer', '🧭 Explorer', '🔍 Seeker', '📘 Learner',
+    '📚 Scholar', '🧠 Thinker', '🔭 Sage', '🌟 Mind guide', '🏛️ Master', '👑 Sage+',
   ]
   const table = locale === 'en' ? en : fa
   if (L < table.length) return table[L]
-  if (L <= 15) return locale === 'en' ? `✨ Adept ${L}` : `✨ خبره ${L}`
-  return locale === 'en' ? `👑 Legend ${L}` : `👑 افسانه ${L}`
+  return L <= 15 ? (locale === 'en' ? `✨ Adept ${L}` : `✨ خبره ${L}`) : (locale === 'en' ? `👑 Legend ${L}` : `👑 افسانه ${L}`)
 }
 
 export function levelFromXp(xp: number) {
-  const safeXp = Math.max(0, Math.floor(xp || 0))
   let level = 1
-  let remain = safeXp
+  let remain = Math.max(0, Math.floor(xp || 0))
   while (level < MAX_LEVEL) {
     const need = xpForLevel(level)
-    if (remain < need) {
-      return { level, intoLevel: remain, need, remaining: need - remain }
-    }
+    if (remain < need) return { level, intoLevel: remain, need, remaining: need - remain }
     remain -= need
     level += 1
   }
@@ -148,58 +115,54 @@ export function defaultGameState(): GameState {
   }
 }
 
-export function loadGame(): GameState {
-  if (typeof window === 'undefined') return defaultGameState()
-  try {
-    const raw = localStorage.getItem(GAME_KEY)
-    if (!raw) return defaultGameState()
-    const parsed = JSON.parse(raw) as GameState
-    return normalizeGame(parsed)
-  } catch {
-    return defaultGameState()
-  }
-}
-
 function normalizeGame(g: GameState): GameState {
   const base = defaultGameState()
   const missions = { ...base.missions, ...(g.missions || {}) }
   const t = today()
-  // ریست روزانه
+
   ;(['daily_chat', 'daily_quiz'] as MissionId[]).forEach((id) => {
     if (missions[id].resetAt !== t) {
       missions[id] = { ...missions[id], progress: 0, claimed: false, resetAt: t }
     }
   })
-  // ریست هفتگی ساده: اگر بیش از ۷ روز
+
   ;(['weekly_domains', 'weekly_messages'] as MissionId[]).forEach((id) => {
-    const start = missions[id].resetAt
-    if (start < addDays(t, -7)) {
+    if (missions[id].resetAt < addDays(t, -7)) {
       missions[id] = { ...missions[id], progress: 0, claimed: false, resetAt: t }
     }
   })
+
   return {
     ...base,
     ...g,
     missions,
     achievements: Array.isArray(g.achievements) ? g.achievements : [],
     history: Array.isArray(g.history) ? g.history.slice(-40) : [],
-    answeredQuestions: Array.isArray(g.answeredQuestions) ? g.answeredQuestions : [],
+    // مهم: دیگر slice(-300) نداریم. سؤال قدیمی هیچ‌وقت فراموش نمی‌شود.
+    answeredQuestions: Array.isArray(g.answeredQuestions)
+      ? Array.from(new Set(g.answeredQuestions.map(String)))
+      : [],
     xpFromGamesToday: typeof g.xpFromGamesToday === 'number' ? g.xpFromGamesToday : 0,
-    xpGamesDate: typeof g.xpGamesDate === 'string' ? g.xpGamesDate : today(),
+    xpGamesDate: typeof g.xpGamesDate === 'string' ? g.xpGamesDate : t,
+  }
+}
+
+export function loadGame(): GameState {
+  if (typeof window === 'undefined') return defaultGameState()
+  try {
+    const raw = localStorage.getItem(GAME_KEY)
+    return raw ? normalizeGame(JSON.parse(raw) as GameState) : defaultGameState()
+  } catch {
+    return defaultGameState()
   }
 }
 
 export function saveGame(g: GameState) {
   localStorage.setItem(GAME_KEY, JSON.stringify(g))
   window.dispatchEvent(new Event('wai-game-updated'))
-  // همگام با سرور برای جدول امتیازات (بدون بلاک کردن UI)
   try {
-    void import('@/lib/sync').then((m) => {
-      void m.syncGameStateToServer(g, g.xp, g.level, g.streak)
-    })
-  } catch {
-    /* ignore */
-  }
+    void import('@/lib/sync').then((m) => void m.syncGameStateToServer(g, g.xp, g.level, g.streak))
+  } catch {}
 }
 
 export function markDomainActive(domain: string) {
@@ -213,7 +176,7 @@ export function markDomainActive(domain: string) {
   }
 }
 
-export function getActiveDomains(): string[] {
+export function getActiveDomains() {
   try {
     const raw = localStorage.getItem(ACTIVE_DOMAINS_KEY)
     return raw ? (JSON.parse(raw) as string[]) : []
@@ -233,74 +196,74 @@ const ACHIEVEMENTS: Record<AchievementId, { title: string; desc: string; xp: num
   night_owl: { title: 'شب‌زنده‌دار', desc: 'فعالیت بین ۱۲ تا ۵ صبح', xp: 25 },
 }
 
-function grantAchievement(g: GameState, id: AchievementId): GameState {
+function grantAchievement(g: GameState, id: AchievementId) {
   if (g.achievements.includes(id)) return g
   const meta = ACHIEVEMENTS[id]
-  const next = {
+  return {
     ...g,
     achievements: [...g.achievements, id],
     xp: g.xp + meta.xp,
     history: [{ ts: Date.now(), reason: `مدال: ${meta.title}`, xp: meta.xp }, ...g.history].slice(0, 40),
   }
-  return next
 }
 
-function touchStreak(g: GameState): GameState {
+function touchStreak(g: GameState) {
   const t = today()
   if (g.lastActiveDate === t) return g
-  let streak = 1
-  if (g.lastActiveDate && g.lastActiveDate === addDays(t, -1)) {
-    streak = g.streak + 1
+  return {
+    ...g,
+    streak: g.lastActiveDate === addDays(t, -1) ? g.streak + 1 : 1,
+    lastActiveDate: t,
   }
-  return { ...g, streak, lastActiveDate: t }
 }
 
-export function addXp(g: GameState, amount: number, reason: string): GameState {
-  const leveled = levelFromXp(g.xp)
-  let next: GameState = {
+export function addXp(g: GameState, amount: number, reason: string) {
+  const before = levelFromXp(g.xp)
+  let next = touchStreak({
     ...g,
     xp: g.xp + amount,
     history: [{ ts: Date.now(), reason, xp: amount }, ...g.history].slice(0, 40),
-  }
-  next = touchStreak(next)
+  })
   const after = levelFromXp(next.xp)
   next.level = after.level
-  if (after.level > leveled.level) {
+
+  if (after.level > before.level) {
+    const gained = after.level - before.level
     next.history = [
       { ts: Date.now(), reason: `ارتقا به سطح ${after.level}`, xp: 0 },
       ...next.history,
     ].slice(0, 40)
+
     try {
-      localStorage.setItem(PENDING_LEVEL_UP_KEY, String(after.level))
-      const cur = Number(localStorage.getItem(WHEEL_CHANCES_KEY) || '0') || 0
-      localStorage.setItem(WHEEL_CHANCES_KEY, String(cur + Math.max(1, after.level - leveled.level)))
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('waima-level-up'))
-        window.dispatchEvent(new Event('waima-wheel-chances'))
-      }
-    } catch {
-      /* ignore */
-    }
+      const current = getWheelChances()
+      const earned = Number(localStorage.getItem(WHEEL_EARNED_KEY) || '0') || 0
+      localStorage.setItem(WHEEL_EARNED_KEY, String(Math.max(earned, current) + gained))
+      localStorage.setItem(WHEEL_CHANCES_KEY, String(current + gained))
+
+      // بالاترین سطحِ بازشده را نگه می‌داریم؛ چند level-up پشت‌سرهم هم گم نمی‌شود.
+      const pending = Math.max(
+        Number(localStorage.getItem(PENDING_LEVEL_UP_KEY) || '0') || 0,
+        after.level
+      )
+      localStorage.setItem(PENDING_LEVEL_UP_KEY, String(pending))
+
+      window.dispatchEvent(new Event('waima-level-up'))
+      window.dispatchEvent(new Event('waima-wheel-chances'))
+    } catch {}
   }
+
   return next
 }
 
-export function onChatMessage(domain: string): GameState {
+export function onChatMessage(domain: string) {
   markDomainActive(domain)
   let g = loadGame()
-  g = touchStreak(g)
   g.totalMessages += 1
   g = addXp(g, 8, 'پیام در گفتگو')
 
-  // مأموریت‌ها
-  g.missions.daily_chat.progress = Math.min(
-    g.missions.daily_chat.target,
-    g.missions.daily_chat.progress + 1
-  )
-  g.missions.weekly_messages.progress = Math.min(
-    g.missions.weekly_messages.target,
-    g.missions.weekly_messages.progress + 1
-  )
+  g.missions.daily_chat.progress = Math.min(g.missions.daily_chat.target, g.missions.daily_chat.progress + 1)
+  g.missions.weekly_messages.progress = Math.min(g.missions.weekly_messages.target, g.missions.weekly_messages.progress + 1)
+
   const domains = getActiveDomains()
   g.missions.weekly_domains.progress = Math.min(g.missions.weekly_domains.target, domains.length)
 
@@ -310,14 +273,9 @@ export function onChatMessage(domain: string): GameState {
   if (domains.length >= 3) g = grantAchievement(g, 'three_domains')
   if (g.streak >= 7) g = grantAchievement(g, 'seven_day_streak')
 
-  const hour = new Date().getHours()
-  if (hour >= 0 && hour < 5) g = grantAchievement(g, 'night_owl')
+  if (new Date().getHours() < 5) g = grantAchievement(g, 'night_owl')
 
-  // پاداش اتمام مأموریت روزانه چت
-  if (
-    g.missions.daily_chat.progress >= g.missions.daily_chat.target &&
-    !g.missions.daily_chat.claimed
-  ) {
+  if (g.missions.daily_chat.progress >= g.missions.daily_chat.target && !g.missions.daily_chat.claimed) {
     g.missions.daily_chat.claimed = true
     g = addXp(g, 25, 'مأموریت روزانه گفتگو')
   }
@@ -326,7 +284,7 @@ export function onChatMessage(domain: string): GameState {
   return g
 }
 
-export function onMapUpdated(): GameState {
+export function onMapUpdated() {
   let g = loadGame()
   g = addXp(g, 12, 'به‌روزرسانی نقشه ذهن')
   g = grantAchievement(g, 'first_map')
@@ -334,19 +292,17 @@ export function onMapUpdated(): GameState {
   return g
 }
 
-export function onQuizFinished(scoreRatio: number): GameState {
+export function onQuizFinished(scoreRatio: number) {
   let g = loadGame()
   g.totalQuizzes += 1
-  const xp = 15 + Math.round(scoreRatio * 25)
-  g = addXp(g, xp, 'اتمام بازی آموزشی')
-  g.missions.daily_quiz.progress = Math.min(
-    g.missions.daily_quiz.target,
-    g.missions.daily_quiz.progress + 1
-  )
+  g = addXp(g, 15 + Math.round(scoreRatio * 25), 'اتمام بازی آموزشی')
+  g.missions.daily_quiz.progress = Math.min(g.missions.daily_quiz.target, g.missions.daily_quiz.progress + 1)
+
   if (g.missions.daily_quiz.progress >= g.missions.daily_quiz.target && !g.missions.daily_quiz.claimed) {
     g.missions.daily_quiz.claimed = true
     g = addXp(g, 20, 'مأموریت روزانه آزمون')
   }
+
   if (g.totalQuizzes >= 10) g = grantAchievement(g, 'quiz_master')
   saveGame(g)
   return g
@@ -356,50 +312,63 @@ export function achievementList() {
   return ACHIEVEMENTS
 }
 
-/** درصد پیشرفت فقط روی حوزه‌های فعال */
 export function progressPercentForActiveNodes(
   nodes: { id: string; status: string; mastery: number; parent?: string }[]
 ) {
   const active = new Set(getActiveDomains())
-  // اگر هنوز هیچ حوزه‌ای فعال نیست
-  if (active.size === 0) return { percent: 0, counted: 0 }
+  if (!active.size) return { percent: 0, counted: 0 }
 
-  const relevant = nodes.filter((n) => {
-    if (n.id === 'mind') return true
-    // گره ریشه حوزه یا فرزند حوزه‌های فعال
-    if (active.has(n.id)) return true
-    // اگر parent مستقیم حوزه فعال است
-    if (n.parent && active.has(n.parent)) return true
-    return false
-  })
-
+  const relevant = nodes.filter(
+    (n) => n.id === 'mind' || active.has(n.id) || (n.parent && active.has(n.parent))
+  )
   if (!relevant.length) return { percent: 0, counted: 0 }
-  const avg =
-    relevant.reduce((s, n) => s + (typeof n.mastery === 'number' ? n.mastery : 0), 0) /
-    relevant.length
-  return { percent: Math.round(avg), counted: relevant.length }
+
+  return {
+    percent: Math.round(
+      relevant.reduce((s, n) => s + (typeof n.mastery === 'number' ? n.mastery : 0), 0) /
+        relevant.length
+    ),
+    counted: relevant.length,
+  }
 }
 
+/** شناسهٔ پایدار سؤال. سؤال قدیمی حتی بعد از refresh یا روز جدید دوباره قابل XP نیست. */
+export function questionFingerprint(value: string) {
+  const s = String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[؟?!.,،؛:«»"'`]/g, '')
+
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return `q_${(h >>> 0).toString(36)}`
+}
+
+function canonicalQuestionId(id: string) {
+  let s = String(id || '').trim()
+  if (!s) return ''
+  const sessionWrapped = s.match(/^s-[a-z0-9]+-(.+)$/i)
+  if (sessionWrapped) s = sessionWrapped[1]
+  return s
+}
 
 export function hasAnsweredQuestion(g: GameState, id: string) {
-  return (g.answeredQuestions || []).includes(id)
+  const canonical = canonicalQuestionId(id)
+  return Boolean(canonical && g.answeredQuestions.includes(canonical))
 }
-
-/** ثبت پاسخ یک سؤال؛ فقط بار اول XP می‌دهد */
-
-/** سقف نرم XP روزانه از بازی‌ها — بعد از آن XP خیلی کم می‌شود */
-export const DAILY_GAME_XP_CAP = 50
 
 export function gameXpStatus(g?: GameState | null) {
   const state = g || loadGame()
-  const t = today()
-  let from = state.xpFromGamesToday || 0
-  if (state.xpGamesDate !== t) from = 0
+  const fromToday = state.xpGamesDate === today() ? state.xpFromGamesToday || 0 : 0
   return {
-    fromToday: from,
+    fromToday,
     cap: DAILY_GAME_XP_CAP,
-    remaining: Math.max(0, DAILY_GAME_XP_CAP - from),
-    atCap: from >= DAILY_GAME_XP_CAP,
+    remaining: Math.max(0, DAILY_GAME_XP_CAP - fromToday),
+    atCap: fromToday >= DAILY_GAME_XP_CAP,
   }
 }
 
@@ -408,7 +377,8 @@ export function onQuizQuestionAnswered(
   correct: boolean,
   opts?: { domain?: string; xpCorrect?: number; xpWrong?: number }
 ) {
-  const id = String(questionId || '').trim()
+  const id = canonicalQuestionId(questionId)
+
   if (!id) {
     return {
       ok: false as const,
@@ -421,12 +391,10 @@ export function onQuizQuestionAnswered(
   }
 
   let g = loadGame()
-  const t = today()
-  if (g.xpGamesDate !== t) {
-    g.xpGamesDate = t
+  if (g.xpGamesDate !== today()) {
+    g.xpGamesDate = today()
     g.xpFromGamesToday = 0
   }
-  if (!Array.isArray(g.answeredQuestions)) g.answeredQuestions = []
 
   if (g.answeredQuestions.includes(id)) {
     return {
@@ -435,68 +403,37 @@ export function onQuizQuestionAnswered(
       xp: 0,
       gainedXp: 0,
       alreadyAnswered: true,
-      atCap: (g.xpFromGamesToday || 0) >= DAILY_GAME_XP_CAP,
+      atCap: g.xpFromGamesToday >= DAILY_GAME_XP_CAP,
     }
   }
 
-  g.answeredQuestions = [...g.answeredQuestions, id].slice(-300)
+  // دائمی: دیگر هیچ slice(-300) یا محدودیت 300تایی وجود ندارد.
+  g.answeredQuestions = Array.from(new Set([...g.answeredQuestions, id]))
 
   let gain = correct ? Number(opts?.xpCorrect ?? 5) : Number(opts?.xpWrong ?? 1)
   if (!Number.isFinite(gain) || gain < 0) gain = correct ? 5 : 1
 
-  const fromToday = Number(g.xpFromGamesToday || 0)
-  if (fromToday >= DAILY_GAME_XP_CAP) {
-    gain = correct ? 1 : 0
-  } else if (fromToday + gain > DAILY_GAME_XP_CAP) {
-    gain = Math.max(0, DAILY_GAME_XP_CAP - fromToday)
+  const from = g.xpFromGamesToday || 0
+  if (from >= DAILY_GAME_XP_CAP) gain = correct ? 1 : 0
+  else if (from + gain > DAILY_GAME_XP_CAP) gain = Math.max(0, DAILY_GAME_XP_CAP - from)
+
+  g.xp = Math.max(0, g.xp + gain)
+  g.xpFromGamesToday = from + gain
+  g.level = levelFromXp(g.xp).level
+
+  if (g.missions.daily_quiz) {
+    g.missions.daily_quiz.progress = Math.min(
+      g.missions.daily_quiz.target,
+      g.missions.daily_quiz.progress + 1
+    )
   }
 
-  g.xp = Math.max(0, Number(g.xp || 0) + gain)
-  g.xpFromGamesToday = fromToday + gain
-  const prog = levelFromXp(g.xp)
-  g.level = prog.level
-
-  try {
-    if (g.missions?.daily_quiz) {
-      g.missions.daily_quiz.progress = Math.min(
-        g.missions.daily_quiz.target,
-        (g.missions.daily_quiz.progress || 0) + 1
-      )
-      if (
-        g.missions.daily_quiz.progress >= g.missions.daily_quiz.target &&
-        !g.missions.daily_quiz.claimed
-      ) {
-        g.missions.daily_quiz.claimed = true
-        g.xp += 10
-        g.xpFromGamesToday += 10
-        const p2 = levelFromXp(g.xp)
-        g.level = p2.level
-      }
-    }
-  } catch {
-    /* */
-  }
-
-  try {
-    saveGame(g)
-  } catch {
-    try {
-      localStorage.setItem(GAME_KEY, JSON.stringify(g))
-    } catch {
-      /* */
-    }
-  }
+  saveGame(g)
 
   try {
     window.dispatchEvent(new Event('wai-game-updated'))
-  } catch {
-    /* */
-  }
-  try {
     bumpFromQuiz(opts?.domain || 'general', correct)
-  } catch {
-    /* */
-  }
+  } catch {}
 
   return {
     ok: true as const,
@@ -504,14 +441,13 @@ export function onQuizQuestionAnswered(
     gainedXp: gain,
     alreadyAnswered: false,
     correct,
-    atCap: (g.xpFromGamesToday || 0) >= DAILY_GAME_XP_CAP,
-    fromToday: g.xpFromGamesToday || 0,
+    atCap: g.xpFromGamesToday >= DAILY_GAME_XP_CAP,
+    fromToday: g.xpFromGamesToday,
     cap: DAILY_GAME_XP_CAP,
   }
 }
 
-
-export function getWheelChances(): number {
+export function getWheelChances() {
   try {
     return Math.max(0, Number(localStorage.getItem(WHEEL_CHANCES_KEY) || '0') || 0)
   } catch {
@@ -519,46 +455,43 @@ export function getWheelChances(): number {
   }
 }
 
-export function consumeWheelChance(): number {
+export function consumeWheelChance() {
   try {
-    const n = getWheelChances()
-    const next = Math.max(0, n - 1)
-    localStorage.setItem(WHEEL_CHANCES_KEY, String(next))
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('waima-wheel-chances'))
-    return next
+    const available = getWheelChances()
+    if (available <= 0) return 0
+
+    const spent = (Number(localStorage.getItem(WHEEL_SPENT_KEY) || '0') || 0) + 1
+    localStorage.setItem(WHEEL_SPENT_KEY, String(spent))
+    localStorage.setItem(WHEEL_CHANCES_KEY, String(available - 1))
+    window.dispatchEvent(new Event('waima-wheel-chances'))
+    return available - 1
   } catch {
     return 0
   }
 }
 
-
-const WHEEL_MIGRATED_KEY = 'waima_wheel_migrated_v1'
-
-/** برای کسانی که قبلاً لول رفته‌اند ولی شانس گردونه ثبت نشده */
-export function ensureWheelChancesBackfill(): number {
+/**
+ * مهاجرت امن:
+ * - شانس موجود فعلی هرگز کم نمی‌شود.
+ * - دادهٔ قدیمی waima_wheel_chances حفظ می‌شود.
+ * - اگر سطح قبلی نشان دهد شانس‌هایی اصولاً باید وجود می‌داشت، کمبود قابل‌اثبات اضافه می‌شود.
+ */
+export function ensureWheelChancesBackfill() {
   try {
-    const cur = getWheelChances()
-    if (localStorage.getItem(WHEEL_MIGRATED_KEY) === '1') return cur
-
+    const current = getWheelChances()
+    const earnedRaw = Number(localStorage.getItem(WHEEL_EARNED_KEY) || '0') || 0
+    const spent = Number(localStorage.getItem(WHEEL_SPENT_KEY) || '0') || 0
     const g = loadGame()
-    const earned = Math.max(0, (g.level || 1) - 1)
-    // تقریبی از شانس‌های مصرف‌شده: تعداد آواتار خاص بازشده
-    let used = 0
-    try {
-      const raw = localStorage.getItem('waima_unlocked_special')
-      if (raw) {
-        const arr = JSON.parse(raw)
-        if (Array.isArray(arr)) used = arr.length
-      }
-    } catch {
-      /* ignore */
-    }
-    const owed = Math.max(0, earned - used)
-    const next = Math.max(cur, owed)
-    localStorage.setItem(WHEEL_CHANCES_KEY, String(next))
-    localStorage.setItem(WHEEL_MIGRATED_KEY, '1')
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('waima-wheel-chances'))
-    return next
+
+    const historicalEarned = Math.max(0, (g.level || 1) - 1)
+    const earned = Math.max(earnedRaw, current + spent, historicalEarned)
+    const available = Math.max(current, earned - spent)
+
+    localStorage.setItem(WHEEL_EARNED_KEY, String(earned))
+    localStorage.setItem(WHEEL_SPENT_KEY, String(spent))
+    localStorage.setItem(WHEEL_CHANCES_KEY, String(available))
+    window.dispatchEvent(new Event('waima-wheel-chances'))
+    return available
   } catch {
     return 0
   }
