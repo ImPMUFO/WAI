@@ -33,9 +33,7 @@ const TF_POOL: TfItem[] = [
   { id: 't8', statement: 'هر روز می‌توان مجموعه جدیدی از سؤالات بازی داشت.', truth: true, explain: 'بازی‌ها روزانه تازه‌سازی می‌شوند.' },
 ]
 
-function dayKey(d = new Date()) {
-  return d.toISOString().slice(0, 10)
-}
+function dayKey(d = new Date()) { return d.toISOString().slice(0, 10) }
 
 function hash(s: string) {
   let h = 2166136261
@@ -44,6 +42,10 @@ function hash(s: string) {
     h = Math.imul(h, 16777619)
   }
   return h >>> 0
+}
+
+function stableId(prefix: string, text: string) {
+  return `${prefix}-${hash(text.trim().toLowerCase()).toString(36)}`
 }
 
 function mulberry32(a: number) {
@@ -71,19 +73,10 @@ async function aiGames(kind: string, date: string, locale: string) {
   if (!keyPool.length) return null
 
   const lang = locale === 'en' ? 'English' : locale === 'ar' ? 'Arabic' : 'Persian (Farsi)'
-
   const prompt =
     kind === 'truefalse'
-      ? `Generate 8 true/false educational statements for WAIMA learning app.
-Date seed: ${date}. Language: ${lang}.
-Return ONLY JSON array: [{"id":"t1","statement":"...","truth":true,"explain":"..."}]
-Topics: philosophy, science, history, logic, knowledge maps, learning.
-No markdown.`
-      : `Generate 6 concept-matching pairs for WAIMA learning app.
-Date seed: ${date}. Language: ${lang}.
-Return ONLY JSON array: [{"id":"m1","left":"concept","right":"short definition"}]
-Topics: philosophy, science, history, logic, mind maps.
-No markdown.`
+      ? `Generate 8 true/false educational statements for WAIMA. Date seed: ${date}. Language: ${lang}. Return ONLY JSON array: [{"statement":"...","truth":true,"explain":"..."}]. No markdown.`
+      : `Generate 6 concept-matching pairs for WAIMA. Date seed: ${date}. Language: ${lang}. Return ONLY JSON array: [{"left":"concept","right":"short definition"}]. No markdown.`
 
   for (const tryKey of keyPool) {
     try {
@@ -92,9 +85,10 @@ No markdown.`
         headers: aiHeaders(tryKey),
         body: JSON.stringify({
           model,
-          temperature: 0.8,
+          temperature: 0.75,
+          max_tokens: 1300,
           messages: [
-            { role: 'system', content: 'You output only valid JSON arrays for educational games.' },
+            { role: 'system', content: 'Output only valid JSON arrays for educational games.' },
             { role: 'user', content: prompt },
           ],
         }),
@@ -105,11 +99,8 @@ No markdown.`
       const m = content.match(/\[[\s\S]*\]/)
       if (!m) continue
       const parsed = JSON.parse(m[0])
-      if (!Array.isArray(parsed) || parsed.length < 3) continue
-      return parsed
-    } catch {
-      continue
-    }
+      if (Array.isArray(parsed) && parsed.length >= 3) return parsed
+    } catch {}
   }
   return null
 }
@@ -118,83 +109,44 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const kind = String(body?.kind || 'match')
   const date = String(body?.date || dayKey())
-  const salt = String(body?.salt || body?.session || Date.now())
   const locale = String(body?.locale || 'fa')
+  const excluded = new Set(Array.isArray(body?.excludeIds) ? body.excludeIds.map(String) : [])
   const seed = hash(`${date}|${kind}|waima`)
   const rand = mulberry32(seed)
-
-  const ai = await aiGames(kind, `${date}:${salt}`, locale)
+  const ai = await aiGames(kind, `${date}`, locale)
 
   if (kind === 'truefalse') {
-    let items: TfItem[] = []
-    if (ai) {
-      items = ai
-        .map((x: any, i: number) => ({
-          id: String(x.id || `t-${date}-${i}`),
+    let items: TfItem[] = ai
+      ? ai.map((x: any, i: number) => ({
+          id: stableId('tf', String(x.statement || x.id || i)),
           statement: String(x.statement || ''),
           truth: Boolean(x.truth),
           explain: String(x.explain || ''),
-        }))
-        .filter((x: TfItem) => x.statement)
-        .slice(0, 8)
-    }
+        })).filter((x: TfItem) => x.statement)
+      : shuffle(TF_POOL, rand)
+
+    items = items.filter((x) => !excluded.has(x.id) && !excluded.has(stableId('q', x.statement)))
     if (items.length < 4) {
-      items = shuffle(TF_POOL, rand).slice(0, 8)
-      return NextResponse.json({ success: true, date, kind, items, source: 'fallback' })
+      items = shuffle(TF_POOL, rand).filter((x) => !excluded.has(x.id)).map((x) => ({ ...x, id: stableId('tf', x.statement) }))
     }
-    return NextResponse.json({ success: true, date, kind, items, source: 'ai' })
+    return NextResponse.json({ success: true, date, kind, items: items.slice(0, 8), source: ai ? 'ai' : 'fallback' })
   }
 
-  // match
-  let pairs: MatchPair[] = []
-  if (ai) {
-    pairs = ai
-      .map((x: any, i: number) => ({
-        id: String(x.id || `m-${date}-${i}`),
+  let pairs: MatchPair[] = ai
+    ? ai.map((x: any, i: number) => ({
+        id: stableId('match', `${x.left || ''}::${x.right || ''}`),
         left: String(x.left || ''),
         right: String(x.right || ''),
-      }))
-      .filter((p: MatchPair) => p.left && p.right)
-      .slice(0, 6)
-  }
-  if (pairs.length < 4) {
-    pairs = shuffle(MATCH_POOL, rand).slice(0, 6)
-    const lefts = shuffle(
-      pairs.map((p) => ({ id: p.id, text: p.left })),
-      rand
-    )
-    const rights = shuffle(
-      pairs.map((p) => ({ id: p.id, text: p.right })),
-      rand
-    )
-    return NextResponse.json({
-      success: true,
-      date,
-      kind: 'match',
-      pairs,
-      lefts,
-      rights,
-      source: 'fallback',
-    })
-  }
+      })).filter((p: MatchPair) => p.left && p.right)
+    : shuffle(MATCH_POOL, rand)
 
-  const lefts = shuffle(
-    pairs.map((p) => ({ id: p.id, text: p.left })),
-    rand
-  )
-  const rights = shuffle(
-    pairs.map((p) => ({ id: p.id, text: p.right })),
-    rand
-  )
-  return NextResponse.json({
-    success: true,
-    date,
-    kind: 'match',
-    pairs,
-    lefts,
-    rights,
-    source: 'ai',
-  })
+  pairs = pairs.filter((p) => !excluded.has(p.id) && !excluded.has(stableId('q', `${p.left}::${p.right}`)))
+  if (pairs.length < 4) pairs = shuffle(MATCH_POOL, rand).filter((p) => !excluded.has(p.id)).map((p) => ({ ...p, id: stableId('match', `${p.left}::${p.right}`) }))
+
+  const lefts = shuffle(pairs.map((p) => ({ id: p.id, text: p.left })), rand)
+  const rights = shuffle(pairs.map((p) => ({ id: p.id, text: p.right })), rand)
+
+  return NextResponse.json({ success: true, date, kind: 'match', pairs: pairs.slice(0, 6), lefts: lefts.slice(0, 6), rights: rights.slice(0, 6), source: ai ? 'ai' : 'fallback' })
 }
 
 export async function GET() {
