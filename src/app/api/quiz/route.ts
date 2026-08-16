@@ -54,13 +54,21 @@ function shuffle<T>(arr: T[], seed: number) {
   return a
 }
 
-function normalizeItem(q: any, i: number): QuizItem | null {
+type RawQuizItem = {
+  question?: unknown
+  domain?: unknown
+  options?: unknown
+  answer?: unknown
+  explain?: unknown
+}
+
+function normalizeItem(q: RawQuizItem, i: number): QuizItem | null {
   if (!q?.question || !Array.isArray(q.options) || q.options.length < 2) return null
   const options = q.options.map((o: unknown) => String(o).trim()).filter(Boolean).slice(0, 4)
   let answer = String(q.answer ?? '').trim()
   if (/^[0-3]$/.test(answer) && options[Number(answer)]) answer = options[Number(answer)]
   if (/^[1-4]$/.test(answer) && options[Number(answer) - 1]) answer = options[Number(answer) - 1]
-  if (!options.includes(answer)) answer = options.find((o) => o === answer || o.includes(answer) || answer.includes(o)) || options[0]
+  if (!options.includes(answer)) answer = options.find((o: string) => o === answer || o.includes(answer) || answer.includes(o)) || options[0]
   while (options.length < 4) options.push(`گزینه ${options.length + 1}`)
   return {
     id: stableQuestionId(String(q.question)) || `q-fallback-${i}`,
@@ -128,8 +136,15 @@ Do not use markdown.`
     let items: QuizItem[] = []
     if (match) {
       try {
-        const parsed = JSON.parse(match[0])
-        items = parsed.map((q: any, i: number) => normalizeItem(q, i)).filter(Boolean) as QuizItem[]
+        const parsed: unknown = JSON.parse(match[0])
+        if (Array.isArray(parsed)) {
+          items = parsed
+            .map((q: unknown, i: number) => {
+              if (!q || typeof q !== 'object') return null
+              return normalizeItem(q as RawQuizItem, i)
+            })
+            .filter((q): q is QuizItem => q !== null)
+        }
       } catch {}
     }
 
