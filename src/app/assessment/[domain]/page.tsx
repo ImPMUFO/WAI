@@ -219,7 +219,9 @@ export default function AssessmentPage() {
   const [needsName, setNeedsName] = useState(true)
   const [messages, setMessages] = useState<Message[]>([])
   const [reactions, setReactions] = useState<Record<number, 'like' | 'dislike' | null>>({})
-  const [input, setInput] = useState('')
+  // ورودی گفتگو عمداً uncontrolled است تا تایپ هر کاراکتر باعث re-render کل صفحه نشود.
+  // این کار روی موبایل تفاوت محسوسی در روانی تایپ ایجاد می‌کند.
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const [isTyping, setIsTyping] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
@@ -594,11 +596,19 @@ export default function AssessmentPage() {
   }
 
   const sendMessage = async () => {
-    if (!input.trim() || isTyping || needsName) return
-    const userMessage: Message = { id: Date.now(), role: 'user', content: input.trim() }
+    // خواندن مستقیم از DOM؛ هیچ state ای با هر کلید تغییر نمی‌کند.
+    const text = inputRef.current?.value.trim() || ''
+    if (!text || isTyping || needsName) return
+
+    const userMessage: Message = { id: Date.now(), role: 'user', content: text }
     const next = [...messages, userMessage]
     setMessages(next)
-    setInput('')
+
+    // پاک‌کردن فوری کادر بدون re-render اضافی
+    if (inputRef.current) {
+      inputRef.current.value = ''
+    }
+
     setIsTyping(true)
     try {
       const userCount = next.filter((m) => m.role === 'user').length
@@ -735,7 +745,7 @@ ${localInsight.question}` : ''),
 
   return (
     <main dir={dir} className="h-[100dvh] min-h-0 flex flex-col overflow-hidden" style={{ color: 'var(--text)' }}>
-      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg0)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--bg0)]/85">
+      <header className="relative shrink-0 z-50 border-b border-[var(--border)] bg-[var(--bg0)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--bg0)]/85">
         <div className="max-w-3xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className="text-lg sm:text-xl shrink-0 w-8 text-center">{info.emoji}</span>
@@ -781,7 +791,7 @@ ${localInsight.question}` : ''),
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain overscroll-behavior-y-contain">
         <div className="max-w-2xl mx-auto px-3 sm:px-4 py-3 space-y-2.5">
           <>
             {messages.map((msg) => {
@@ -997,23 +1007,28 @@ ${localInsight.question}` : ''),
         <div className="max-w-3xl mx-auto px-4 py-3 sm:py-4">
           <div className="flex gap-2 sm:gap-3 items-end">
             <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+              ref={inputRef}
+              defaultValue=""
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
-                  sendMessage()
+                  void sendMessage()
                 }
               }}
               placeholder={dict.typeAnswer}
               rows={1}
+              autoComplete="off"
+              spellCheck={false}
               className="flex-1 rounded-xl px-4 py-3 text-sm sm:text-base border border-[var(--border)] bg-[var(--card)] focus:outline-none resize-none max-h-32"
               style={{ color: 'var(--text)' }}
+              aria-label={dict.typeAnswer}
             />
             <button
-              onClick={sendMessage}
-              disabled={!input.trim() || isTyping}
+              type="button"
+              onClick={() => void sendMessage()}
+              disabled={isTyping}
               className="btn-primary p-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              aria-label="ارسال پیام"
             >
               <Send className="w-5 h-5" />
             </button>
